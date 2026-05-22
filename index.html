@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arena Survival</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <p class="eyebrow">Arcade Survival</p>
+          <h1>Arena Survival</h1>
+        </div>
+        <button id="sound-button" class="ghost-button" type="button">Sound: On</button>
+      </header>
+
+      <main class="game-stage">
+        <div id="playfield-frame" class="playfield-frame">
+          <canvas id="game-canvas" width="1280" height="720" aria-label="Game canvas"></canvas>
+          <div id="toast-stack" class="hud-toast-stack" aria-live="polite"></div>
+
+          <section id="hud" class="hud" aria-live="polite">
+            <div class="hud-row">
+              <div class="hud-stack">
+                <div class="panel">
+                  <span class="panel-label">Health</span>
+                  <div id="health-hearts" class="hearts"></div>
+                </div>
+                <div class="panel upgrade-counter-panel">
+                  <span class="panel-label">Upgrades</span>
+                  <div id="upgrade-counter" class="upgrade-counter" aria-label="Active upgrades"></div>
+                </div>
+              </div>
+
+              <div id="xp-panel" class="panel xp-panel">
+                <div class="xp-header">
+                  <span class="panel-label">Level</span>
+                  <span id="level-text" class="panel-value">1</span>
+                </div>
+                <div class="meter">
+                  <div id="xp-fill" class="meter-fill xp-fill"></div>
+                </div>
+              </div>
+
+              <div class="panel compact-panel">
+                <span class="panel-label">Dash</span>
+                <div class="meter">
+                  <div id="dash-fill" class="meter-fill dash-fill"></div>
+                </div>
+                <span id="dash-text" class="panel-note">Ready</span>
+              </div>
+
+              <div id="grenade-hud-panel" class="panel compact-panel" hidden>
+                <span class="panel-label">Grenade</span>
+                <div class="meter">
+                  <div id="grenade-fill" class="meter-fill grenade-fill"></div>
+                </div>
+                <span id="grenade-text" class="panel-note">Ready</span>
+              </div>
+            </div>
+
+            <div class="hud-row stats-row">
+              <div class="panel compact-panel">
+                <span class="panel-label">Score</span>
+                <span id="score-text" class="panel-value">0</span>
+              </div>
+              <div class="panel compact-panel">
+                <span class="panel-label">Gold</span>
+                <span id="gold-text" class="panel-value">0</span>
+              </div>
+              <div class="panel compact-panel">
+                <span class="panel-label">Kills</span>
+                <span id="kill-text" class="panel-value">0</span>
+              </div>
+              <div class="panel compact-panel">
+                <span class="panel-label">Time</span>
+                <span id="timer-text" class="panel-value">00:00</span>
+              </div>
+              <div class="panel compact-panel">
+                <span class="panel-label">Best</span>
+                <span id="hud-high-score" class="panel-value">0</span>
+              </div>
+            </div>
+
+            <div id="boss-banner" class="boss-banner" hidden></div>
+          </section>
+
+          <div class="screen-layer">
+            <section id="title-screen" class="screen menu-screen">
+              <div class="menu-shell arcade-menu" aria-label="Main menu">
+                <div class="menu-hero-panel">
+                  <div class="menu-hero-copy">
+                    <p class="eyebrow">Arcade Survival</p>
+                    <h2>Arena Survival</h2>
+                    <p class="screen-copy">
+                      Hold the center, dodge the rush, and turn each level-up into a stronger run.
+                    </p>
+                  </div>
+                  <div class="button-row menu-actions">
+                    <button id="start-button" class="primary-button large-action" type="button">Start Run</button>
+                    <button id="help-button" class="ghost-button" type="button">Controls</button>
+                  </div>
+                  <div class="hero-stat-grid" aria-label="Run records">
+                    <div class="stat-tile featured-stat">
+                      <span>High Score</span>
+                      <strong id="title-high-score" data-stat="best-score">0</strong>
+                    </div>
+                    <div class="stat-tile">
+                      <span>Best Time</span>
+                      <strong data-stat="best-time">00:00</strong>
+                    </div>
+                    <div class="stat-tile">
+                      <span>Runs</span>
+                      <strong data-stat="total-runs">0</strong>
+                    </div>
+                  </div>
+                  <div class="hero-loadout-card" aria-label="Starting loadout">
+                    <span>Loadout</span>
+                    <strong>Auto-target blaster</strong>
+                    <p class="screen-copy">Dash every 2.4s. First boss arrives at 03:00.</p>
+                  </div>
+                </div>
+
+                <div class="menu-hub-panel">
+                  <div class="menu-tabs" role="tablist" aria-label="Main menu sections">
+                    <button id="menu-tab-play" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-play" aria-selected="true" data-menu-tab="play">
+                      Play
+                    </button>
+                    <button id="menu-tab-quests" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-quests" aria-selected="false" data-menu-tab="quests">
+                      Quests
+                    </button>
+                    <button id="menu-tab-characters" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-characters" aria-selected="false" data-menu-tab="characters">
+                      Characters
+                    </button>
+                    <button id="menu-tab-guide" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-guide" aria-selected="false" data-menu-tab="guide">
+                      Guide
+                    </button>
+                    <button id="menu-tab-shop" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-shop" aria-selected="false" data-menu-tab="shop">
+                      Shop
+                    </button>
+                    <button id="menu-tab-stats" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-stats" aria-selected="false" data-menu-tab="stats">
+                      Stats
+                    </button>
+                    <button id="menu-tab-controls" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-controls" aria-selected="false" data-menu-tab="controls">
+                      Controls
+                    </button>
+                    <button id="menu-tab-settings" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-settings" aria-selected="false" data-menu-tab="settings">
+                      Settings
+                    </button>
+                  </div>
+
+                  <div class="menu-panel-stack">
+                    <section id="menu-panel-play" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-play" data-menu-panel="play">
+                      <p class="eyebrow">Next Run</p>
+                      <h3>Survive as long as possible.</h3>
+                      <p class="screen-copy">
+                        Your weapon auto-targets the closest enemy. Move constantly, dash through pressure, collect XP, and pick upgrades when the arena slows down.
+                      </p>
+                      <div class="menu-summary-grid">
+                        <div class="summary-item">
+                          <span>First Boss</span>
+                          <strong>03:00</strong>
+                        </div>
+                        <div class="summary-item">
+                          <span>Base Health</span>
+                          <strong>5</strong>
+                        </div>
+                        <div class="summary-item">
+                          <span>Dash</span>
+                          <strong>2.4s</strong>
+                        </div>
+                      </div>
+                      <div class="ability-panel">
+                        <div>
+                          <span class="panel-label">Quest Ability</span>
+                          <strong id="grenade-status">Grenade locked</strong>
+                          <p id="grenade-quest-text" class="screen-copy">Quest: get 250 kills in a single run to unlock grenades.</p>
+                        </div>
+                        <button id="grenade-equip-button" class="ghost-button" type="button" disabled>Equip Grenade</button>
+                      </div>
+                    </section>
+
+                    <section id="menu-panel-quests" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-quests" data-menu-panel="quests" hidden>
+                      <p class="eyebrow">Quests</p>
+                      <h3>Unlock Rewards</h3>
+                      <div id="quest-list" class="quest-list" aria-label="Quest list"></div>
+                    </section>
+
+                    <section id="menu-panel-characters" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-characters" data-menu-panel="characters" hidden>
+                      <p class="eyebrow">Characters</p>
+                      <h3>Choose your fighter.</h3>
+                      <div id="character-list" class="character-list" aria-label="Character list"></div>
+                    </section>
+
+                    <section id="menu-panel-stats" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-stats" data-menu-panel="stats" hidden>
+                      <p class="eyebrow">Player Stats</p>
+                      <h3>Records</h3>
+                      <div class="stats-grid">
+                        <div class="stat-tile">
+                          <span>Best Score</span>
+                          <strong data-stat="best-score">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Best Time</span>
+                          <strong data-stat="best-time">00:00</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Best Kills</span>
+                          <strong data-stat="best-kills">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Best Bosses</span>
+                          <strong data-stat="best-bosses">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Best Level</span>
+                          <strong data-stat="best-level">0</strong>
+                        </div>
+                      </div>
+                      <h3>Lifetime</h3>
+                      <div class="stats-grid">
+                        <div class="stat-tile">
+                          <span>Runs</span>
+                          <strong data-stat="total-runs">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Total Score</span>
+                          <strong data-stat="total-score">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Total Time</span>
+                          <strong data-stat="total-time">00:00</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Total Kills</span>
+                          <strong data-stat="total-kills">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Bosses</span>
+                          <strong data-stat="total-bosses">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Shots Fired</span>
+                          <strong data-stat="total-shots">0</strong>
+                        </div>
+                        <div class="stat-tile">
+                          <span>Damage Taken</span>
+                          <strong data-stat="total-damage">0</strong>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section id="menu-panel-guide" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
+                      <p class="eyebrow">Guide</p>
+                      <h3>Threats</h3>
+                      <div id="enemy-guide" class="guide-list" aria-label="Enemy guide"></div>
+                      <h3>Upgrade Pool</h3>
+                      <div id="upgrade-guide" class="guide-list compact-guide" aria-label="Upgrade guide"></div>
+                    </section>
+
+                    <section id="menu-panel-shop" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-shop" data-menu-panel="shop" hidden>
+                      <p class="eyebrow">Song Shop</p>
+                      <h3>Music</h3>
+                      <div class="shop-wallet">
+                        <span>Gold</span>
+                        <strong id="shop-gold">0</strong>
+                      </div>
+                      <div id="song-shop-list" class="song-list" aria-label="Song shop"></div>
+                      <div class="custom-music-panel">
+                        <strong>Custom Music</strong>
+                        <p class="screen-copy">Pay the developers 500 HUF in real life, then an admin can add or unlock your custom song here.</p>
+                        <button id="custom-song-request-button" class="ghost-button" type="button">Request Custom Song</button>
+                      </div>
+                    </section>
+
+                    <section id="menu-panel-controls" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-controls" data-menu-panel="controls" hidden>
+                      <p class="eyebrow">Controls</p>
+                      <h3>Keep moving.</h3>
+                      <ul class="control-grid">
+                        <li><strong>WASD</strong><span>Move</span></li>
+                        <li><strong>Space</strong><span>Dash</span></li>
+                        <li><strong>E</strong><span>Grenade</span></li>
+                        <li><strong>Escape</strong><span>Pause / Back</span></li>
+                        <li><strong>M</strong><span>Mute</span></li>
+                        <li><strong>1-3</strong><span>Pick upgrade</span></li>
+                      </ul>
+                    </section>
+
+                    <section id="menu-panel-settings" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-settings" data-menu-panel="settings" hidden>
+                      <p class="eyebrow">Settings</p>
+                      <h3>Audio and data</h3>
+                      <div class="settings-list">
+                        <div class="settings-row">
+                          <div>
+                            <strong>Sound</strong>
+                            <span>Toggle game audio for this browser.</span>
+                          </div>
+                          <button id="menu-sound-button" class="ghost-button" type="button">Sound: On</button>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Music Volume</strong>
+                            <span>Controls background music only.</span>
+                          </div>
+                          <input id="music-volume-input" class="range-input" type="range" min="0" max="1" step="0.05" value="0.45" />
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Player Stats</strong>
+                            <span>Clear records, lifetime totals, and enemy counters. Sound stays unchanged.</span>
+                          </div>
+                          <button id="reset-stats-button" class="danger-button" type="button">Reset Stats</button>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Admin Tools</strong>
+                            <span>Local-only music and gold tools for this browser.</span>
+                          </div>
+                          <button id="open-admin-button" class="ghost-button" type="button">Open Admin Tools</button>
+                        </div>
+                      </div>
+                      <p id="reset-stats-note" class="settings-note" role="status">Reset requires a second click to confirm.</p>
+                    </section>
+
+                    <section id="menu-panel-admin" class="menu-panel" role="tabpanel" aria-label="Admin tools" data-menu-panel="admin" hidden>
+                      <p class="eyebrow">Admin</p>
+                      <h3>Local music tools</h3>
+                      <div class="button-row menu-panel-actions">
+                        <button id="admin-back-button" class="ghost-button" type="button">Back to Settings</button>
+                      </div>
+                      <div id="admin-login" class="settings-list">
+                        <div class="settings-row">
+                          <div>
+                            <strong>Password</strong>
+                            <span>Local-only admin gate for this browser.</span>
+                          </div>
+                          <input id="admin-password-input" class="text-input" type="password" autocomplete="off" placeholder="Password" />
+                        </div>
+                        <button id="admin-login-button" class="primary-button" type="button">Unlock Admin</button>
+                      </div>
+                      <div id="admin-tools" class="settings-list" hidden>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Player Gold</strong>
+                            <span>Set the local save's gold amount.</span>
+                          </div>
+                          <input id="admin-gold-input" class="text-input" type="number" min="0" step="1" />
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Add Song</strong>
+                            <span>Upload audio, set title, artist, and gold price.</span>
+                          </div>
+                          <div class="admin-song-form">
+                            <input id="admin-song-title" class="text-input" type="text" placeholder="Song title" />
+                            <input id="admin-song-artist" class="text-input" type="text" placeholder="Artist" />
+                            <input id="admin-song-price" class="text-input" type="number" min="0" step="1" placeholder="Gold price" />
+                            <input id="admin-song-file" type="file" accept="audio/*" />
+                            <button id="admin-add-song-button" class="ghost-button" type="button">Add Song</button>
+                          </div>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Music Admin</strong>
+                            <span>Bulk unlock songs or remove every custom upload.</span>
+                          </div>
+                          <div class="admin-song-form">
+                            <button id="admin-unlock-all-songs-button" class="ghost-button" type="button">Unlock All Songs</button>
+                            <button id="admin-clear-custom-songs-button" class="danger-button" type="button">Clear Custom Songs</button>
+                          </div>
+                        </div>
+                        <div id="admin-song-list" class="song-list" aria-label="Admin song list"></div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section id="help-screen" class="screen" hidden>
+              <div class="screen-card help-card">
+                <p class="eyebrow">Controls</p>
+                <h2>How to play</h2>
+                <ul class="help-list">
+                  <li><strong>Move:</strong> <span>WASD</span></li>
+                  <li><strong>Dash:</strong> <span>Space</span></li>
+                  <li><strong>Grenade:</strong> <span>E</span></li>
+                  <li><strong>Upgrade:</strong> <span>1 / 2 / 3</span></li>
+                  <li><strong>Pause:</strong> <span>Escape</span></li>
+                </ul>
+                <p class="screen-copy">
+                  Dodge into openings, collect XP, and choose one upgrade whenever you level up.
+                </p>
+                <button id="close-help-button" class="primary-button" type="button">Back</button>
+              </div>
+            </section>
+
+            <section id="pause-screen" class="screen" hidden>
+              <div class="screen-card">
+                <p class="eyebrow">Paused</p>
+                <h2>Run paused</h2>
+                <div class="button-column">
+                  <button id="resume-button" class="primary-button" type="button">Resume</button>
+                  <button id="pause-help-button" class="ghost-button" type="button">Controls</button>
+                  <button id="quit-button" class="ghost-button" type="button">Return to Title</button>
+                </div>
+              </div>
+            </section>
+
+            <section id="upgrade-screen" class="screen" hidden>
+              <div class="screen-card upgrade-card-shell">
+                <p class="eyebrow">Level Up</p>
+                <h2>Pick your next upgrade</h2>
+                <div id="upgrade-cards" class="upgrade-grid"></div>
+              </div>
+            </section>
+
+            <section id="gameover-screen" class="screen" hidden>
+              <div class="screen-card">
+                <p class="eyebrow">Run Over</p>
+                <h2 id="gameover-title">The wave overran you.</h2>
+                <div class="results-grid">
+                  <div class="result-pill">
+                    <span>Score</span>
+                    <strong id="final-score">0</strong>
+                  </div>
+                  <div class="result-pill">
+                    <span>Time</span>
+                    <strong id="final-time">00:00</strong>
+                  </div>
+                  <div class="result-pill">
+                    <span>Kills</span>
+                    <strong id="final-kills">0</strong>
+                  </div>
+                  <div class="result-pill">
+                    <span>Bosses</span>
+                    <strong id="final-bosses">0</strong>
+                  </div>
+                </div>
+                <div id="run-highlights" class="run-highlights" aria-label="Run highlights"></div>
+                <div class="button-column">
+                  <button id="restart-button" class="primary-button" type="button">Play Again</button>
+                  <button id="gameover-help-button" class="ghost-button" type="button">Controls</button>
+                  <button id="gameover-quit-button" class="ghost-button" type="button">Return to Title</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <pre id="self-test-output" hidden></pre>
+    <div id="aria-status" class="visually-hidden" aria-live="polite"></div>
+
+    <script defer src="./src/bundle.js"></script>
+  </body>
+</html>
