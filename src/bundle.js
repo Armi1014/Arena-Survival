@@ -1324,7 +1324,7 @@ const MENU_TAB_LABELS = {
   quests: "Quests",
   characters: "Characters",
   stats: "Stats",
-  guide: "Guide",
+  guide: "Wiki",
   shop: "Shop",
   controls: "Controls",
   settings: "Settings",

@@ -135,7 +135,7 @@
                       Characters
                     </button>
                     <button id="menu-tab-guide" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-guide" aria-selected="false" data-menu-tab="guide">
-                      Guide
+                      Wiki
                     </button>
                     <button id="menu-tab-shop" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-shop" aria-selected="false" data-menu-tab="shop">
                       Shop
@@ -252,12 +252,85 @@
                       </div>
                     </section>
 
-                    <section id="menu-panel-guide" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
-                      <p class="eyebrow">Guide</p>
-                      <h3>Threats</h3>
-                      <div id="enemy-guide" class="guide-list" aria-label="Enemy guide"></div>
-                      <h3>Upgrade Pool</h3>
-                      <div id="upgrade-guide" class="guide-list compact-guide" aria-label="Upgrade guide"></div>
+                    <section id="menu-panel-guide" class="menu-panel wiki-panel" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
+                      <div class="wiki-heading">
+                        <p class="eyebrow">Arena Survival Wiki</p>
+                        <h3>Field Manual</h3>
+                        <p class="screen-copy">Rules, unlocks, enemy notes, and upgrade references for planning stronger runs.</p>
+                      </div>
+
+                      <div class="wiki-layout">
+                        <aside class="wiki-infobox" aria-label="Game facts">
+                          <strong>Arena Survival</strong>
+                          <dl>
+                            <div>
+                              <dt>Genre</dt>
+                              <dd>Arcade survival</dd>
+                            </div>
+                            <div>
+                              <dt>First boss</dt>
+                              <dd>03:00</dd>
+                            </div>
+                            <div>
+                              <dt>Base health</dt>
+                              <dd>5</dd>
+                            </div>
+                            <div>
+                              <dt>Dash cooldown</dt>
+                              <dd>2.4s</dd>
+                            </div>
+                          </dl>
+                        </aside>
+
+                        <div class="wiki-articles">
+                          <article class="wiki-card">
+                            <h4>Run Basics</h4>
+                            <p>Weapons auto-target the closest enemy. Your job is movement: keep lanes open, collect XP when safe, and use dash to pass through pressure instead of saving it forever.</p>
+                            <ul class="wiki-bullet-list">
+                              <li>XP gems level you up and pause the fight for upgrade picks.</li>
+                              <li>Every normal enemy kill gives 1 gold for the music shop.</li>
+                              <li>Bosses add score, unlock progress, and force you to reposition.</li>
+                            </ul>
+                          </article>
+
+                          <article class="wiki-card">
+                            <h4>Unlocks</h4>
+                            <div class="wiki-table">
+                              <div><span>Grenade</span><strong>250 kills in one run</strong></div>
+                              <div><span>Katana</span><strong>3 total boss kills</strong></div>
+                              <div><span>Custom songs</span><strong>Request in the shop</strong></div>
+                            </div>
+                          </article>
+
+                          <article class="wiki-card">
+                            <h4>Useful Targets</h4>
+                            <div class="wiki-table">
+                              <div><span>Best kills</span><strong data-stat="best-kills">0</strong></div>
+                              <div><span>Total bosses</span><strong data-stat="total-bosses">0</strong></div>
+                              <div><span>Best time</span><strong data-stat="best-time">00:00</strong></div>
+                            </div>
+                          </article>
+                        </div>
+                      </div>
+
+                      <section class="wiki-section" aria-labelledby="wiki-strategy-title">
+                        <h4 id="wiki-strategy-title">Strategy Notes</h4>
+                        <div class="wiki-tip-grid">
+                          <div><strong>Early run</strong><span>Circle wide, collect small XP clusters, and avoid getting pinned against the arena border.</span></div>
+                          <div><strong>Level ups</strong><span>Pick damage and cooldown early, then add mobility or defensive upgrades when enemies begin to crowd.</span></div>
+                          <div><strong>Boss waves</strong><span>Watch for charge warnings, keep dash ready, and clear summoned enemies before they trap your escape path.</span></div>
+                        </div>
+                      </section>
+
+                      <section class="wiki-section" aria-labelledby="wiki-enemies-title">
+                        <h4 id="wiki-enemies-title">Enemy Codex</h4>
+                        <div id="enemy-guide" class="guide-list wiki-guide-list" aria-label="Enemy codex"></div>
+                      </section>
+
+                      <section class="wiki-section" aria-labelledby="wiki-upgrades-title">
+                        <h4 id="wiki-upgrades-title">Upgrade Compendium</h4>
+                        <div id="upgrade-guide" class="guide-list compact-guide wiki-guide-list" aria-label="Upgrade compendium"></div>
+                      </section>
                     </section>
 
                     <section id="menu-panel-shop" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-shop" data-menu-panel="shop" hidden>

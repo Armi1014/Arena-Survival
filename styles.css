@@ -702,6 +702,154 @@ body {
   justify-content: flex-start;
 }
 
+.wiki-panel {
+  gap: 18px;
+}
+
+.wiki-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.wiki-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.55fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.wiki-infobox,
+.wiki-card,
+.wiki-section,
+.wiki-tip-grid div {
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.82), rgba(8, 13, 24, 0.74)),
+    rgba(15, 23, 42, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.wiki-infobox {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-color: rgba(245, 158, 11, 0.32);
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, 0.13), rgba(34, 211, 238, 0.08)),
+    rgba(8, 13, 24, 0.82);
+}
+
+.wiki-infobox > strong {
+  color: var(--ink);
+  font-size: 1.08rem;
+}
+
+.wiki-infobox dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.wiki-infobox div,
+.wiki-table div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wiki-infobox dt,
+.wiki-table span {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.wiki-infobox dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+  text-align: right;
+}
+
+.wiki-articles,
+.wiki-section {
+  display: grid;
+  gap: 10px;
+}
+
+.wiki-card,
+.wiki-section {
+  padding: 14px;
+}
+
+.wiki-card h4,
+.wiki-section h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.wiki-card p {
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.wiki-bullet-list {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.wiki-table {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-table div {
+  padding: 9px 10px;
+  border-radius: 5px;
+  background: rgba(2, 6, 23, 0.36);
+  border: 1px solid rgba(125, 211, 252, 0.14);
+}
+
+.wiki-table strong {
+  color: var(--ink);
+  text-align: right;
+}
+
+.wiki-tip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wiki-tip-grid div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.wiki-tip-grid strong {
+  color: var(--ink);
+}
+
+.wiki-tip-grid span {
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.wiki-guide-list .guide-row {
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.74), rgba(15, 23, 42, 0.78)),
+    var(--surface-muted);
+}
+
 .guide-list {
   display: grid;
   gap: 10px;
@@ -1563,7 +1711,9 @@ button:focus-visible {
   .stats-grid,
   .menu-summary-grid,
   .compact-guide,
-  .control-grid {
+  .control-grid,
+  .wiki-layout,
+  .wiki-tip-grid {
     grid-template-columns: 1fr;
   }
 
