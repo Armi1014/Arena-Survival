@@ -1367,6 +1367,81 @@ const UPGRADE_ICONS = {
   "counter-guard": "🛡️",
   "dash-slash": "💨",
 };
+const UPGRADE_SHIELD_INTERVALS = [16, 12, 9];
+
+function getUpgradeFamily(upgrade) {
+  if (upgrade.characters?.includes(CHARACTER_IDS.katana)) {
+    return "Katana";
+  }
+  if (upgrade.excludeCharacters?.includes(CHARACTER_IDS.katana)) {
+    return "Blaster";
+  }
+  if (upgrade.isAvailable) {
+    return "Ability";
+  }
+  return "Survival";
+}
+
+function getUpgradeEffectCopy(upgrade, rank) {
+  return upgrade.describe(rank).replace(/^Rank \d+: /, "");
+}
+
+function getUpgradeBoostCopy(upgrade, rank) {
+  switch (upgrade.id) {
+    case "rapid-pop":
+      return `+${Math.round((1 - 0.88 ** rank) * 100)}% Fire Speed`;
+    case "rocket-fizz":
+      return "+90 Projectile Speed";
+    case "gumdrop-shells":
+      return "+2 Bullet Size / +0.15 Damage";
+    case "pin-pop":
+      return "+1 Pierce";
+    case "confetti-fan":
+      return "+1 Extra Pellet";
+    case "skipping-shoes":
+      return "+26 Move Speed";
+    case "zip-ribbon":
+      return "-14% Dash Cooldown";
+    case "heart-balloon":
+      return "+1 Max Health / +2 Heal";
+    case "glitter-vac":
+      return "+40 Magnet Radius";
+    case "xp-surge":
+      return `+${Math.round((1.18 ** rank - 1) * 100)}% XP Value`;
+    case "bubble-guard":
+      return `+Shield Regen: ${UPGRADE_SHIELD_INTERVALS[rank - 1]}s`;
+    case "shatter-rounds":
+      return `+${rank + 1} Shatter Fragments`;
+    case "dash-reload":
+      return `+${Math.round(rank * 35)}% Dash Reload`;
+    case "sharpened-edge":
+      return "+0.55 Slash Damage";
+    case "long-blade":
+      return "+22 Slash Range";
+    case "wide-cut":
+      return "+12deg Slash Arc";
+    case "quick-draw":
+      return "+12% Slash Speed";
+    case "flow-strike":
+      return "+1 Slash Target";
+    case "bleeding-cut":
+      return `+${rank + 1}s Bleed`;
+    case "counter-guard":
+      return `+${(0.1 + rank * 0.08).toFixed(2)}s Guard`;
+    case "dash-slash":
+      return `+${Math.round(rank * 65)}% Dash Slash`;
+    case "overheal-shield":
+      return `+${rank} Overheal Shield`;
+    case "grenade-payload":
+      return "+3 Damage / +10 Radius";
+    case "grenade-cycler":
+      return "-15% Grenade Cooldown";
+    case "volatile-grenade":
+      return `+${rank + 2}s Burn Zone`;
+    default:
+      return getUpgradeEffectCopy(upgrade, rank);
+  }
+}
 
 function formatWholeNumber(value) {
   return Math.floor(Math.max(0, value)).toLocaleString();
@@ -3429,21 +3504,42 @@ class Game {
   buildUpgradeButtons() {
     const buttons = this.upgradeChoices.map((upgrade, index) => {
       const nextRank = (this.upgradeCounts[upgrade.id] ?? 0) + 1;
+      const currentRank = nextRank - 1;
       const isMaxRank = nextRank >= upgrade.cap;
+      const effectCopy = getUpgradeEffectCopy(upgrade, nextRank);
+      const boostCopy = getUpgradeBoostCopy(upgrade, nextRank);
+      const progressPips = Array.from({ length: upgrade.cap }, (_, pipIndex) => {
+        const pipClass = pipIndex < nextRank ? " filled" : "";
+        return `<span class="upgrade-progress-pip${pipClass}"></span>`;
+      }).join("");
       const button = document.createElement("button");
       button.type = "button";
       button.className = `upgrade-button upgrade-${upgrade.id}${isMaxRank ? " max-rank" : ""}`;
       button.style.setProperty("--upgrade-accent", upgrade.color);
+      button.setAttribute(
+        "aria-label",
+        `Choose ${upgrade.name}. Rank ${nextRank} of ${upgrade.cap}. ${boostCopy}. ${effectCopy}`,
+      );
       button.innerHTML = `
+        <span class="upgrade-card-glow" aria-hidden="true"></span>
         <span class="upgrade-card-top">
           <span class="upgrade-icon" aria-hidden="true">${UPGRADE_ICONS[upgrade.id] ?? "⬆️"}</span>
           <span class="upgrade-card-meta">
+            <span class="upgrade-family">${getUpgradeFamily(upgrade)}</span>
             <span class="upgrade-key">${index + 1}</span>
-            <span class="upgrade-rank${isMaxRank ? " upgrade-max-label" : ""}">${isMaxRank ? "MAX" : `Rank ${nextRank}/${upgrade.cap}`}</span>
           </span>
         </span>
-        <h3>${upgrade.name}</h3>
-        <p>${upgrade.describe(nextRank)}</p>
+        <span class="upgrade-title-row">
+          <h3>${upgrade.name}</h3>
+          <span class="upgrade-rank${isMaxRank ? " upgrade-max-label" : ""}">${isMaxRank ? "MAX" : `${nextRank}/${upgrade.cap}`}</span>
+        </span>
+        <span class="upgrade-progress" aria-hidden="true">${progressPips}</span>
+        <strong class="upgrade-boost">${boostCopy}</strong>
+        <p>${effectCopy}</p>
+        <span class="upgrade-card-footer">
+          <span>${currentRank > 0 ? `Current ${currentRank}/${upgrade.cap}` : "New upgrade"}</span>
+          <strong>${isMaxRank ? "Maxes now" : "Choose"}</strong>
+        </span>
       `;
       button.addEventListener("click", () => this.selectUpgrade(upgrade.id));
       return button;

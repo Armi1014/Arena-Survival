@@ -1329,37 +1329,93 @@ button:focus-visible {
 }
 
 .upgrade-card-shell {
-  width: min(980px, 100%);
+  width: min(1060px, 100%);
+  gap: 20px;
+  overflow: visible;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(251, 113, 133, 0.07)),
+    rgba(8, 13, 24, 0.92);
+  border-color: rgba(125, 211, 252, 0.34);
+}
+
+.upgrade-draft-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.upgrade-draft-header .screen-copy {
+  max-width: 520px;
+}
+
+.upgrade-hotkeys {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(2, 6, 23, 0.46);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+}
+
+.upgrade-hotkeys kbd {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  color: #06111f;
+  background: linear-gradient(135deg, #f8fafc, #bae6fd);
+  box-shadow: 0 0 18px rgba(125, 211, 252, 0.22);
+  font: inherit;
+  font-weight: 900;
 }
 
 .upgrade-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .upgrade-button {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  gap: 10px;
-  min-height: 210px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr auto;
+  gap: 12px;
+  min-height: 260px;
+  padding: 16px;
+  overflow: hidden;
   text-align: left;
   color: var(--ink);
   background:
-    linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent 48%),
+    radial-gradient(circle at 18% 10%, color-mix(in srgb, var(--upgrade-accent, var(--accent)) 28%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(30, 41, 59, 0.88), rgba(8, 13, 24, 0.92)),
     var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--upgrade-accent, var(--accent)) 42%, var(--line));
   box-shadow:
-    inset 0 4px 0 var(--upgrade-accent, var(--accent)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
     var(--shadow-sm);
+}
+
+.upgrade-card-glow {
+  position: absolute;
+  inset: auto -28px -46px;
+  z-index: -1;
+  height: 112px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--upgrade-accent, var(--accent)) 28%, transparent), transparent 68%);
+  opacity: 0.9;
 }
 
 .upgrade-button:hover {
   background:
-    linear-gradient(180deg, rgba(34, 211, 238, 0.14), transparent 56%),
+    radial-gradient(circle at 18% 10%, color-mix(in srgb, var(--upgrade-accent, var(--accent)) 38%, transparent), transparent 36%),
+    linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(8, 13, 24, 0.94)),
     var(--surface-muted);
+  border-color: color-mix(in srgb, var(--upgrade-accent, var(--accent)) 64%, white);
   box-shadow:
-    inset 0 4px 0 var(--upgrade-accent, var(--accent)),
-    0 0 26px rgba(34, 211, 238, 0.18),
+    0 0 30px color-mix(in srgb, var(--upgrade-accent, var(--accent)) 22%, transparent),
     var(--shadow-sm);
 }
 
@@ -1375,6 +1431,18 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.upgrade-family {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(2, 6, 23, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .upgrade-key {
@@ -1410,28 +1478,104 @@ button:focus-visible {
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.28);
 }
 
+.upgrade-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
 .upgrade-rank {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: fit-content;
-  padding: 4px 9px;
-  border-radius: var(--radius-sm);
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
   color: white;
-  background: #2f3a47;
+  background: rgba(2, 6, 23, 0.56);
+  border: 1px solid color-mix(in srgb, var(--upgrade-accent, var(--accent)) 35%, transparent);
   font-size: 0.82rem;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
+.upgrade-progress {
+  display: flex;
+  gap: 5px;
+  min-height: 6px;
+}
+
+.upgrade-progress-pip {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.upgrade-progress-pip.filled {
+  background: linear-gradient(90deg, var(--upgrade-accent, var(--accent)), #f8fafc);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--upgrade-accent, var(--accent)) 36%, transparent);
+}
+
+.upgrade-boost {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  min-height: 48px;
+  overflow: hidden;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #bbf7d0;
+  background:
+    linear-gradient(90deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.1)),
+    rgba(2, 44, 34, 0.52);
+  border: 1px solid rgba(74, 222, 128, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 24px rgba(34, 197, 94, 0.18);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-shadow: 0 0 16px rgba(34, 197, 94, 0.34);
+}
+
 .upgrade-button h3,
-.upgrade-button p {
+.upgrade-button p,
+.upgrade-card-footer {
   margin: 0;
+}
+
+.upgrade-button h3 {
+  min-width: 0;
+  font-size: 1.25rem;
+  line-height: 1.12;
 }
 
 .upgrade-button p {
   color: var(--ink-soft);
   line-height: 1.45;
+}
+
+.upgrade-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(125, 211, 252, 0.14);
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.upgrade-card-footer strong {
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .score-callout {
