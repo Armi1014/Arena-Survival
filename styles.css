@@ -372,6 +372,41 @@ body {
   box-shadow: 0 0 16px rgba(251, 191, 36, 0.42);
 }
 
+.admin-game-panel {
+  pointer-events: auto;
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: min(520px, calc(100% - 32px));
+  padding: 10px;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(34, 211, 238, 0.08)),
+    rgba(5, 10, 22, 0.88);
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 26px rgba(251, 191, 36, 0.14),
+    var(--shadow-sm);
+  backdrop-filter: blur(8px);
+}
+
+.admin-game-panel[hidden] {
+  display: none !important;
+}
+
+.admin-game-panel button {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .screen {
   position: absolute;
   inset: 0;

@@ -1,9 +1,11 @@
 export const CHARACTER_IDS = {
   gunner: "gunner",
   katana: "katana",
+  engineer: "engineer",
 };
 
 export const KATANA_UNLOCK_BOSSES = 3;
+export const ENGINEER_UNLOCK_KILLS = 1000;
 
 /** @type {Record<string, import("../types.js").CharacterDef>} */
 export const CHARACTER_DEFS = {
@@ -36,6 +38,15 @@ export const CHARACTER_DEFS = {
       dashSlashDamage: 0,
     },
   },
+  [CHARACTER_IDS.engineer]: {
+    id: CHARACTER_IDS.engineer,
+    name: "Engineer",
+    description: "Auto-targets enemies and deploys a temporary turret during runs.",
+    attackType: "ranged",
+    unlockTotalKills: ENGINEER_UNLOCK_KILLS,
+    color: "#34d399",
+    accent: "#f59e0b",
+  },
 };
 
 export function getCharacterById(characterId) {
@@ -48,6 +59,9 @@ export function isCharacterUnlocked(progress, stats, characterId) {
   }
   if (characterId === CHARACTER_IDS.katana) {
     return Boolean(progress?.katanaUnlocked || (stats?.total?.bosses ?? 0) >= KATANA_UNLOCK_BOSSES);
+  }
+  if (characterId === CHARACTER_IDS.engineer) {
+    return Boolean(progress?.engineerUnlocked || (stats?.total?.kills ?? 0) >= ENGINEER_UNLOCK_KILLS);
   }
   return false;
 }

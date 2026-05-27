@@ -46,6 +46,12 @@
  * @property {number} bleedDuration
  * @property {number} counterInvulnerability
  * @property {number} dashSlashDamage
+ * @property {number} turretDeployCooldown
+ * @property {number} turretDeployCooldownRemaining
+ * @property {number} turretLifetime
+ * @property {number} turretRange
+ * @property {number} turretFireCooldown
+ * @property {number} maxTurrets
  */
 
 /**
@@ -56,6 +62,7 @@
  * @property {"ranged" | "melee"} attackType
  * @property {boolean} [unlockedByDefault]
  * @property {number} [unlockBossKills]
+ * @property {number} [unlockTotalKills]
  * @property {string} color
  * @property {string} accent
  * @property {{damage: number, range: number, arc: number, cooldown: number, maxTargets: number, bleedDamagePerSecond: number, bleedDuration: number, counterInvulnerability: number, dashSlashDamage: number}} [slash]
@@ -74,7 +81,7 @@
  * @property {number} scoreValue
  * @property {string} color
  * @property {string} accent
- * @property {"nibbler" | "spitter" | "bumper"} behavior
+ * @property {"nibbler" | "spitter" | "acid-spitter" | "bumper" | "tank" | "sentinel"} behavior
  */
 
 /**

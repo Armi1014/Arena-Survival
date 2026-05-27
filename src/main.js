@@ -52,6 +52,7 @@ const ui = {
   adminLogin: document.querySelector("#admin-login"),
   adminTools: document.querySelector("#admin-tools"),
   openAdminButton: document.querySelector("#open-admin-button"),
+  adminModeButton: document.querySelector("#admin-mode-button"),
   adminBackButton: document.querySelector("#admin-back-button"),
   adminPasswordInput: document.querySelector("#admin-password-input"),
   adminLoginButton: document.querySelector("#admin-login-button"),
@@ -64,6 +65,12 @@ const ui = {
   adminUnlockAllSongsButton: document.querySelector("#admin-unlock-all-songs-button"),
   adminClearCustomSongsButton: document.querySelector("#admin-clear-custom-songs-button"),
   adminSongList: document.querySelector("#admin-song-list"),
+  adminGamePanel: document.querySelector("#admin-game-panel"),
+  adminHealButton: document.querySelector("#admin-heal-button"),
+  adminLevelButton: document.querySelector("#admin-level-button"),
+  adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
+  adminClearEnemiesButton: document.querySelector("#admin-clear-enemies-button"),
+  adminSpawnBossButton: document.querySelector("#admin-spawn-boss-button"),
   menuTabButtons: Array.from(document.querySelectorAll("[data-menu-tab]")),
   menuPanels: Array.from(document.querySelectorAll("[data-menu-panel]")),
   statFields: Array.from(document.querySelectorAll("[data-stat]")),
@@ -121,11 +128,25 @@ ui.adminBackButton?.addEventListener("click", () => {
   game.setMenuTab("settings");
   ui.openAdminButton?.focus();
 });
-ui.adminLoginButton?.addEventListener("click", () => game.unlockAdmin(ui.adminPasswordInput.value));
+ui.adminModeButton?.addEventListener("click", () => game.toggleAdminMode());
+ui.adminLoginButton?.addEventListener("click", () => {
+  game.unlockAdmin(ui.adminPasswordInput.value).catch(() => game.showToast("Admin unlock failed"));
+});
+ui.adminPasswordInput?.addEventListener("keydown", (event) => {
+  if (event.code === "Enter") {
+    event.preventDefault();
+    game.unlockAdmin(ui.adminPasswordInput.value).catch(() => game.showToast("Admin unlock failed"));
+  }
+});
 ui.adminGoldInput?.addEventListener("change", () => game.setAdminGold(Number(ui.adminGoldInput.value)));
 ui.adminAddSongButton?.addEventListener("click", () => game.addAdminSongFromForm());
 ui.adminUnlockAllSongsButton?.addEventListener("click", () => game.adminUnlockAllSongs());
 ui.adminClearCustomSongsButton?.addEventListener("click", () => game.adminClearCustomSongs());
+ui.adminHealButton?.addEventListener("click", () => game.adminHealPlayer());
+ui.adminLevelButton?.addEventListener("click", () => game.adminForceLevelUp());
+ui.adminGoldRunButton?.addEventListener("click", () => game.adminGrantRunGold(100));
+ui.adminClearEnemiesButton?.addEventListener("click", () => game.adminClearEnemies());
+ui.adminSpawnBossButton?.addEventListener("click", () => game.adminSpawnBoss());
 
 function focusMenuTab(nextIndex) {
   const buttonCount = ui.menuTabButtons.length;
@@ -201,6 +222,13 @@ async function runSelfTest() {
     autoTargetClosest: false,
     dashCooldown: false,
     bossSpawn: false,
+    engineerUnlock: false,
+    engineerTurret: false,
+    acidSpitterProjectile: false,
+    tankEnemy: false,
+    bossHomingShots: false,
+    bossSummonSentinels: false,
+    sentinelDashAttack: false,
     upgradeCapRemoval: false,
     katanaUnlock: false,
     katanaMeleeAttack: false,
@@ -234,6 +262,57 @@ async function runSelfTest() {
   game.run.elapsed = 179.95;
   game.stepManual(0.1);
   results.bossSpawn = game.getDebugSnapshot().bossCount === 1;
+
+  game.startRun();
+  const previousEngineerProgress = { ...game.save.progress };
+  const previousTotalKills = game.save.stats.total.kills;
+  game.save.progress = {
+    ...game.save.progress,
+    engineerUnlocked: true,
+    selectedCharacterId: "engineer",
+  };
+  results.engineerUnlock = game.getSelectedCharacter().id === "engineer";
+  game.startRun();
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
+  const engineerShotCount = game.getDebugSnapshot().shotsFired;
+  game.stepManual(0.8);
+  const engineerSnapshot = game.getDebugSnapshot();
+  results.engineerTurret = engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
+  game.save.progress = previousEngineerProgress;
+  game.save.stats.total.kills = previousTotalKills;
+
+  game.startRun();
+  game.spawnEnemy("acid-spitter", 1, { x: game.player.x + 260, y: game.player.y });
+  const acidSpitter = game.enemies.at(-1);
+  acidSpitter.attackCooldownRemaining = 0;
+  game.stepManual(0.1);
+  results.acidSpitterProjectile = game.enemyProjectiles.some((projectile) => projectile.acidZoneRadius > 0);
+
+  game.startRun();
+  game.spawnEnemy("tank", 1, { x: game.player.x + 260, y: game.player.y });
+  const tank = game.enemies.at(-1);
+  game.stepManual(0.1);
+  results.tankEnemy = tank.typeId === "tank" && tank.maxHp >= 38 && tank.vx < 0;
+
+  game.startRun();
+  game.spawnBoss(0);
+  const boss = game.enemies.find((enemy) => enemy.isBoss);
+  boss.chargeDirection = { x: -1, y: 0 };
+  game.enemyProjectiles = [];
+  game.fireBossChargeShots(boss);
+  results.bossHomingShots = game.enemyProjectiles.filter((projectile) => projectile.homingTarget === "player").length === 2;
+  game.enemyProjectiles = [];
+  game.summonBossAdds(boss);
+  results.bossSummonSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel").length >= 3;
+
+  game.startRun();
+  game.spawnEnemy("sentinel", 1, { x: game.player.x + 260, y: game.player.y });
+  const sentinel = game.enemies.at(-1);
+  sentinel.attackCooldownRemaining = 0;
+  game.stepManual(0.1);
+  game.stepManual(0.46);
+  results.sentinelDashAttack = sentinel.typeId === "sentinel" && sentinel.state === "dash";
+
   game.startRun();
   game.forceUpgrade("bubble-guard");
   game.forceUpgrade("bubble-guard");

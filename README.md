@@ -21,7 +21,8 @@ Arena Survival is a static browser arcade game built around short survival runs.
 
 - Arcade hub main menu with records, next-run details, quests, characters, shop, stats, controls, settings, and an in-game wiki.
 - Auto-target combat with enemies, XP pickups, level-up upgrade choices, and boss waves.
-- Unlockable character and ability goals, including grenade and katana quest progress.
+- Unlockable character and ability goals, including grenade, katana, and Engineer turret progress.
+- Expanded enemy roster with shooters, acid spitters, tanks, chargers, boss sentinels, and projectile-heavy bosses.
 - Local browser saves for progress, records, gold, unlocks, stats, and audio preferences.
 - Static-file setup: no backend, no build step, and no required install.
 - Built-in browser self-test for core gameplay and save behavior.

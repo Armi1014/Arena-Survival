@@ -5,9 +5,10 @@ export const STORAGE_KEY = "bubble-blitz-forever-save";
 export const SETTINGS_DEFAULTS = {
   muted: false,
   musicVolume: 0.45,
+  adminModeEnabled: false,
 };
 
-export const ADMIN_PASSWORD = "admin123";
+export const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
 
 export const DEFAULT_SONGS = [
   {

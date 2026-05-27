@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arena Survival</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23040a16'/%3E%3Cpath d='M32 8l18 10v20L32 56 14 38V18z' fill='%2322d3ee'/%3E%3Cpath d='M32 16l10 6v12L32 44 22 34V22z' fill='%23fb7185'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -85,6 +86,14 @@
             </div>
 
             <div id="boss-banner" class="boss-banner" hidden></div>
+
+            <div id="admin-game-panel" class="admin-game-panel" aria-label="In-game admin controls" hidden>
+              <button id="admin-heal-button" class="ghost-button" type="button">Heal</button>
+              <button id="admin-level-button" class="ghost-button" type="button">Level Up</button>
+              <button id="admin-gold-run-button" class="ghost-button" type="button">+100 Gold</button>
+              <button id="admin-clear-enemies-button" class="ghost-button" type="button">Clear Enemies</button>
+              <button id="admin-spawn-boss-button" class="danger-button" type="button">Spawn Boss</button>
+            </div>
           </section>
 
           <div class="screen-layer">
@@ -97,6 +106,22 @@
                     <p class="screen-copy">
                       Hold the center, dodge the rush, and turn each level-up into a stronger run.
                     </p>
+                  </div>
+                  <div class="menu-arena-preview" aria-hidden="true">
+                    <span class="arena-ring arena-ring-outer"></span>
+                    <span class="arena-ring arena-ring-inner"></span>
+                    <span class="arena-lane arena-lane-horizontal"></span>
+                    <span class="arena-lane arena-lane-vertical"></span>
+                    <span class="arena-projectile projectile-one"></span>
+                    <span class="arena-projectile projectile-two"></span>
+                    <span class="arena-xp xp-one"></span>
+                    <span class="arena-xp xp-two"></span>
+                    <span class="arena-xp xp-three"></span>
+                    <span class="arena-enemy enemy-one"></span>
+                    <span class="arena-enemy enemy-two"></span>
+                    <span class="arena-enemy enemy-three"></span>
+                    <span class="arena-enemy enemy-boss"></span>
+                    <span class="arena-player"></span>
                   </div>
                   <div class="button-row menu-actions">
                     <button id="start-button" class="primary-button large-action" type="button">Start Run</button>
@@ -126,28 +151,36 @@
                 <div class="menu-hub-panel">
                   <div class="menu-tabs" role="tablist" aria-label="Main menu sections">
                     <button id="menu-tab-play" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-play" aria-selected="true" data-menu-tab="play">
-                      Play
+                      <span class="menu-tab-icon" aria-hidden="true">&#9658;</span>
+                      <span class="menu-tab-label">Play</span>
                     </button>
                     <button id="menu-tab-quests" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-quests" aria-selected="false" data-menu-tab="quests">
-                      Quests
+                      <span class="menu-tab-icon" aria-hidden="true">&#9873;</span>
+                      <span class="menu-tab-label">Quests</span>
                     </button>
                     <button id="menu-tab-characters" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-characters" aria-selected="false" data-menu-tab="characters">
-                      Characters
+                      <span class="menu-tab-icon" aria-hidden="true">&#9673;</span>
+                      <span class="menu-tab-label">Characters</span>
                     </button>
                     <button id="menu-tab-guide" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-guide" aria-selected="false" data-menu-tab="guide">
-                      Wiki
+                      <span class="menu-tab-icon" aria-hidden="true">&#9776;</span>
+                      <span class="menu-tab-label">Wiki</span>
                     </button>
                     <button id="menu-tab-shop" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-shop" aria-selected="false" data-menu-tab="shop">
-                      Shop
+                      <span class="menu-tab-icon" aria-hidden="true">&#9835;</span>
+                      <span class="menu-tab-label">Shop</span>
                     </button>
                     <button id="menu-tab-stats" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-stats" aria-selected="false" data-menu-tab="stats">
-                      Stats
+                      <span class="menu-tab-icon" aria-hidden="true">&#9636;</span>
+                      <span class="menu-tab-label">Stats</span>
                     </button>
                     <button id="menu-tab-controls" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-controls" aria-selected="false" data-menu-tab="controls">
-                      Controls
+                      <span class="menu-tab-icon" aria-hidden="true">&#10010;</span>
+                      <span class="menu-tab-label">Controls</span>
                     </button>
                     <button id="menu-tab-settings" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-settings" aria-selected="false" data-menu-tab="settings">
-                      Settings
+                      <span class="menu-tab-icon" aria-hidden="true">&#9881;</span>
+                      <span class="menu-tab-label">Settings</span>
                     </button>
                   </div>
 
@@ -298,6 +331,7 @@
                             <div class="wiki-table">
                               <div><span>Grenade</span><strong>250 kills in one run</strong></div>
                               <div><span>Katana</span><strong>3 total boss kills</strong></div>
+                              <div><span>Engineer</span><strong>1000 total kills</strong></div>
                               <div><span>Custom songs</span><strong>Request in the shop</strong></div>
                             </div>
                           </article>
@@ -392,6 +426,13 @@
                             <span>Local-only music and gold tools for this browser.</span>
                           </div>
                           <button id="open-admin-button" class="ghost-button" type="button">Open Admin Tools</button>
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Admin Mode</strong>
+                            <span>Show in-game admin buttons during a run after admin is unlocked.</span>
+                          </div>
+                          <button id="admin-mode-button" class="ghost-button" type="button" aria-pressed="false">Unlock Admin</button>
                         </div>
                       </div>
                       <p id="reset-stats-note" class="settings-note" role="status">Reset requires a second click to confirm.</p>

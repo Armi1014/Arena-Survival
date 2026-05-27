@@ -1,5 +1,5 @@
 ﻿import {
-  ADMIN_PASSWORD,
+  ADMIN_PASSWORD_DIGEST,
   DEFAULT_SONGS,
   GAME_CONFIG,
   LOGICAL_HEIGHT,
@@ -12,7 +12,7 @@
   getXpThreshold,
   randomRange,
 } from "./data/constants.js";
-import { CHARACTER_DEFS, CHARACTER_IDS, KATANA_UNLOCK_BOSSES, getCharacterById, isCharacterUnlocked } from "./data/characters.js";
+import { CHARACTER_DEFS, CHARACTER_IDS, ENGINEER_UNLOCK_KILLS, KATANA_UNLOCK_BOSSES, getCharacterById, isCharacterUnlocked } from "./data/characters.js";
 import { getBossScale, getDifficultySnapshot } from "./data/difficulty.js";
 import { BOSS_DEF, ENEMY_DEFS } from "./data/enemies.js";
 import { UPGRADE_DEFS, getUpgradeById } from "./data/upgrades.js";
@@ -42,6 +42,24 @@ function shuffleInPlace(items) {
   return items;
 }
 
+async function digestText(text) {
+  if (!globalThis.crypto?.subtle) {
+    return "";
+  }
+  const data = new TextEncoder().encode(text);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function digestMatches(left, right) {
+  const maxLength = Math.max(left.length, right.length);
+  let diff = left.length ^ right.length;
+  for (let index = 0; index < maxLength; index += 1) {
+    diff |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
+  }
+  return diff === 0;
+}
+
 const MENU_TAB_LABELS = {
   play: "Play",
   quests: "Quests",
@@ -57,11 +75,21 @@ const MENU_TAB_LABELS = {
 const ENEMY_GUIDE_COPY = {
   nibbler: "Fast chaser that pressures your movement lane.",
   spitter: "Keeps range and fires projectiles through the arena.",
+  "acid-spitter": "Keeps distance and spits acid that leaves hazardous pools.",
   bumper: "Winds up, then charges through your position.",
+  tank: "Slow heavy unit that blocks space and soaks damage.",
+  sentinel: "Boss-summoned unit that telegraphs a dash attack.",
   [BOSS_DEF.id]: "Large boss unit with charge, burst, and summon phases.",
 };
 const ENEMY_GUIDE_DEFS = [...Object.values(ENEMY_DEFS), BOSS_DEF];
 const TRACKED_ENEMY_IDS = new Set(ENEMY_GUIDE_DEFS.map((definition) => definition.id));
+
+const ENGINEER_TURRET = {
+  deployCooldown: 8,
+  lifetime: 8,
+  range: 360,
+  fireCooldown: 0.55,
+};
 
 const UPGRADE_ICONS = {
   "rapid-pop": "⚡",
@@ -219,6 +247,7 @@ export class Game {
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
     this.effects = [];
@@ -231,6 +260,7 @@ export class Game {
     this.enemyId = 0;
     this.projectileId = 0;
     this.grenadeId = 0;
+    this.turretId = 0;
     this.effectId = 0;
     this.textId = 0;
     this.toastId = 0;
@@ -242,6 +272,7 @@ export class Game {
     this.renderCharacterMenu();
     this.renderSongShop();
     this.renderAdminPanel();
+    this.updateAdminModeUi();
     this.setMenuTab(this.menuTab, false);
     this.loop = this.loop.bind(this);
     this.updateSoundButton();
@@ -432,6 +463,12 @@ export class Game {
       shatterFragments: 0,
       dashReloadRatio: 0,
       overhealShieldBonus: 0,
+      turretDeployCooldown: selectedCharacter.id === CHARACTER_IDS.engineer ? ENGINEER_TURRET.deployCooldown : 0,
+      turretDeployCooldownRemaining: selectedCharacter.id === CHARACTER_IDS.engineer ? 0.6 : 0,
+      turretLifetime: ENGINEER_TURRET.lifetime,
+      turretRange: ENGINEER_TURRET.range,
+      turretFireCooldown: ENGINEER_TURRET.fireCooldown,
+      maxTurrets: selectedCharacter.id === CHARACTER_IDS.engineer ? 1 : 0,
       grenadeZoneDuration: 0,
       grenadeZoneDamage: 0,
       slashDamage: slash?.damage ?? 0,
@@ -447,6 +484,7 @@ export class Game {
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
     this.effects = [];
@@ -462,6 +500,7 @@ export class Game {
     this.enemyId = 0;
     this.projectileId = 0;
     this.grenadeId = 0;
+    this.turretId = 0;
     this.effectId = 0;
     this.textId = 0;
     this.toastId = 0;
@@ -490,6 +529,7 @@ export class Game {
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
     this.effects = [];
@@ -596,12 +636,15 @@ export class Game {
       shotsFired: this.run?.shotsFired ?? 0,
       enemyCount: this.enemies.length,
       bossCount: this.enemies.filter((enemy) => enemy.isBoss && !enemy.dead).length,
+      turretCount: this.turrets.filter((turret) => !turret.dead).length,
       playerHp: this.player?.hp ?? 0,
       characterId: this.player?.characterId ?? this.getSelectedCharacter().id,
       attackType: this.player?.attackType ?? this.getSelectedCharacter().attackType,
       dashCooldownRemaining: this.player?.dashCooldownRemaining ?? 0,
       invulnerabilityRemaining: this.player?.invulnerabilityRemaining ?? 0,
       projectileCount: this.projectiles.length,
+      enemyProjectileCount: this.enemyProjectiles.length,
+      damageZoneCount: this.damageZones.length,
       availableUpgrades: this.getAvailableUpgrades().map((upgrade) => upgrade.id),
       highScore: this.save.highScore,
       stats: this.save.stats,
@@ -619,6 +662,7 @@ export class Game {
     this.player.grenadeCooldownRemaining = Math.max(0, this.player.grenadeCooldownRemaining - deltaSeconds);
     this.updateBanner(deltaSeconds);
     this.updatePlayer(deltaSeconds);
+    this.updateTurrets(deltaSeconds);
     this.tryAutoFire();
     this.updateBossSchedule();
     this.updateSpawning(deltaSeconds);
@@ -675,6 +719,71 @@ export class Game {
 
     player.x = clamp(player.x, GAME_CONFIG.padding, LOGICAL_WIDTH - GAME_CONFIG.padding);
     player.y = clamp(player.y, GAME_CONFIG.padding, LOGICAL_HEIGHT - GAME_CONFIG.padding);
+  }
+
+  updateTurrets(deltaSeconds) {
+    if (!this.player || this.player.maxTurrets <= 0) {
+      return;
+    }
+    this.player.turretDeployCooldownRemaining = Math.max(0, this.player.turretDeployCooldownRemaining - deltaSeconds);
+    const activeTurrets = this.turrets.filter((turret) => !turret.dead).length;
+    if (activeTurrets < this.player.maxTurrets && this.player.turretDeployCooldownRemaining <= 0) {
+      this.deployTurret();
+      this.player.turretDeployCooldownRemaining = this.player.turretDeployCooldown;
+    }
+
+    for (const turret of this.turrets) {
+      if (turret.dead) {
+        continue;
+      }
+      turret.life -= deltaSeconds;
+      if (turret.life <= 0) {
+        turret.dead = true;
+        this.spawnEffect(turret.x, turret.y, 28, "rgba(52, 211, 153, 0.52)", 0.22, "ring");
+        continue;
+      }
+      turret.fireCooldownRemaining = Math.max(0, turret.fireCooldownRemaining - deltaSeconds);
+      if (turret.fireCooldownRemaining > 0) {
+        continue;
+      }
+      const target = this.getClosestEnemy(turret.x, turret.y, turret.range);
+      if (!target) {
+        continue;
+      }
+      const angle = Math.atan2(target.y - turret.y, target.x - turret.x);
+      this.spawnPlayerProjectile(
+        turret.x + Math.cos(angle) * 20,
+        turret.y + Math.sin(angle) * 20,
+        angle,
+        this.player.projectileSpeed,
+        this.player.projectileRadius,
+        this.player.projectileDamage,
+        this.player.projectileLifetime,
+        "turret",
+      );
+      turret.fireCooldownRemaining = this.player.turretFireCooldown;
+      this.run.shotsFired += 1;
+      this.spawnEffect(turret.x, turret.y, 16, "rgba(52, 211, 153, 0.75)", 0.14, "burst");
+    }
+  }
+
+  deployTurret() {
+    const angle = this.backgroundTime * 1.7;
+    const x = clamp(this.player.x + Math.cos(angle) * 58, GAME_CONFIG.padding + 20, LOGICAL_WIDTH - GAME_CONFIG.padding - 20);
+    const y = clamp(this.player.y + Math.sin(angle) * 58, GAME_CONFIG.padding + 20, LOGICAL_HEIGHT - GAME_CONFIG.padding - 20);
+    this.turrets.push({
+      id: this.turretId += 1,
+      x,
+      y,
+      radius: 18,
+      life: this.player.turretLifetime,
+      maxLife: this.player.turretLifetime,
+      range: this.player.turretRange,
+      fireCooldownRemaining: 0.1,
+      dead: false,
+    });
+    this.spawnEffect(x, y, 36, "rgba(52, 211, 153, 0.7)", 0.28, "ring");
+    this.spawnFloatingText(x, y - 28, "Turret online", "#86efac", 0.8);
   }
 
   updateBossSchedule() {
@@ -744,8 +853,14 @@ export class Game {
         this.updateNibbler(enemy);
       } else if (enemy.typeId === "spitter") {
         this.updateSpitter(enemy, deltaSeconds);
+      } else if (enemy.typeId === "acid-spitter") {
+        this.updateAcidSpitter(enemy, deltaSeconds);
       } else if (enemy.typeId === "bumper") {
         this.updateBumper(enemy, deltaSeconds);
+      } else if (enemy.typeId === "tank") {
+        this.updateTank(enemy);
+      } else if (enemy.typeId === "sentinel") {
+        this.updateSentinel(enemy, deltaSeconds);
       }
       enemy.x += enemy.vx * deltaSeconds;
       enemy.y += enemy.vy * deltaSeconds;
@@ -782,6 +897,41 @@ export class Game {
       this.spawnEnemyProjectile(enemy, direction, enemy.projectileSpeed, 10, enemy.projectileDamage, 3.8, "#bfdbfe", "#2563eb");
       enemy.attackCooldownRemaining = enemy.attackCooldownBase;
     }
+  }
+
+  updateAcidSpitter(enemy, deltaSeconds) {
+    const toPlayerX = this.player.x - enemy.x;
+    const toPlayerY = this.player.y - enemy.y;
+    const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
+    const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
+    const orbit = { x: -direction.y * enemy.orbitDirection, y: direction.x * enemy.orbitDirection };
+    let moveX = orbit.x * enemy.speed * 0.34;
+    let moveY = orbit.y * enemy.speed * 0.34;
+    if (distance > enemy.preferredRange + 42) {
+      moveX += direction.x * enemy.speed * 0.8;
+      moveY += direction.y * enemy.speed * 0.8;
+    } else if (distance < enemy.preferredRange - 52) {
+      moveX -= direction.x * enemy.speed;
+      moveY -= direction.y * enemy.speed;
+    }
+    enemy.vx = moveX;
+    enemy.vy = moveY;
+    enemy.attackCooldownRemaining -= deltaSeconds;
+    if (enemy.attackCooldownRemaining <= 0 && distance < enemy.attackRange) {
+      this.spawnEnemyProjectile(enemy, direction, enemy.projectileSpeed, 12, enemy.projectileDamage, 3.2, "#bbf7d0", "#22c55e", {
+        acidZoneRadius: enemy.acidZoneRadius,
+        acidZoneDamage: enemy.acidZoneDamage,
+        acidZoneDuration: enemy.acidZoneDuration,
+      });
+      enemy.attackCooldownRemaining = enemy.attackCooldownBase;
+      this.spawnEffect(enemy.x, enemy.y, 20, "rgba(34, 197, 94, 0.72)", 0.16, "burst");
+    }
+  }
+
+  updateTank(enemy) {
+    const direction = normalizeVector(this.player.x - enemy.x, this.player.y - enemy.y);
+    enemy.vx = direction.x * enemy.speed;
+    enemy.vy = direction.y * enemy.speed;
   }
 
   updateBumper(enemy, deltaSeconds) {
@@ -826,6 +976,48 @@ export class Game {
     }
   }
 
+  updateSentinel(enemy, deltaSeconds) {
+    const toPlayerX = this.player.x - enemy.x;
+    const toPlayerY = this.player.y - enemy.y;
+    const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
+    const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
+    if (enemy.state === "windup") {
+      enemy.vx = 0;
+      enemy.vy = 0;
+      enemy.stateTimer -= deltaSeconds;
+      if (enemy.stateTimer <= 0) {
+        enemy.state = "dash";
+        enemy.stateTimer = enemy.dashDuration;
+      }
+      return;
+    }
+    if (enemy.state === "dash") {
+      enemy.vx = enemy.chargeDirection.x * enemy.chargeSpeed;
+      enemy.vy = enemy.chargeDirection.y * enemy.chargeSpeed;
+      enemy.stateTimer -= deltaSeconds;
+      if (
+        enemy.stateTimer <= 0 ||
+        enemy.x < GAME_CONFIG.padding ||
+        enemy.x > LOGICAL_WIDTH - GAME_CONFIG.padding ||
+        enemy.y < GAME_CONFIG.padding ||
+        enemy.y > LOGICAL_HEIGHT - GAME_CONFIG.padding
+      ) {
+        enemy.state = "seek";
+        enemy.attackCooldownRemaining = enemy.dashCooldown;
+      }
+      return;
+    }
+    enemy.vx = direction.x * enemy.speed;
+    enemy.vy = direction.y * enemy.speed;
+    enemy.attackCooldownRemaining -= deltaSeconds;
+    if (enemy.attackCooldownRemaining <= 0 && distance < 380) {
+      enemy.state = "windup";
+      enemy.stateTimer = enemy.dashWindup;
+      enemy.chargeDirection = direction;
+      enemy.squish = 0.95;
+    }
+  }
+
   updateBoss(enemy, deltaSeconds) {
     const toPlayerX = this.player.x - enemy.x;
     const toPlayerY = this.player.y - enemy.y;
@@ -836,7 +1028,7 @@ export class Game {
       enemy.vx = direction.x * enemy.speed * 0.7 + Math.cos(this.backgroundTime + enemy.id) * 24;
       enemy.vy = direction.y * enemy.speed * 0.7 + Math.sin(this.backgroundTime + enemy.id * 0.5) * 24;
       if (enemy.phaseTimer <= 0) {
-        const phase = enemy.attackIndex % 3;
+        const phase = enemy.attackIndex % 4;
         enemy.attackIndex += 1;
         if (phase === 0) {
           enemy.state = "charge-windup";
@@ -844,6 +1036,12 @@ export class Game {
           enemy.chargeDirection = direction;
           this.setBanner("Heavy unit charging.", 1.5);
         } else if (phase === 1) {
+          enemy.state = "volley";
+          enemy.phaseTimer = 1.5;
+          enemy.volleyShotsRemaining = 4;
+          enemy.volleyTimer = 0.05;
+          this.setBanner("Targeted volley.", 1.3);
+        } else if (phase === 2) {
           enemy.state = "burst";
           enemy.phaseTimer = 1.15;
           enemy.burstShotsRemaining = 3;
@@ -865,6 +1063,7 @@ export class Game {
       if (enemy.phaseTimer <= 0) {
         enemy.state = "charge";
         enemy.phaseTimer = 0.9;
+        this.fireBossChargeShots(enemy);
       }
       return;
     }
@@ -881,6 +1080,22 @@ export class Game {
       ) {
         enemy.state = "roam";
         enemy.phaseTimer = 2;
+      }
+      return;
+    }
+    if (enemy.state === "volley") {
+      enemy.phaseTimer -= deltaSeconds;
+      enemy.vx = direction.x * enemy.speed * 0.18;
+      enemy.vy = direction.y * enemy.speed * 0.18;
+      enemy.volleyTimer -= deltaSeconds;
+      if (enemy.volleyTimer <= 0 && enemy.volleyShotsRemaining > 0) {
+        this.fireBossVolley(enemy);
+        enemy.volleyShotsRemaining -= 1;
+        enemy.volleyTimer = 0.28;
+      }
+      if (enemy.phaseTimer <= 0 || enemy.volleyShotsRemaining <= 0) {
+        enemy.state = "roam";
+        enemy.phaseTimer = 1.85;
       }
       return;
     }
@@ -931,7 +1146,24 @@ export class Game {
       }
     };
     this.projectiles.forEach(advance);
-    this.enemyProjectiles.forEach(advance);
+    for (const projectile of this.enemyProjectiles) {
+      if (projectile.homingTimeRemaining > 0 && projectile.homingTarget === "player" && this.player) {
+        const speed = Math.max(1, Math.hypot(projectile.vx, projectile.vy));
+        const currentAngle = Math.atan2(projectile.vy, projectile.vx);
+        const targetAngle = Math.atan2(this.player.y - projectile.y, this.player.x - projectile.x);
+        const deltaAngle = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
+        const turn = clamp(deltaAngle, -projectile.homingTurnRate * deltaSeconds, projectile.homingTurnRate * deltaSeconds);
+        const nextAngle = currentAngle + turn;
+        projectile.vx = Math.cos(nextAngle) * speed;
+        projectile.vy = Math.sin(nextAngle) * speed;
+        projectile.homingTimeRemaining = Math.max(0, projectile.homingTimeRemaining - deltaSeconds);
+      }
+      advance(projectile);
+      if (projectile.dead && projectile.acidZoneRadius && !projectile.zoneSpawned) {
+        this.spawnAcidZone(projectile.x, projectile.y, projectile.acidZoneRadius, projectile.acidZoneDamage, projectile.acidZoneDuration);
+        projectile.zoneSpawned = true;
+      }
+    }
   }
 
   updateGrenades(deltaSeconds) {
@@ -995,6 +1227,12 @@ export class Game {
       zone.tickRemaining -= deltaSeconds;
       if (zone.tickRemaining <= 0) {
         zone.tickRemaining = zone.tickInterval;
+        if (zone.owner === "enemy") {
+          if (this.player && distanceSquared(zone.x, zone.y, this.player.x, this.player.y) <= (zone.radius + this.player.radius) ** 2) {
+            this.takePlayerDamage(zone.damage, zone.sourceEnemyTypeId ?? "");
+          }
+          continue;
+        }
         for (const enemy of this.enemies) {
           if (enemy.dead) {
             continue;
@@ -1061,6 +1299,10 @@ export class Game {
       const collisionRadius = projectile.radius + this.player.radius;
       if (distanceSquared(projectile.x, projectile.y, this.player.x, this.player.y) <= collisionRadius * collisionRadius) {
         projectile.dead = true;
+        if (projectile.acidZoneRadius && !projectile.zoneSpawned) {
+          this.spawnAcidZone(projectile.x, projectile.y, projectile.acidZoneRadius, projectile.acidZoneDamage, projectile.acidZoneDuration);
+          projectile.zoneSpawned = true;
+        }
         this.takePlayerDamage(projectile.damage, projectile.sourceEnemyTypeId);
       }
     }
@@ -1104,6 +1346,7 @@ export class Game {
     this.projectiles = this.projectiles.filter((projectile) => !projectile.dead);
     this.enemyProjectiles = this.enemyProjectiles.filter((projectile) => !projectile.dead);
     this.grenades = this.grenades.filter((grenade) => !grenade.dead);
+    this.turrets = this.turrets.filter((turret) => !turret.dead);
     this.pickups = this.pickups.filter((pickup) => !pickup.dead);
     this.effects = this.effects.filter((effect) => effect.life > 0);
     this.damageZones = this.damageZones.filter((zone) => zone.life > 0);
@@ -1179,6 +1422,9 @@ export class Game {
     const unlockedKatana =
       !isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana) &&
       (this.save.stats?.total?.bosses ?? 0) + this.run.bossKills >= KATANA_UNLOCK_BOSSES;
+    const unlockedEngineer =
+      !isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer) &&
+      (this.save.stats?.total?.kills ?? 0) + this.run.kills >= ENGINEER_UNLOCK_KILLS;
     this.mode = "gameOver";
     this.syncScreens();
     this.audio.playDeath();
@@ -1193,6 +1439,8 @@ export class Game {
       this.ui.gameOverTitle.textContent = "New high score!";
     } else if (unlockedKatana) {
       this.ui.gameOverTitle.textContent = "Katana unlocked!";
+    } else if (unlockedEngineer) {
+      this.ui.gameOverTitle.textContent = "Engineer unlocked!";
     } else if (unlockedGrenade) {
       this.ui.gameOverTitle.textContent = "Grenade unlocked!";
     } else {
@@ -1202,7 +1450,7 @@ export class Game {
     this.ui.finalTime.textContent = formatTime(this.run.elapsed);
     this.ui.finalKills.textContent = this.run.kills.toString();
     this.ui.finalBosses.textContent = this.run.bossKills.toString();
-    this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana);
+    this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer);
     this.updateGrenadeLobby();
     this.renderQuestMenu();
     this.renderCharacterMenu();
@@ -1230,6 +1478,7 @@ export class Game {
     const character = getCharacterById(characterId);
     this.save = updateProgress(this.save, {
       katanaUnlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana),
+      engineerUnlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer),
       selectedCharacterId: character.id,
     });
     this.renderCharacterMenu();
@@ -1240,6 +1489,7 @@ export class Game {
 
   getQuestRows() {
     const bestKills = Math.max(0, this.save.stats?.best?.kills ?? 0);
+    const totalKills = Math.max(0, this.save.stats?.total?.kills ?? 0);
     const totalBosses = Math.max(0, this.save.stats?.total?.bosses ?? 0);
     return [
       {
@@ -1259,6 +1509,15 @@ export class Game {
         requirement: KATANA_UNLOCK_BOSSES,
         unlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana),
         description: `Defeat ${KATANA_UNLOCK_BOSSES} bosses total.`,
+      },
+      {
+        id: "engineer",
+        title: "Engineering License",
+        reward: "Engineer character",
+        progress: Math.min(ENGINEER_UNLOCK_KILLS, totalKills),
+        requirement: ENGINEER_UNLOCK_KILLS,
+        unlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer),
+        description: `Defeat ${ENGINEER_UNLOCK_KILLS} enemies total.`,
       },
     ];
   }
@@ -1301,7 +1560,9 @@ export class Game {
       const requirement =
         character.id === CHARACTER_IDS.katana
           ? `Defeat ${KATANA_UNLOCK_BOSSES} bosses total (${Math.min(KATANA_UNLOCK_BOSSES, this.save.stats?.total?.bosses ?? 0)}/${KATANA_UNLOCK_BOSSES})`
-          : "Unlocked by default";
+          : character.id === CHARACTER_IDS.engineer
+            ? `Defeat ${ENGINEER_UNLOCK_KILLS} enemies total (${Math.min(ENGINEER_UNLOCK_KILLS, this.save.stats?.total?.kills ?? 0)}/${ENGINEER_UNLOCK_KILLS})`
+            : "Unlocked by default";
       body.innerHTML = `
         <strong>${character.name}</strong>
         <span>${character.attackType === "melee" ? "Melee" : "Ranged"} - ${unlocked ? "Unlocked" : requirement}</span>
@@ -1411,14 +1672,124 @@ export class Game {
     this.ui.songShopList.replaceChildren(...nodes);
   }
 
-  unlockAdmin(password) {
-    if (password !== ADMIN_PASSWORD) {
+  async unlockAdmin(password) {
+    const passwordDigest = await digestText(password ?? "");
+    if (!passwordDigest || !digestMatches(passwordDigest, ADMIN_PASSWORD_DIGEST)) {
       this.showToast("Wrong admin password");
       return;
     }
     this.adminUnlocked = true;
+    if (this.ui.adminPasswordInput) {
+      this.ui.adminPasswordInput.value = "";
+    }
     this.renderAdminPanel();
+    this.updateAdminModeUi();
     this.showToast("Admin unlocked");
+  }
+
+  toggleAdminMode() {
+    if (!this.adminUnlocked) {
+      this.showToast("Unlock admin first");
+      this.setMenuTab("admin");
+      return;
+    }
+    const enabled = !this.save.settings?.adminModeEnabled;
+    this.save = updateSettings(this.save, { adminModeEnabled: enabled });
+    this.updateAdminModeUi();
+    this.announce(`Admin mode ${enabled ? "enabled" : "disabled"}.`);
+  }
+
+  updateAdminModeUi() {
+    this.updateAdminModeButton();
+    this.updateAdminGamePanel();
+  }
+
+  updateAdminModeButton() {
+    if (!this.ui.adminModeButton) {
+      return;
+    }
+    const enabled = Boolean(this.save.settings?.adminModeEnabled);
+    this.ui.adminModeButton.textContent = this.adminUnlocked ? `Admin Mode: ${enabled ? "On" : "Off"}` : "Unlock Admin";
+    this.ui.adminModeButton.setAttribute("aria-pressed", this.adminUnlocked && enabled ? "true" : "false");
+  }
+
+  updateAdminGamePanel() {
+    if (!this.ui.adminGamePanel) {
+      return;
+    }
+    const showPanel = Boolean(this.adminUnlocked && this.save.settings?.adminModeEnabled && this.run && this.player && this.mode === "playing");
+    this.ui.adminGamePanel.hidden = !showPanel;
+  }
+
+  canUseRunAdminTools() {
+    return Boolean(this.adminUnlocked && this.save.settings?.adminModeEnabled && this.run && this.player && this.mode === "playing");
+  }
+
+  adminHealPlayer() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    this.player.hp = this.player.maxHp;
+    this.player.shields = this.player.maxShields;
+    this.player.invulnerabilityRemaining = Math.max(this.player.invulnerabilityRemaining, 0.75);
+    this.spawnFloatingText(this.player.x, this.player.y - 48, "Admin Heal", "#86efac", 0.9);
+    this.showToast("Admin heal");
+    this.updateHud();
+  }
+
+  adminGrantRunGold(amount = 100) {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) + safeAmount });
+    this.spawnFloatingText(this.player.x, this.player.y - 72, `+${safeAmount} gold`, "#fbbf24", 0.9);
+    this.renderSongShop();
+    this.renderAdminPanel();
+    this.updateHud();
+  }
+
+  adminForceLevelUp() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    this.run.level += 1;
+    this.run.xp = 0;
+    this.run.xpToNext = getXpThreshold(this.run.level);
+    this.pendingLevelUps += 1;
+    this.flashLevelUp();
+    this.showUpgradeDraft();
+  }
+
+  adminClearEnemies() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    const enemyCount = this.enemies.filter((enemy) => !enemy.dead).length;
+    for (const enemy of this.enemies) {
+      if (!enemy.dead) {
+        this.spawnEffect(enemy.x, enemy.y, enemy.radius * 1.1, "rgba(34, 211, 238, 0.58)", 0.22, "ring");
+      }
+    }
+    this.enemies = [];
+    this.enemyProjectiles = [];
+    this.spawnBudget = 0;
+    this.showToast(enemyCount ? `Cleared ${enemyCount} enemies` : "No enemies to clear");
+    this.updateHud();
+  }
+
+  adminSpawnBoss() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    if (this.enemies.some((enemy) => enemy.isBoss && !enemy.dead)) {
+      this.showToast("Boss already active");
+      return;
+    }
+    const cycleIndex = Math.max(0, Math.floor((this.run.elapsed || 0) / GAME_CONFIG.bossInterval));
+    this.spawnBoss(cycleIndex);
+    this.nextBossTime = Math.max(this.nextBossTime, this.run.elapsed + GAME_CONFIG.bossInterval);
+    this.showToast("Admin boss spawned");
   }
 
   setAdminGold(value) {
@@ -1678,7 +2049,7 @@ export class Game {
     this.showToast("Song updated");
   }
 
-  buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana) {
+  buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer) {
     const highlights = [...this.runHighlights];
     const score = Math.floor(this.run.score);
     const bestChecks = [
@@ -1703,6 +2074,12 @@ export class Game {
     } else if (!isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana)) {
       const totalBosses = Math.min(KATANA_UNLOCK_BOSSES, this.save.stats?.total?.bosses ?? 0);
       highlights.push({ title: "Katana quest", value: `${totalBosses}/${KATANA_UNLOCK_BOSSES} bosses` });
+    }
+    if (unlockedEngineer) {
+      highlights.unshift({ title: "Engineer unlocked", value: "Quest complete" });
+    } else if (!isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer)) {
+      const totalKills = Math.min(ENGINEER_UNLOCK_KILLS, this.save.stats?.total?.kills ?? 0);
+      highlights.push({ title: "Engineer quest", value: `${formatWholeNumber(totalKills)}/${formatWholeNumber(ENGINEER_UNLOCK_KILLS)} kills` });
     }
     if (this.maxedUpgradeIds.size > 0) {
       highlights.push({ title: "Maxed upgrades", value: this.maxedUpgradeIds.size.toString() });
@@ -1762,24 +2139,28 @@ export class Game {
     }
   }
 
-  getAimDirection() {
-    if (!this.player) {
-      return { x: 0, y: -1 };
-    }
-
+  getClosestEnemy(x, y, maxDistance = Infinity) {
     let closestEnemy = null;
-    let closestDistance = Infinity;
+    let closestDistance = maxDistance * maxDistance;
     for (const enemy of this.enemies) {
       if (enemy.dead) {
         continue;
       }
-      const distance = distanceSquared(this.player.x, this.player.y, enemy.x, enemy.y);
+      const distance = distanceSquared(x, y, enemy.x, enemy.y);
       if (distance < closestDistance) {
         closestDistance = distance;
         closestEnemy = enemy;
       }
     }
+    return closestEnemy;
+  }
 
+  getAimDirection() {
+    if (!this.player) {
+      return { x: 0, y: -1 };
+    }
+
+    const closestEnemy = this.getClosestEnemy(this.player.x, this.player.y);
     const target = closestEnemy ?? this.pointer;
     const direction = normalizeVector(target.x - this.player.x, target.y - this.player.y);
     return direction.x || direction.y ? direction : { x: 0, y: -1 };
@@ -1943,6 +2324,7 @@ export class Game {
     }
     if (this.player?.grenadeZoneDuration > 0) {
       this.damageZones.push({
+        owner: "player",
         x: grenade.x,
         y: grenade.y,
         radius: grenade.blastRadius * 0.72,
@@ -1956,7 +2338,23 @@ export class Game {
     }
   }
 
-  spawnEnemyProjectile(owner, direction, speed, radius, damage, life, color, accent) {
+  spawnAcidZone(x, y, radius, damage, duration) {
+    this.damageZones.push({
+      owner: "enemy",
+      sourceEnemyTypeId: "acid-spitter",
+      x,
+      y,
+      radius,
+      damage,
+      life: duration,
+      maxLife: duration,
+      tickInterval: 0.55,
+      tickRemaining: 0.08,
+    });
+    this.spawnEffect(x, y, radius, "rgba(34, 197, 94, 0.42)", 0.34, "ring");
+  }
+
+  spawnEnemyProjectile(owner, direction, speed, radius, damage, life, color, accent, options = {}) {
     this.enemyProjectiles.push({
       id: this.projectileId += 1,
       x: owner.x + direction.x * (owner.radius + radius + 4),
@@ -1969,6 +2367,13 @@ export class Game {
       color,
       accent,
       sourceEnemyTypeId: owner.typeId,
+      homingTurnRate: options.homingTurnRate ?? 0,
+      homingTimeRemaining: options.homingTimeRemaining ?? 0,
+      homingTarget: options.homingTarget ?? "",
+      acidZoneRadius: options.acidZoneRadius ?? 0,
+      acidZoneDamage: options.acidZoneDamage ?? 0,
+      acidZoneDuration: options.acidZoneDuration ?? 0,
+      zoneSpawned: false,
       hitIds: new Set(),
       remainingHits: 1,
       dead: false,
@@ -2030,6 +2435,18 @@ export class Game {
       enemy.projectileDamage = 1;
       enemy.orbitDirection = Math.random() < 0.5 ? -1 : 1;
     }
+    if (typeId === "acid-spitter") {
+      enemy.preferredRange = 300;
+      enemy.attackRange = 460;
+      enemy.attackCooldownBase = Math.max(1.55, 2.75 - (statScale - 1) * 0.32);
+      enemy.attackCooldownRemaining = randomRange(0.45, enemy.attackCooldownBase);
+      enemy.projectileSpeed = 210 + (statScale - 1) * 28;
+      enemy.projectileDamage = 1;
+      enemy.acidZoneRadius = 54;
+      enemy.acidZoneDamage = 1;
+      enemy.acidZoneDuration = 2.6;
+      enemy.orbitDirection = Math.random() < 0.5 ? -1 : 1;
+    }
     if (typeId === "bumper") {
       enemy.state = "seek";
       enemy.stateTimer = 0;
@@ -2038,6 +2455,16 @@ export class Game {
       enemy.chargeCooldown = Math.max(2.1, 4.6 - (statScale - 1) * 0.4);
       enemy.attackCooldownRemaining = randomRange(0.8, enemy.chargeCooldown);
       enemy.chargeSpeed = 440 + (statScale - 1) * 60;
+      enemy.chargeDirection = { x: 0, y: 0 };
+    }
+    if (typeId === "sentinel") {
+      enemy.state = "seek";
+      enemy.stateTimer = 0;
+      enemy.dashWindup = 0.45;
+      enemy.dashDuration = 0.55;
+      enemy.dashCooldown = 3;
+      enemy.attackCooldownRemaining = randomRange(0.45, 1.15);
+      enemy.chargeSpeed = 520 + (statScale - 1) * 42;
       enemy.chargeDirection = { x: 0, y: 0 };
     }
     this.enemies.push(enemy);
@@ -2073,14 +2500,56 @@ export class Game {
       cycleIndex,
       burstShotsRemaining: 0,
       burstTimer: 0,
+      volleyShotsRemaining: 0,
+      volleyTimer: 0,
       hasSummoned: false,
     });
     this.setBanner(`Heavy unit ${cycleIndex + 1}.`, 2.4);
     this.audio.playBossWarning();
   }
 
+  fireBossChargeShots(boss) {
+    const baseAngle = Math.atan2(boss.chargeDirection.y, boss.chargeDirection.x);
+    for (const offset of [-0.34, 0.34]) {
+      const angle = baseAngle + offset;
+      this.spawnEnemyProjectile(
+        boss,
+        { x: Math.cos(angle), y: Math.sin(angle) },
+        310 + boss.cycleIndex * 10,
+        12,
+        Math.max(1, Math.round(1 + boss.cycleIndex * 0.15)),
+        3.6,
+        "#fef3c7",
+        "#f59e0b",
+        {
+          homingTurnRate: 0.9,
+          homingTimeRemaining: 1.15,
+          homingTarget: "player",
+        },
+      );
+    }
+  }
+
+  fireBossVolley(boss) {
+    const direction = normalizeVector(this.player.x - boss.x, this.player.y - boss.y);
+    const baseAngle = Math.atan2(direction.y, direction.x);
+    for (const offset of [-0.18, 0, 0.18]) {
+      const angle = baseAngle + offset;
+      this.spawnEnemyProjectile(
+        boss,
+        { x: Math.cos(angle), y: Math.sin(angle) },
+        300 + boss.cycleIndex * 12,
+        10,
+        Math.max(1, Math.round(1 + boss.cycleIndex * 0.12)),
+        4,
+        "#fce7f3",
+        "#fb7185",
+      );
+    }
+  }
+
   fireBossBurst(boss) {
-    const shots = 14 + Math.min(8, boss.cycleIndex * 2);
+    const shots = 16 + Math.min(10, boss.cycleIndex * 2);
     for (let shotIndex = 0; shotIndex < shots; shotIndex += 1) {
       const angle = (Math.PI * 2 * shotIndex) / shots + boss.burstShotsRemaining * 0.1;
       this.spawnEnemyProjectile(
@@ -2098,6 +2567,16 @@ export class Game {
 
   summonBossAdds(boss) {
     this.spawnEffect(boss.x, boss.y, boss.radius + 70, boss.accent, 0.3, "ring");
+    for (let index = 0; index < 3; index += 1) {
+      const angle = (Math.PI * 2 * index) / 3 + this.backgroundTime;
+      const position = {
+        x: clamp(boss.x + Math.cos(angle) * 112, GAME_CONFIG.padding + 28, LOGICAL_WIDTH - GAME_CONFIG.padding - 28),
+        y: clamp(boss.y + Math.sin(angle) * 112, GAME_CONFIG.padding + 28, LOGICAL_HEIGHT - GAME_CONFIG.padding - 28),
+      };
+      this.spawnEnemy("sentinel", 1 + boss.cycleIndex * 0.12, position);
+      this.spawnEffect(position.x, position.y, 30, "rgba(20, 184, 166, 0.72)", 0.24, "burst");
+    }
+    this.spawnFloatingText(boss.x, boss.y - boss.radius - 20, "Sentinels deployed", "#5eead4", 0.9);
   }
 
   killEnemy(enemy) {
@@ -2158,6 +2637,9 @@ export class Game {
     }
     if (this.run.kills >= 250 && !this.save.progress?.grenadeUnlocked) {
       this.unlockMilestone("grenade-unlock", "Grenade quest complete");
+    }
+    if ((this.save.stats?.total?.kills ?? 0) + this.run.kills >= ENGINEER_UNLOCK_KILLS && !isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer)) {
+      this.unlockMilestone("engineer-unlock", "Engineer quest complete");
     }
   }
 
@@ -2554,11 +3036,13 @@ export class Game {
     this.ui.pauseScreen.hidden = this.mode !== "paused";
     this.ui.upgradeScreen.hidden = this.mode !== "upgrade";
     this.ui.gameOverScreen.hidden = this.mode !== "gameOver";
+    this.updateAdminGamePanel();
   }
 
   updateHud() {
     const showHud = Boolean(this.run) && this.mode !== "title";
     this.ui.hud.hidden = !showHud;
+    this.updateAdminGamePanel();
     this.updateSavedScoreLabels();
     if (!this.run || !this.player) {
       this.ui.healthHearts.replaceChildren();
@@ -2699,6 +3183,7 @@ export class Game {
     this.renderProjectiles(context);
     this.renderGrenades(context);
     this.renderDamageZones(context);
+    this.renderTurrets(context);
     this.renderEnemies(context);
     this.renderPlayer(context);
     this.renderEffects(context);
@@ -2880,14 +3365,41 @@ export class Game {
   renderDamageZones(context) {
     for (const zone of this.damageZones) {
       const progress = 1 - zone.life / zone.maxLife;
+      const isEnemyZone = zone.owner === "enemy";
       context.save();
       context.globalAlpha = 0.2 + Math.sin(this.backgroundTime * 12) * 0.04;
-      context.fillStyle = "rgba(239, 68, 68, 0.34)";
-      context.strokeStyle = "rgba(254, 202, 202, 0.42)";
+      context.fillStyle = isEnemyZone ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.34)";
+      context.strokeStyle = isEnemyZone ? "rgba(187, 247, 208, 0.44)" : "rgba(254, 202, 202, 0.42)";
       context.lineWidth = 2;
       context.beginPath();
       context.arc(zone.x, zone.y, zone.radius * (0.94 + progress * 0.08), 0, Math.PI * 2);
       context.fill();
+      context.stroke();
+      context.restore();
+    }
+  }
+
+  renderTurrets(context) {
+    for (const turret of this.turrets) {
+      const lifeRatio = clamp(turret.life / turret.maxLife, 0, 1);
+      context.save();
+      context.translate(turret.x, turret.y);
+      context.shadowBlur = 18;
+      context.shadowColor = "rgba(52, 211, 153, 0.72)";
+      context.fillStyle = "rgba(6, 78, 59, 0.92)";
+      roundRectPath(context, -turret.radius, -turret.radius, turret.radius * 2, turret.radius * 2, 7);
+      context.fill();
+      context.strokeStyle = "#86efac";
+      context.lineWidth = 3;
+      context.stroke();
+      context.fillStyle = "#bbf7d0";
+      context.beginPath();
+      context.arc(0, 0, 6, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = "rgba(187, 247, 208, 0.35)";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(0, 0, turret.range * 0.18 * lifeRatio, 0, Math.PI * 2);
       context.stroke();
       context.restore();
     }
@@ -2955,6 +3467,38 @@ export class Game {
         context.beginPath();
         context.arc(0, 0, enemy.radius * 0.24, 0, Math.PI * 2);
         context.fill();
+      } else if (enemy.typeId === "acid-spitter") {
+        context.fillStyle = bodyColor;
+        context.beginPath();
+        context.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.fillStyle = accentColor;
+        context.beginPath();
+        context.arc(enemy.radius * 0.32, 0, enemy.radius * 0.34, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = "#bbf7d0";
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(-enemy.radius * 0.45, -enemy.radius * 0.38);
+        context.lineTo(enemy.radius * 0.42, enemy.radius * 0.38);
+        context.stroke();
+      } else if (enemy.typeId === "tank") {
+        roundRectPath(context, -enemy.radius, -enemy.radius, enemy.radius * 2, enemy.radius * 2, 8);
+        context.fillStyle = bodyColor;
+        context.fill();
+        context.stroke();
+        context.fillStyle = accentColor;
+        roundRectPath(context, -enemy.radius * 0.68, -enemy.radius * 0.28, enemy.radius * 1.36, enemy.radius * 0.56, 5);
+        context.fill();
+        context.strokeStyle = "rgba(248, 250, 252, 0.42)";
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(-enemy.radius * 0.5, -enemy.radius * 0.5);
+        context.lineTo(enemy.radius * 0.5, enemy.radius * 0.5);
+        context.moveTo(enemy.radius * 0.5, -enemy.radius * 0.5);
+        context.lineTo(-enemy.radius * 0.5, enemy.radius * 0.5);
+        context.stroke();
       } else {
         if (enemy.state === "windup") {
           context.strokeStyle = "rgba(251, 191, 36, 0.84)";
@@ -3016,19 +3560,21 @@ export class Game {
     }
 
     const aim = this.getAimDirection();
+    const character = getCharacterById(this.player.characterId);
     context.save();
     context.translate(this.player.x, this.player.y);
     if (this.player.invulnerabilityRemaining > 0) {
       context.globalAlpha = 0.72 + Math.sin(this.backgroundTime * 18) * 0.14;
     }
     const isKatana = this.player.attackType === "melee";
+    const isEngineer = this.player.characterId === CHARACTER_IDS.engineer;
     context.shadowBlur = this.player.dashTimeRemaining > 0 ? 28 : 18;
-    context.shadowColor = isKatana ? "rgba(248, 113, 113, 0.8)" : "rgba(34, 211, 238, 0.8)";
-    context.fillStyle = isKatana ? "#f8fafc" : "#22d3ee";
+    context.shadowColor = isKatana ? "rgba(248, 113, 113, 0.8)" : isEngineer ? "rgba(52, 211, 153, 0.78)" : "rgba(34, 211, 238, 0.8)";
+    context.fillStyle = character.color;
     context.beginPath();
     context.arc(0, 0, this.player.radius, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = isKatana ? "#fecaca" : "#cffafe";
+    context.strokeStyle = isKatana ? "#fecaca" : isEngineer ? "#bbf7d0" : "#cffafe";
     context.lineWidth = 3;
     context.stroke();
     context.shadowBlur = 0;

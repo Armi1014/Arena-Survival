@@ -1,5 +1,5 @@
 import { DEFAULT_SONGS, SETTINGS_DEFAULTS, STORAGE_KEY } from "./data/constants.js";
-import { CHARACTER_IDS, KATANA_UNLOCK_BOSSES, isCharacterUnlocked } from "./data/characters.js";
+import { CHARACTER_IDS, ENGINEER_UNLOCK_KILLS, KATANA_UNLOCK_BOSSES, isCharacterUnlocked } from "./data/characters.js";
 import { BOSS_DEF, ENEMY_DEFS } from "./data/enemies.js";
 
 const AUDIO_DB_NAME = "bubble-blitz-forever-audio";
@@ -132,6 +132,7 @@ function getEmptySave() {
       grenadeUnlocked: false,
       grenadeEquipped: false,
       katanaUnlocked: false,
+      engineerUnlocked: false,
       selectedCharacterId: CHARACTER_IDS.gunner,
     },
     settings: { ...SETTINGS_DEFAULTS },
@@ -191,8 +192,11 @@ export function loadSave() {
     const stats = normalizeStats(parsed?.stats, parsed?.highScore);
     const grenadeUnlocked = Boolean(parsed?.progress?.grenadeUnlocked || stats.best.kills >= 250);
     const katanaUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.katana);
-    const selectedCharacterId =
-      parsed?.progress?.selectedCharacterId === CHARACTER_IDS.katana && katanaUnlocked ? CHARACTER_IDS.katana : CHARACTER_IDS.gunner;
+    const engineerUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.engineer);
+    const selectedCharacterId = [CHARACTER_IDS.katana, CHARACTER_IDS.engineer].includes(parsed?.progress?.selectedCharacterId) &&
+      isCharacterUnlocked({ ...parsed?.progress, katanaUnlocked, engineerUnlocked }, stats, parsed.progress.selectedCharacterId)
+      ? parsed.progress.selectedCharacterId
+      : CHARACTER_IDS.gunner;
     const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
     const adminSongs = Array.isArray(parsed?.music?.adminSongs) ? parsed.music.adminSongs.filter((song) => song?.id && song?.title) : [];
     const ownedSongIds = Array.isArray(parsed?.music?.ownedSongIds) ? parsed.music.ownedSongIds : [];
@@ -212,6 +216,7 @@ export function loadSave() {
         grenadeUnlocked,
         grenadeEquipped: Boolean(grenadeUnlocked && parsed?.progress?.grenadeEquipped),
         katanaUnlocked,
+        engineerUnlocked,
         selectedCharacterId,
       },
       settings: {
@@ -319,11 +324,25 @@ export function recordRun(save, run) {
       grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked || kills >= 250),
       grenadeEquipped: Boolean((save.progress?.grenadeUnlocked || kills >= 250) && save.progress?.grenadeEquipped),
       katanaUnlocked: Boolean(save.progress?.katanaUnlocked || stats.total.bosses + bosses >= KATANA_UNLOCK_BOSSES),
-      selectedCharacterId:
-        save.progress?.selectedCharacterId === CHARACTER_IDS.katana &&
-        (save.progress?.katanaUnlocked || stats.total.bosses + bosses >= KATANA_UNLOCK_BOSSES)
-          ? CHARACTER_IDS.katana
-          : CHARACTER_IDS.gunner,
+      engineerUnlocked: Boolean(save.progress?.engineerUnlocked || stats.total.kills + kills >= ENGINEER_UNLOCK_KILLS),
+      selectedCharacterId: isCharacterUnlocked(
+        {
+          ...(save.progress ?? {}),
+          katanaUnlocked: Boolean(save.progress?.katanaUnlocked || stats.total.bosses + bosses >= KATANA_UNLOCK_BOSSES),
+          engineerUnlocked: Boolean(save.progress?.engineerUnlocked || stats.total.kills + kills >= ENGINEER_UNLOCK_KILLS),
+        },
+        {
+          ...stats,
+          total: {
+            ...stats.total,
+            bosses: stats.total.bosses + bosses,
+            kills: stats.total.kills + kills,
+          },
+        },
+        save.progress?.selectedCharacterId,
+      )
+        ? save.progress.selectedCharacterId
+        : CHARACTER_IDS.gunner,
     },
     stats: {
       best: {
@@ -364,12 +383,15 @@ export function updateProgress(save, partialProgress) {
     grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked),
     grenadeEquipped: Boolean(save.progress?.grenadeUnlocked && save.progress?.grenadeEquipped),
     katanaUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.katana),
-    selectedCharacterId: save.progress?.selectedCharacterId === CHARACTER_IDS.katana ? CHARACTER_IDS.katana : CHARACTER_IDS.gunner,
+    engineerUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.engineer),
+    selectedCharacterId: isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId)
+      ? save.progress.selectedCharacterId
+      : CHARACTER_IDS.gunner,
     ...partialProgress,
   };
   nextProgress.grenadeEquipped = Boolean(nextProgress.grenadeUnlocked && nextProgress.grenadeEquipped);
   nextProgress.selectedCharacterId =
-    nextProgress.selectedCharacterId === CHARACTER_IDS.katana && nextProgress.katanaUnlocked ? CHARACTER_IDS.katana : CHARACTER_IDS.gunner;
+    isCharacterUnlocked(nextProgress, save.stats, nextProgress.selectedCharacterId) ? nextProgress.selectedCharacterId : CHARACTER_IDS.gunner;
   const next = {
     ...save,
     progress: nextProgress,
