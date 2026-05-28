@@ -83,6 +83,7 @@ const ENEMY_GUIDE_COPY = {
 };
 const ENEMY_GUIDE_DEFS = [...Object.values(ENEMY_DEFS), BOSS_DEF];
 const TRACKED_ENEMY_IDS = new Set(ENEMY_GUIDE_DEFS.map((definition) => definition.id));
+const BOSS_ATTACK_PHASES = ["charge", "volley", "burst", "summon"];
 
 const ENGINEER_TURRET = {
   deployCooldown: 8,
@@ -90,6 +91,15 @@ const ENGINEER_TURRET = {
   range: 360,
   fireCooldown: 0.55,
 };
+
+function createBossAttackQueue(previousPhase = "") {
+  const queue = shuffleInPlace([...BOSS_ATTACK_PHASES]);
+  if (previousPhase && queue[0] === previousPhase && queue.length > 1) {
+    const swapIndex = 1 + Math.floor(Math.random() * (queue.length - 1));
+    [queue[0], queue[swapIndex]] = [queue[swapIndex], queue[0]];
+  }
+  return queue;
+}
 
 const UPGRADE_ICONS = {
   "rapid-pop": "⚡",
@@ -1028,20 +1038,19 @@ export class Game {
       enemy.vx = direction.x * enemy.speed * 0.7 + Math.cos(this.backgroundTime + enemy.id) * 24;
       enemy.vy = direction.y * enemy.speed * 0.7 + Math.sin(this.backgroundTime + enemy.id * 0.5) * 24;
       if (enemy.phaseTimer <= 0) {
-        const phase = enemy.attackIndex % 4;
-        enemy.attackIndex += 1;
-        if (phase === 0) {
+        const phase = this.getNextBossAttackPhase(enemy);
+        if (phase === "charge") {
           enemy.state = "charge-windup";
           enemy.phaseTimer = 0.85;
           enemy.chargeDirection = direction;
           this.setBanner("Heavy unit charging.", 1.5);
-        } else if (phase === 1) {
+        } else if (phase === "volley") {
           enemy.state = "volley";
           enemy.phaseTimer = 1.5;
           enemy.volleyShotsRemaining = 4;
           enemy.volleyTimer = 0.05;
           this.setBanner("Targeted volley.", 1.3);
-        } else if (phase === 2) {
+        } else if (phase === "burst") {
           enemy.state = "burst";
           enemy.phaseTimer = 1.15;
           enemy.burstShotsRemaining = 3;
@@ -1128,6 +1137,15 @@ export class Game {
         enemy.phaseTimer = 2.3;
       }
     }
+  }
+
+  getNextBossAttackPhase(boss) {
+    if (!Array.isArray(boss.attackQueue) || boss.attackQueue.length === 0) {
+      boss.attackQueue = createBossAttackQueue(boss.lastAttackPhase);
+    }
+    const phase = boss.attackQueue.shift() ?? "charge";
+    boss.lastAttackPhase = phase;
+    return phase;
   }
 
   updateProjectiles(deltaSeconds) {
@@ -1556,6 +1574,10 @@ export class Game {
       const selected = selectedId === character.id;
       const card = document.createElement("div");
       card.className = `character-row${selected ? " selected" : ""}${unlocked ? "" : " locked"}`;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-disabled", selected ? "true" : "false");
+      card.setAttribute("aria-label", `${character.name}. ${selected ? "Selected" : unlocked ? "Select character" : "Locked"}.`);
       const body = document.createElement("div");
       const requirement =
         character.id === CHARACTER_IDS.katana
@@ -1572,8 +1594,25 @@ export class Game {
       button.type = "button";
       button.className = selected ? "ghost-button" : "primary-button";
       button.textContent = selected ? "Selected" : unlocked ? "Select" : "Locked";
-      button.disabled = selected || !unlocked;
-      button.addEventListener("click", () => this.selectCharacter(character.id));
+      button.disabled = selected;
+      button.setAttribute("aria-disabled", !unlocked || selected ? "true" : "false");
+      const handleSelect = () => {
+        if (selected) {
+          return;
+        }
+        this.selectCharacter(character.id);
+      };
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handleSelect();
+      });
+      card.addEventListener("click", handleSelect);
+      card.addEventListener("keydown", (event) => {
+        if (event.code === "Enter" || event.code === "Space") {
+          event.preventDefault();
+          handleSelect();
+        }
+      });
       card.replaceChildren(body, button);
       return card;
     });
@@ -1709,7 +1748,7 @@ export class Game {
       return;
     }
     const enabled = Boolean(this.save.settings?.adminModeEnabled);
-    this.ui.adminModeButton.textContent = this.adminUnlocked ? `Admin Mode: ${enabled ? "On" : "Off"}` : "Unlock Admin";
+    this.ui.adminModeButton.textContent = this.adminUnlocked ? `Admin Mode: ${enabled ? "On" : "Off"}` : "Unlock in Admin Tools";
     this.ui.adminModeButton.setAttribute("aria-pressed", this.adminUnlocked && enabled ? "true" : "false");
   }
 
@@ -1717,8 +1756,26 @@ export class Game {
     if (!this.ui.adminGamePanel) {
       return;
     }
-    const showPanel = Boolean(this.adminUnlocked && this.save.settings?.adminModeEnabled && this.run && this.player && this.mode === "playing");
+    const modeEnabled = Boolean(this.save.settings?.adminModeEnabled);
+    const isPlayingRun = Boolean(this.run && this.player && this.mode === "playing");
+    const showPanel = Boolean(modeEnabled && isPlayingRun);
+    const canUseTools = Boolean(showPanel && this.adminUnlocked);
     this.ui.adminGamePanel.hidden = !showPanel;
+    this.ui.adminGamePanel.dataset.locked = showPanel && !this.adminUnlocked ? "true" : "false";
+    if (this.ui.adminGameStatus) {
+      this.ui.adminGameStatus.textContent = canUseTools ? "Admin Tools" : "Admin locked";
+    }
+    for (const button of [
+      this.ui.adminHealButton,
+      this.ui.adminLevelButton,
+      this.ui.adminGoldRunButton,
+      this.ui.adminClearEnemiesButton,
+      this.ui.adminSpawnBossButton,
+    ]) {
+      if (button) {
+        button.disabled = !canUseTools;
+      }
+    }
   }
 
   canUseRunAdminTools() {
@@ -1747,6 +1804,21 @@ export class Game {
     this.renderSongShop();
     this.renderAdminPanel();
     this.updateHud();
+  }
+
+  adminUnlockAllCharacters() {
+    if (!this.adminUnlocked) {
+      return;
+    }
+    this.save = updateProgress(this.save, {
+      katanaUnlocked: true,
+      engineerUnlocked: true,
+    });
+    this.renderCharacterMenu();
+    this.renderQuestMenu();
+    this.renderAdminPanel();
+    this.showToast("All characters unlocked");
+    this.announce("All characters unlocked.");
   }
 
   adminForceLevelUp() {
@@ -1943,6 +2015,12 @@ export class Game {
     }
     if (this.ui.adminGoldInput) {
       this.ui.adminGoldInput.value = Math.max(0, this.save.wallet?.gold ?? 0).toString();
+    }
+    if (this.ui.adminUnlockCharactersButton) {
+      const allCharactersUnlocked = isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana) &&
+        isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer);
+      this.ui.adminUnlockCharactersButton.textContent = allCharactersUnlocked ? "All Characters Unlocked" : "Unlock All Characters";
+      this.ui.adminUnlockCharactersButton.disabled = allCharactersUnlocked;
     }
     if (!this.ui.adminSongList) {
       return;
@@ -2494,7 +2572,8 @@ export class Game {
       squish: 0,
       state: "roam",
       phaseTimer: 2.2,
-      attackIndex: 0,
+      attackQueue: createBossAttackQueue(),
+      lastAttackPhase: "",
       chargeDirection: { x: 0, y: 0 },
       chargeSpeed: 560 + cycleIndex * 20,
       cycleIndex,

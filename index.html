@@ -88,6 +88,7 @@
             <div id="boss-banner" class="boss-banner" hidden></div>
 
             <div id="admin-game-panel" class="admin-game-panel" aria-label="In-game admin controls" hidden>
+              <span id="admin-game-status" class="admin-game-status">Admin Tools</span>
               <button id="admin-heal-button" class="ghost-button" type="button">Heal</button>
               <button id="admin-level-button" class="ghost-button" type="button">Level Up</button>
               <button id="admin-gold-run-button" class="ghost-button" type="button">+100 Gold</button>
@@ -151,35 +152,27 @@
                 <div class="menu-hub-panel">
                   <div class="menu-tabs" role="tablist" aria-label="Main menu sections">
                     <button id="menu-tab-play" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-play" aria-selected="true" data-menu-tab="play">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9658;</span>
                       <span class="menu-tab-label">Play</span>
                     </button>
                     <button id="menu-tab-quests" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-quests" aria-selected="false" data-menu-tab="quests">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9873;</span>
                       <span class="menu-tab-label">Quests</span>
                     </button>
                     <button id="menu-tab-characters" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-characters" aria-selected="false" data-menu-tab="characters">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9673;</span>
                       <span class="menu-tab-label">Characters</span>
                     </button>
                     <button id="menu-tab-guide" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-guide" aria-selected="false" data-menu-tab="guide">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9776;</span>
                       <span class="menu-tab-label">Wiki</span>
                     </button>
                     <button id="menu-tab-shop" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-shop" aria-selected="false" data-menu-tab="shop">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9835;</span>
                       <span class="menu-tab-label">Shop</span>
                     </button>
                     <button id="menu-tab-stats" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-stats" aria-selected="false" data-menu-tab="stats">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9636;</span>
                       <span class="menu-tab-label">Stats</span>
                     </button>
                     <button id="menu-tab-controls" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-controls" aria-selected="false" data-menu-tab="controls">
-                      <span class="menu-tab-icon" aria-hidden="true">&#10010;</span>
                       <span class="menu-tab-label">Controls</span>
                     </button>
                     <button id="menu-tab-settings" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-settings" aria-selected="false" data-menu-tab="settings">
-                      <span class="menu-tab-icon" aria-hidden="true">&#9881;</span>
                       <span class="menu-tab-label">Settings</span>
                     </button>
                   </div>
@@ -461,6 +454,13 @@
                             <span>Set the local save's gold amount.</span>
                           </div>
                           <input id="admin-gold-input" class="text-input" type="number" min="0" step="1" />
+                        </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Character Admin</strong>
+                            <span>Unlock every playable character in this browser save.</span>
+                          </div>
+                          <button id="admin-unlock-characters-button" class="ghost-button" type="button">Unlock All Characters</button>
                         </div>
                         <div class="settings-row">
                           <div>

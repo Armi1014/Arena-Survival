@@ -1451,6 +1451,7 @@ const ENEMY_GUIDE_COPY = {
 };
 const ENEMY_GUIDE_DEFS = [...Object.values(ENEMY_DEFS), BOSS_DEF];
 const TRACKED_ENEMY_IDS = new Set(ENEMY_GUIDE_DEFS.map((definition) => definition.id));
+const BOSS_ATTACK_PHASES = ["charge", "volley", "burst", "summon"];
 
 const ENGINEER_TURRET = {
   deployCooldown: 8,
@@ -1458,6 +1459,15 @@ const ENGINEER_TURRET = {
   range: 360,
   fireCooldown: 0.55,
 };
+
+function createBossAttackQueue(previousPhase = "") {
+  const queue = shuffleInPlace([...BOSS_ATTACK_PHASES]);
+  if (previousPhase && queue[0] === previousPhase && queue.length > 1) {
+    const swapIndex = 1 + Math.floor(Math.random() * (queue.length - 1));
+    [queue[0], queue[swapIndex]] = [queue[swapIndex], queue[0]];
+  }
+  return queue;
+}
 
 const UPGRADE_ICONS = {
   "rapid-pop": "⚡",
@@ -2396,20 +2406,19 @@ class Game {
       enemy.vx = direction.x * enemy.speed * 0.7 + Math.cos(this.backgroundTime + enemy.id) * 24;
       enemy.vy = direction.y * enemy.speed * 0.7 + Math.sin(this.backgroundTime + enemy.id * 0.5) * 24;
       if (enemy.phaseTimer <= 0) {
-        const phase = enemy.attackIndex % 4;
-        enemy.attackIndex += 1;
-        if (phase === 0) {
+        const phase = this.getNextBossAttackPhase(enemy);
+        if (phase === "charge") {
           enemy.state = "charge-windup";
           enemy.phaseTimer = 0.85;
           enemy.chargeDirection = direction;
           this.setBanner("Heavy unit charging.", 1.5);
-        } else if (phase === 1) {
+        } else if (phase === "volley") {
           enemy.state = "volley";
           enemy.phaseTimer = 1.5;
           enemy.volleyShotsRemaining = 4;
           enemy.volleyTimer = 0.05;
           this.setBanner("Targeted volley.", 1.3);
-        } else if (phase === 2) {
+        } else if (phase === "burst") {
           enemy.state = "burst";
           enemy.phaseTimer = 1.15;
           enemy.burstShotsRemaining = 3;
@@ -2496,6 +2505,15 @@ class Game {
         enemy.phaseTimer = 2.3;
       }
     }
+  }
+
+  getNextBossAttackPhase(boss) {
+    if (!Array.isArray(boss.attackQueue) || boss.attackQueue.length === 0) {
+      boss.attackQueue = createBossAttackQueue(boss.lastAttackPhase);
+    }
+    const phase = boss.attackQueue.shift() ?? "charge";
+    boss.lastAttackPhase = phase;
+    return phase;
   }
 
   updateProjectiles(deltaSeconds) {
@@ -2924,6 +2942,10 @@ class Game {
       const selected = selectedId === character.id;
       const card = document.createElement("div");
       card.className = `character-row${selected ? " selected" : ""}${unlocked ? "" : " locked"}`;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-disabled", selected ? "true" : "false");
+      card.setAttribute("aria-label", `${character.name}. ${selected ? "Selected" : unlocked ? "Select character" : "Locked"}.`);
       const body = document.createElement("div");
       const requirement =
         character.id === CHARACTER_IDS.katana
@@ -2940,8 +2962,25 @@ class Game {
       button.type = "button";
       button.className = selected ? "ghost-button" : "primary-button";
       button.textContent = selected ? "Selected" : unlocked ? "Select" : "Locked";
-      button.disabled = selected || !unlocked;
-      button.addEventListener("click", () => this.selectCharacter(character.id));
+      button.disabled = selected;
+      button.setAttribute("aria-disabled", !unlocked || selected ? "true" : "false");
+      const handleSelect = () => {
+        if (selected) {
+          return;
+        }
+        this.selectCharacter(character.id);
+      };
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handleSelect();
+      });
+      card.addEventListener("click", handleSelect);
+      card.addEventListener("keydown", (event) => {
+        if (event.code === "Enter" || event.code === "Space") {
+          event.preventDefault();
+          handleSelect();
+        }
+      });
       card.replaceChildren(body, button);
       return card;
     });
@@ -3077,7 +3116,7 @@ class Game {
       return;
     }
     const enabled = Boolean(this.save.settings?.adminModeEnabled);
-    this.ui.adminModeButton.textContent = this.adminUnlocked ? `Admin Mode: ${enabled ? "On" : "Off"}` : "Unlock Admin";
+    this.ui.adminModeButton.textContent = this.adminUnlocked ? `Admin Mode: ${enabled ? "On" : "Off"}` : "Unlock in Admin Tools";
     this.ui.adminModeButton.setAttribute("aria-pressed", this.adminUnlocked && enabled ? "true" : "false");
   }
 
@@ -3085,8 +3124,26 @@ class Game {
     if (!this.ui.adminGamePanel) {
       return;
     }
-    const showPanel = Boolean(this.adminUnlocked && this.save.settings?.adminModeEnabled && this.run && this.player && this.mode === "playing");
+    const modeEnabled = Boolean(this.save.settings?.adminModeEnabled);
+    const isPlayingRun = Boolean(this.run && this.player && this.mode === "playing");
+    const showPanel = Boolean(modeEnabled && isPlayingRun);
+    const canUseTools = Boolean(showPanel && this.adminUnlocked);
     this.ui.adminGamePanel.hidden = !showPanel;
+    this.ui.adminGamePanel.dataset.locked = showPanel && !this.adminUnlocked ? "true" : "false";
+    if (this.ui.adminGameStatus) {
+      this.ui.adminGameStatus.textContent = canUseTools ? "Admin Tools" : "Admin locked";
+    }
+    for (const button of [
+      this.ui.adminHealButton,
+      this.ui.adminLevelButton,
+      this.ui.adminGoldRunButton,
+      this.ui.adminClearEnemiesButton,
+      this.ui.adminSpawnBossButton,
+    ]) {
+      if (button) {
+        button.disabled = !canUseTools;
+      }
+    }
   }
 
   canUseRunAdminTools() {
@@ -3115,6 +3172,21 @@ class Game {
     this.renderSongShop();
     this.renderAdminPanel();
     this.updateHud();
+  }
+
+  adminUnlockAllCharacters() {
+    if (!this.adminUnlocked) {
+      return;
+    }
+    this.save = updateProgress(this.save, {
+      katanaUnlocked: true,
+      engineerUnlocked: true,
+    });
+    this.renderCharacterMenu();
+    this.renderQuestMenu();
+    this.renderAdminPanel();
+    this.showToast("All characters unlocked");
+    this.announce("All characters unlocked.");
   }
 
   adminForceLevelUp() {
@@ -3311,6 +3383,12 @@ class Game {
     }
     if (this.ui.adminGoldInput) {
       this.ui.adminGoldInput.value = Math.max(0, this.save.wallet?.gold ?? 0).toString();
+    }
+    if (this.ui.adminUnlockCharactersButton) {
+      const allCharactersUnlocked = isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana) &&
+        isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer);
+      this.ui.adminUnlockCharactersButton.textContent = allCharactersUnlocked ? "All Characters Unlocked" : "Unlock All Characters";
+      this.ui.adminUnlockCharactersButton.disabled = allCharactersUnlocked;
     }
     if (!this.ui.adminSongList) {
       return;
@@ -3862,7 +3940,8 @@ class Game {
       squish: 0,
       state: "roam",
       phaseTimer: 2.2,
-      attackIndex: 0,
+      attackQueue: createBossAttackQueue(),
+      lastAttackPhase: "",
       chargeDirection: { x: 0, y: 0 },
       chargeSpeed: 560 + cycleIndex * 20,
       cycleIndex,
@@ -5104,10 +5183,12 @@ const ui = {
   adminSongPrice: document.querySelector("#admin-song-price"),
   adminSongFile: document.querySelector("#admin-song-file"),
   adminAddSongButton: document.querySelector("#admin-add-song-button"),
+  adminUnlockCharactersButton: document.querySelector("#admin-unlock-characters-button"),
   adminUnlockAllSongsButton: document.querySelector("#admin-unlock-all-songs-button"),
   adminClearCustomSongsButton: document.querySelector("#admin-clear-custom-songs-button"),
   adminSongList: document.querySelector("#admin-song-list"),
   adminGamePanel: document.querySelector("#admin-game-panel"),
+  adminGameStatus: document.querySelector("#admin-game-status"),
   adminHealButton: document.querySelector("#admin-heal-button"),
   adminLevelButton: document.querySelector("#admin-level-button"),
   adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
@@ -5182,6 +5263,7 @@ ui.adminPasswordInput?.addEventListener("keydown", (event) => {
 });
 ui.adminGoldInput?.addEventListener("change", () => game.setAdminGold(Number(ui.adminGoldInput.value)));
 ui.adminAddSongButton?.addEventListener("click", () => game.addAdminSongFromForm());
+ui.adminUnlockCharactersButton?.addEventListener("click", () => game.adminUnlockAllCharacters());
 ui.adminUnlockAllSongsButton?.addEventListener("click", () => game.adminUnlockAllSongs());
 ui.adminClearCustomSongsButton?.addEventListener("click", () => game.adminClearCustomSongs());
 ui.adminHealButton?.addEventListener("click", () => game.adminHealPlayer());
@@ -5266,8 +5348,13 @@ async function runSelfTest() {
     bossSpawn: false,
     engineerUnlock: false,
     engineerTurret: false,
+    characterMenuSelection: false,
     acidSpitterProjectile: false,
     tankEnemy: false,
+    adminGamePanel: false,
+    adminManualBoss: false,
+    adminUnlockAllCharacters: false,
+    bossRandomAttackBag: false,
     bossHomingShots: false,
     bossSummonSentinels: false,
     sentinelDashAttack: false,
@@ -5308,11 +5395,14 @@ async function runSelfTest() {
   game.startRun();
   const previousEngineerProgress = { ...game.save.progress };
   const previousTotalKills = game.save.stats.total.kills;
+  const previousTotalBosses = game.save.stats.total.bosses;
   game.save.progress = {
     ...game.save.progress,
+    katanaUnlocked: true,
     engineerUnlocked: true,
     selectedCharacterId: "engineer",
   };
+  game.save.stats.total.bosses = Math.max(game.save.stats.total.bosses, 3);
   results.engineerUnlock = game.getSelectedCharacter().id === "engineer";
   game.startRun();
   game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
@@ -5320,8 +5410,14 @@ async function runSelfTest() {
   game.stepManual(0.8);
   const engineerSnapshot = game.getDebugSnapshot();
   results.engineerTurret = engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
+  game.renderCharacterMenu();
+  [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Katana"))?.click();
+  const selectedKatanaFromMenu = game.getSelectedCharacter().id === "katana";
+  [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Engineer"))?.click();
+  results.characterMenuSelection = selectedKatanaFromMenu && game.getSelectedCharacter().id === "engineer";
   game.save.progress = previousEngineerProgress;
   game.save.stats.total.kills = previousTotalKills;
+  game.save.stats.total.bosses = previousTotalBosses;
 
   game.startRun();
   game.spawnEnemy("acid-spitter", 1, { x: game.player.x + 260, y: game.player.y });
@@ -5336,9 +5432,33 @@ async function runSelfTest() {
   game.stepManual(0.1);
   results.tankEnemy = tank.typeId === "tank" && tank.maxHp >= 38 && tank.vx < 0;
 
+  const previousAdminUnlocked = game.adminUnlocked;
+  const previousAdminModeEnabled = game.save.settings.adminModeEnabled;
+  game.adminUnlocked = false;
+  game.save.settings.adminModeEnabled = true;
+  game.startRun();
+  const adminPanel = document.querySelector("#admin-game-panel");
+  const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
+  const lockedAdminPanelVisible = Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "true" && adminSpawnButton?.disabled);
+  game.adminUnlocked = true;
+  game.updateAdminModeUi();
+  game.adminSpawnBoss();
+  results.adminGamePanel = lockedAdminPanelVisible && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
+  results.adminManualBoss = game.getDebugSnapshot().bossCount === 1;
+  game.save.progress = { ...previousEngineerProgress, katanaUnlocked: false, engineerUnlocked: false, selectedCharacterId: "gunner" };
+  game.adminUnlockAllCharacters();
+  results.adminUnlockAllCharacters = Boolean(game.save.progress.katanaUnlocked && game.save.progress.engineerUnlocked);
+  game.adminUnlocked = previousAdminUnlocked;
+  game.save.settings.adminModeEnabled = previousAdminModeEnabled;
+
   game.startRun();
   game.spawnBoss(0);
   const boss = game.enemies.find((enemy) => enemy.isBoss);
+  const bossAttackProbe = Array.from({ length: 8 }, () => game.getNextBossAttackPhase(boss));
+  const bossPhases = ["charge", "volley", "burst", "summon"];
+  results.bossRandomAttackBag =
+    bossPhases.every((phase) => bossAttackProbe.slice(0, 4).includes(phase)) &&
+    bossPhases.every((phase) => bossAttackProbe.slice(4, 8).includes(phase));
   boss.chargeDirection = { x: -1, y: 0 };
   game.enemyProjectiles = [];
   game.fireBossChargeShots(boss);

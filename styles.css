@@ -407,6 +407,26 @@ body {
   font-weight: 900;
 }
 
+.admin-game-status {
+  align-self: center;
+  padding: 0 4px;
+  color: #fef3c7;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-game-panel[data-locked="true"] {
+  border-color: rgba(251, 113, 133, 0.42);
+  background:
+    linear-gradient(135deg, rgba(251, 113, 133, 0.16), rgba(15, 23, 42, 0.08)),
+    rgba(5, 10, 22, 0.9);
+}
+
+.admin-game-panel[data-locked="true"] .admin-game-status {
+  color: #fecdd3;
+}
+
 .screen {
   position: absolute;
   inset: 0;
@@ -1057,6 +1077,19 @@ body {
 
 .character-row.locked {
   opacity: 0.72;
+}
+
+.character-row[role="button"] {
+  cursor: pointer;
+}
+
+.character-row[role="button"]:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline-offset: 2px;
+}
+
+.character-row.locked button {
+  opacity: 0.78;
 }
 
 .quest-badge {

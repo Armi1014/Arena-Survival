@@ -62,10 +62,12 @@ const ui = {
   adminSongPrice: document.querySelector("#admin-song-price"),
   adminSongFile: document.querySelector("#admin-song-file"),
   adminAddSongButton: document.querySelector("#admin-add-song-button"),
+  adminUnlockCharactersButton: document.querySelector("#admin-unlock-characters-button"),
   adminUnlockAllSongsButton: document.querySelector("#admin-unlock-all-songs-button"),
   adminClearCustomSongsButton: document.querySelector("#admin-clear-custom-songs-button"),
   adminSongList: document.querySelector("#admin-song-list"),
   adminGamePanel: document.querySelector("#admin-game-panel"),
+  adminGameStatus: document.querySelector("#admin-game-status"),
   adminHealButton: document.querySelector("#admin-heal-button"),
   adminLevelButton: document.querySelector("#admin-level-button"),
   adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
@@ -140,6 +142,7 @@ ui.adminPasswordInput?.addEventListener("keydown", (event) => {
 });
 ui.adminGoldInput?.addEventListener("change", () => game.setAdminGold(Number(ui.adminGoldInput.value)));
 ui.adminAddSongButton?.addEventListener("click", () => game.addAdminSongFromForm());
+ui.adminUnlockCharactersButton?.addEventListener("click", () => game.adminUnlockAllCharacters());
 ui.adminUnlockAllSongsButton?.addEventListener("click", () => game.adminUnlockAllSongs());
 ui.adminClearCustomSongsButton?.addEventListener("click", () => game.adminClearCustomSongs());
 ui.adminHealButton?.addEventListener("click", () => game.adminHealPlayer());
@@ -224,8 +227,13 @@ async function runSelfTest() {
     bossSpawn: false,
     engineerUnlock: false,
     engineerTurret: false,
+    characterMenuSelection: false,
     acidSpitterProjectile: false,
     tankEnemy: false,
+    adminGamePanel: false,
+    adminManualBoss: false,
+    adminUnlockAllCharacters: false,
+    bossRandomAttackBag: false,
     bossHomingShots: false,
     bossSummonSentinels: false,
     sentinelDashAttack: false,
@@ -266,11 +274,14 @@ async function runSelfTest() {
   game.startRun();
   const previousEngineerProgress = { ...game.save.progress };
   const previousTotalKills = game.save.stats.total.kills;
+  const previousTotalBosses = game.save.stats.total.bosses;
   game.save.progress = {
     ...game.save.progress,
+    katanaUnlocked: true,
     engineerUnlocked: true,
     selectedCharacterId: "engineer",
   };
+  game.save.stats.total.bosses = Math.max(game.save.stats.total.bosses, 3);
   results.engineerUnlock = game.getSelectedCharacter().id === "engineer";
   game.startRun();
   game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
@@ -278,8 +289,14 @@ async function runSelfTest() {
   game.stepManual(0.8);
   const engineerSnapshot = game.getDebugSnapshot();
   results.engineerTurret = engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
+  game.renderCharacterMenu();
+  [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Katana"))?.click();
+  const selectedKatanaFromMenu = game.getSelectedCharacter().id === "katana";
+  [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Engineer"))?.click();
+  results.characterMenuSelection = selectedKatanaFromMenu && game.getSelectedCharacter().id === "engineer";
   game.save.progress = previousEngineerProgress;
   game.save.stats.total.kills = previousTotalKills;
+  game.save.stats.total.bosses = previousTotalBosses;
 
   game.startRun();
   game.spawnEnemy("acid-spitter", 1, { x: game.player.x + 260, y: game.player.y });
@@ -294,9 +311,33 @@ async function runSelfTest() {
   game.stepManual(0.1);
   results.tankEnemy = tank.typeId === "tank" && tank.maxHp >= 38 && tank.vx < 0;
 
+  const previousAdminUnlocked = game.adminUnlocked;
+  const previousAdminModeEnabled = game.save.settings.adminModeEnabled;
+  game.adminUnlocked = false;
+  game.save.settings.adminModeEnabled = true;
+  game.startRun();
+  const adminPanel = document.querySelector("#admin-game-panel");
+  const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
+  const lockedAdminPanelVisible = Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "true" && adminSpawnButton?.disabled);
+  game.adminUnlocked = true;
+  game.updateAdminModeUi();
+  game.adminSpawnBoss();
+  results.adminGamePanel = lockedAdminPanelVisible && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
+  results.adminManualBoss = game.getDebugSnapshot().bossCount === 1;
+  game.save.progress = { ...previousEngineerProgress, katanaUnlocked: false, engineerUnlocked: false, selectedCharacterId: "gunner" };
+  game.adminUnlockAllCharacters();
+  results.adminUnlockAllCharacters = Boolean(game.save.progress.katanaUnlocked && game.save.progress.engineerUnlocked);
+  game.adminUnlocked = previousAdminUnlocked;
+  game.save.settings.adminModeEnabled = previousAdminModeEnabled;
+
   game.startRun();
   game.spawnBoss(0);
   const boss = game.enemies.find((enemy) => enemy.isBoss);
+  const bossAttackProbe = Array.from({ length: 8 }, () => game.getNextBossAttackPhase(boss));
+  const bossPhases = ["charge", "volley", "burst", "summon"];
+  results.bossRandomAttackBag =
+    bossPhases.every((phase) => bossAttackProbe.slice(0, 4).includes(phase)) &&
+    bossPhases.every((phase) => bossAttackProbe.slice(4, 8).includes(phase));
   boss.chargeDirection = { x: -1, y: 0 };
   game.enemyProjectiles = [];
   game.fireBossChargeShots(boss);
