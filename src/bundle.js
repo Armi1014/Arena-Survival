@@ -1372,8 +1372,8 @@ class AudioSystem {
 }
 
 // src/online.js
-const LEADERBOARD_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
-const PLACEHOLDER_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
+const LEADERBOARD_API_BASE_URL = "https://arena-survival-leaderboard.onrender.com";
+const PLACEHOLDER_API_BASE_URL = "";
 const REQUEST_TIMEOUT_MS = 5000;
 
 function getApiBaseUrl() {
@@ -5842,15 +5842,17 @@ async function runSelfTest() {
   const scoreSubmitPanel = document.querySelector("#score-submit-panel");
   const scoreSubmitButton = document.querySelector("#submit-score-button");
   results.gameOverSubmitPanel =
-    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton?.disabled) &&
+    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton) &&
     game.getLastCompletedRunResult()?.score === 9999;
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
   game.setMenuTab("leaderboard");
+  const originalFetch = window.fetch;
+  window.fetch = () => Promise.reject(new Error("Self-test leaderboard offline"));
   await refreshLeaderboard();
+  window.fetch = originalFetch;
   results.leaderboardOfflinePanel =
-    !isOnlineLeaderboardEnabled() &&
-    document.querySelector("#leaderboard-status")?.textContent.includes("not configured") &&
+    document.querySelector("#leaderboard-status")?.textContent.includes("unavailable") &&
     Boolean(document.querySelector("#leaderboard-list"));
   game.selectCharacter("katana");
   game.startRun();

@@ -1,5 +1,5 @@
-const LEADERBOARD_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
-const PLACEHOLDER_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
+const LEADERBOARD_API_BASE_URL = "https://arena-survival-leaderboard.onrender.com";
+const PLACEHOLDER_API_BASE_URL = "";
 const REQUEST_TIMEOUT_MS = 5000;
 
 function getApiBaseUrl() {

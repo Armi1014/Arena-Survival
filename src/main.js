@@ -503,15 +503,17 @@ async function runSelfTest() {
   const scoreSubmitPanel = document.querySelector("#score-submit-panel");
   const scoreSubmitButton = document.querySelector("#submit-score-button");
   results.gameOverSubmitPanel =
-    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton?.disabled) &&
+    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton) &&
     game.getLastCompletedRunResult()?.score === 9999;
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
   game.setMenuTab("leaderboard");
+  const originalFetch = window.fetch;
+  window.fetch = () => Promise.reject(new Error("Self-test leaderboard offline"));
   await refreshLeaderboard();
+  window.fetch = originalFetch;
   results.leaderboardOfflinePanel =
-    !isOnlineLeaderboardEnabled() &&
-    document.querySelector("#leaderboard-status")?.textContent.includes("not configured") &&
+    document.querySelector("#leaderboard-status")?.textContent.includes("unavailable") &&
     Boolean(document.querySelector("#leaderboard-list"));
   game.selectCharacter("katana");
   game.startRun();
