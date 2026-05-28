@@ -567,7 +567,7 @@ body {
 
 .menu-tabs {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: 7px;
   padding: 10px;
   border-bottom: 1px solid rgba(125, 211, 252, 0.18);
@@ -1004,6 +1004,51 @@ body {
   gap: 10px;
 }
 
+.leaderboard-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 48px minmax(120px, 1.2fr) repeat(5, minmax(76px, 0.7fr));
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.leaderboard-row.header-row {
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.leaderboard-row strong {
+  color: var(--ink);
+}
+
+.leaderboard-empty {
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.66);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
 .shop-wallet {
   display: flex;
   justify-content: space-between;
@@ -1285,6 +1330,37 @@ button:disabled {
 #gameover-screen .primary-button,
 #gameover-screen .ghost-button {
   padding: 11px 14px;
+}
+
+.score-submit-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  align-items: end;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+}
+
+.score-submit-panel[hidden] {
+  display: none !important;
+}
+
+.score-submit-panel strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.score-submit-panel .screen-copy {
+  margin-top: 4px;
+}
+
+.score-submit-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .screen-copy {

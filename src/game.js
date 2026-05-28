@@ -65,6 +65,7 @@ const MENU_TAB_LABELS = {
   quests: "Quests",
   characters: "Characters",
   stats: "Stats",
+  leaderboard: "Leaderboard",
   guide: "Wiki",
   shop: "Shop",
   controls: "Controls",
@@ -250,6 +251,9 @@ export class Game {
     this.adminUnlocked = false;
     this.adminClearSongsPending = false;
     this.adminDeleteSongPendingId = "";
+    this.lastCompletedRunResult = null;
+    this.onlineLeaderboardEnabled = false;
+    this.onlineScoreSubmitted = false;
 
     this.run = null;
     this.player = null;
@@ -291,6 +295,7 @@ export class Game {
     this.updateGrenadeLobby();
     this.syncScreens();
     this.ui.runHighlights?.replaceChildren();
+    this.updateScoreSubmitPanel();
     this.updateHud();
     this.render();
     this.hydrateSongAudio();
@@ -510,6 +515,8 @@ export class Game {
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
+    this.lastCompletedRunResult = null;
+    this.onlineScoreSubmitted = false;
     this.pendingLevelUps = 0;
     this.upgradeChoices = [];
     this.spawnBudget = 0;
@@ -530,6 +537,7 @@ export class Game {
     this.hitSoundCooldown = 0;
     this.screenShake = 0;
     this.syncScreens();
+    this.updateScoreSubmitPanel();
     this.playSelectedMusic();
     this.updateHud();
     this.announce("Run started.");
@@ -557,9 +565,12 @@ export class Game {
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
+    this.lastCompletedRunResult = null;
+    this.onlineScoreSubmitted = false;
     this.updateGrenadeLobby();
     this.setMenuTab("play", false);
     this.syncScreens();
+    this.updateScoreSubmitPanel();
     this.updateHud();
     this.announce(savedProgress ? "Run progress saved. Returned to title." : "Returned to title.");
   }
@@ -1486,7 +1497,10 @@ export class Game {
     this.ui.finalTime.textContent = formatTime(this.run.elapsed);
     this.ui.finalKills.textContent = this.run.kills.toString();
     this.ui.finalBosses.textContent = this.run.bossKills.toString();
+    this.lastCompletedRunResult = this.buildLeaderboardRunResult();
+    this.onlineScoreSubmitted = false;
     this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer);
+    this.updateScoreSubmitPanel();
     this.updateGrenadeLobby();
     this.renderQuestMenu();
     this.renderCharacterMenu();
@@ -2203,6 +2217,130 @@ export class Game {
       return row;
     });
     this.ui.runHighlights.replaceChildren(...nodes);
+  }
+
+  buildLeaderboardRunResult() {
+    if (!this.run || !this.player) {
+      return null;
+    }
+    return {
+      score: Math.floor(Math.max(0, this.run.score)),
+      time: Math.max(0, this.run.elapsed),
+      kills: Math.floor(Math.max(0, this.run.kills)),
+      bosses: Math.floor(Math.max(0, this.run.bossKills)),
+      level: Math.floor(Math.max(1, this.run.level)),
+      character: this.player.characterId || CHARACTER_IDS.gunner,
+    };
+  }
+
+  getLastCompletedRunResult() {
+    return this.lastCompletedRunResult ? { ...this.lastCompletedRunResult } : null;
+  }
+
+  setOnlineLeaderboardEnabled(enabled) {
+    this.onlineLeaderboardEnabled = Boolean(enabled);
+    this.updateScoreSubmitPanel();
+  }
+
+  updateScoreSubmitPanel() {
+    if (!this.ui.scoreSubmitPanel) {
+      return;
+    }
+    const hasCompletedRun = Boolean(this.mode === "gameOver" && this.lastCompletedRunResult);
+    this.ui.scoreSubmitPanel.hidden = !hasCompletedRun;
+    if (!hasCompletedRun) {
+      return;
+    }
+
+    const canSubmit = Boolean(this.onlineLeaderboardEnabled && !this.onlineScoreSubmitted);
+    if (this.ui.leaderboardNameInput) {
+      this.ui.leaderboardNameInput.disabled = !canSubmit;
+    }
+    if (this.ui.submitScoreButton) {
+      this.ui.submitScoreButton.disabled = !canSubmit;
+      this.ui.submitScoreButton.textContent = this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+    }
+    if (this.ui.scoreSubmitStatus) {
+      this.ui.scoreSubmitStatus.textContent = this.onlineLeaderboardEnabled
+        ? this.onlineScoreSubmitted
+          ? "Score submitted."
+          : "Enter a name to submit this run."
+        : "Online leaderboard is not configured yet.";
+    }
+  }
+
+  setScoreSubmitStatus(text) {
+    if (this.ui.scoreSubmitStatus) {
+      this.ui.scoreSubmitStatus.textContent = text;
+    }
+  }
+
+  setScoreSubmitLoading(loading) {
+    const canSubmit = Boolean(this.onlineLeaderboardEnabled && this.lastCompletedRunResult && !this.onlineScoreSubmitted);
+    if (this.ui.leaderboardNameInput) {
+      this.ui.leaderboardNameInput.disabled = loading || !canSubmit;
+    }
+    if (this.ui.submitScoreButton) {
+      this.ui.submitScoreButton.disabled = loading || !canSubmit;
+      this.ui.submitScoreButton.textContent = loading ? "Submitting..." : this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+    }
+  }
+
+  markScoreSubmitted() {
+    this.onlineScoreSubmitted = true;
+    this.updateScoreSubmitPanel();
+  }
+
+  setLeaderboardStatus(text) {
+    if (this.ui.leaderboardStatus) {
+      this.ui.leaderboardStatus.textContent = text;
+    }
+  }
+
+  renderLeaderboardEntries(entries = []) {
+    if (!this.ui.leaderboardList) {
+      return;
+    }
+
+    const safeEntries = Array.isArray(entries) ? entries : [];
+    if (!safeEntries.length) {
+      const empty = document.createElement("div");
+      empty.className = "leaderboard-empty";
+      empty.textContent = "No online scores yet.";
+      this.ui.leaderboardList.replaceChildren(empty);
+      return;
+    }
+
+    const header = document.createElement("div");
+    header.className = "leaderboard-row header-row";
+    for (const label of ["#", "Name", "Score", "Time", "Kills", "Bosses", "Character"]) {
+      const cell = document.createElement("span");
+      cell.textContent = label;
+      header.append(cell);
+    }
+
+    const rows = safeEntries.slice(0, 20).map((entry, index) => {
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+      const rank = document.createElement("strong");
+      rank.textContent = `#${index + 1}`;
+      const name = document.createElement("strong");
+      name.textContent = String(entry.name ?? "Player").slice(0, 20);
+      const score = document.createElement("span");
+      score.textContent = formatWholeNumber(Math.max(0, Number(entry.score) || 0));
+      const time = document.createElement("span");
+      time.textContent = formatTime(Math.max(0, Number(entry.time) || 0));
+      const kills = document.createElement("span");
+      kills.textContent = formatWholeNumber(Math.max(0, Number(entry.kills) || 0));
+      const bosses = document.createElement("span");
+      bosses.textContent = formatWholeNumber(Math.max(0, Number(entry.bosses) || 0));
+      const character = document.createElement("span");
+      character.textContent = getCharacterById(entry.character).name;
+      row.replaceChildren(rank, name, score, time, kills, bosses, character);
+      return row;
+    });
+
+    this.ui.leaderboardList.replaceChildren(header, ...rows);
   }
 
   tryDash() {

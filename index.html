@@ -169,6 +169,9 @@
                     <button id="menu-tab-stats" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-stats" aria-selected="false" data-menu-tab="stats">
                       <span class="menu-tab-label">Stats</span>
                     </button>
+                    <button id="menu-tab-leaderboard" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-leaderboard" aria-selected="false" data-menu-tab="leaderboard">
+                      <span class="menu-tab-label">Leaderboard</span>
+                    </button>
                     <button id="menu-tab-controls" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-controls" aria-selected="false" data-menu-tab="controls">
                       <span class="menu-tab-label">Controls</span>
                     </button>
@@ -276,6 +279,18 @@
                           <strong data-stat="total-damage">0</strong>
                         </div>
                       </div>
+                    </section>
+
+                    <section id="menu-panel-leaderboard" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-leaderboard" data-menu-panel="leaderboard" hidden>
+                      <div class="leaderboard-heading">
+                        <div>
+                          <p class="eyebrow">Online Leaderboard</p>
+                          <h3>Top Runs</h3>
+                        </div>
+                        <button id="leaderboard-refresh-button" class="ghost-button" type="button">Refresh</button>
+                      </div>
+                      <p id="leaderboard-status" class="screen-copy" aria-live="polite">Online leaderboard is not configured yet.</p>
+                      <div id="leaderboard-list" class="leaderboard-list" aria-label="Online leaderboard"></div>
                     </section>
 
                     <section id="menu-panel-guide" class="menu-panel wiki-panel" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
@@ -566,6 +581,17 @@
                   </div>
                 </div>
                 <div id="run-highlights" class="run-highlights" aria-label="Run highlights"></div>
+                <div id="score-submit-panel" class="score-submit-panel" hidden>
+                  <div>
+                    <span class="panel-label">Online Leaderboard</span>
+                    <strong>Submit this run</strong>
+                    <p id="score-submit-status" class="screen-copy" aria-live="polite">Enter a name to submit this score.</p>
+                  </div>
+                  <div class="score-submit-controls">
+                    <input id="leaderboard-name-input" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Display name" />
+                    <button id="submit-score-button" class="primary-button" type="button">Submit Score</button>
+                  </div>
+                </div>
                 <div class="button-column">
                   <button id="restart-button" class="primary-button" type="button">Play Again</button>
                   <button id="gameover-help-button" class="ghost-button" type="button">Controls</button>

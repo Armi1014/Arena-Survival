@@ -1371,6 +1371,76 @@ class AudioSystem {
   }
 }
 
+// src/online.js
+const LEADERBOARD_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
+const PLACEHOLDER_API_BASE_URL = "https://YOUR-RENDER-APP.onrender.com";
+const REQUEST_TIMEOUT_MS = 5000;
+
+function getApiBaseUrl() {
+  return LEADERBOARD_API_BASE_URL.trim().replace(/\/+$/, "");
+}
+
+function isPlaceholderUrl(url) {
+  return !url || url === PLACEHOLDER_API_BASE_URL;
+}
+
+function normalizeEntries(payload) {
+  return Array.isArray(payload?.entries) ? payload.entries : [];
+}
+
+async function requestJson(path, options = {}) {
+  const baseUrl = getApiBaseUrl();
+  if (isPlaceholderUrl(baseUrl)) {
+    return { ok: false, disabled: true, entries: [] };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers ?? {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: payload?.error || "Leaderboard request failed.",
+        entries: normalizeEntries(payload),
+      };
+    }
+    return {
+      ok: true,
+      payload,
+      entries: normalizeEntries(payload),
+    };
+  } catch {
+    return { ok: false, offline: true, entries: [] };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function isOnlineLeaderboardEnabled() {
+  return !isPlaceholderUrl(getApiBaseUrl());
+}
+
+async function fetchLeaderboard() {
+  return requestJson("/leaderboard");
+}
+
+async function submitScore(runResult) {
+  return requestJson("/leaderboard/submit", {
+    method: "POST",
+    body: JSON.stringify(runResult),
+  });
+}
+
 // src/game.js
 function normalizeVector(x, y) {
   const length = Math.hypot(x, y);
@@ -1419,6 +1489,7 @@ const MENU_TAB_LABELS = {
   quests: "Quests",
   characters: "Characters",
   stats: "Stats",
+  leaderboard: "Leaderboard",
   guide: "Wiki",
   shop: "Shop",
   controls: "Controls",
@@ -1604,6 +1675,9 @@ class Game {
     this.adminUnlocked = false;
     this.adminClearSongsPending = false;
     this.adminDeleteSongPendingId = "";
+    this.lastCompletedRunResult = null;
+    this.onlineLeaderboardEnabled = false;
+    this.onlineScoreSubmitted = false;
 
     this.run = null;
     this.player = null;
@@ -1645,6 +1719,7 @@ class Game {
     this.updateGrenadeLobby();
     this.syncScreens();
     this.ui.runHighlights?.replaceChildren();
+    this.updateScoreSubmitPanel();
     this.updateHud();
     this.render();
     this.hydrateSongAudio();
@@ -1864,6 +1939,8 @@ class Game {
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
+    this.lastCompletedRunResult = null;
+    this.onlineScoreSubmitted = false;
     this.pendingLevelUps = 0;
     this.upgradeChoices = [];
     this.spawnBudget = 0;
@@ -1884,6 +1961,7 @@ class Game {
     this.hitSoundCooldown = 0;
     this.screenShake = 0;
     this.syncScreens();
+    this.updateScoreSubmitPanel();
     this.playSelectedMusic();
     this.updateHud();
     this.announce("Run started.");
@@ -1911,9 +1989,12 @@ class Game {
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
+    this.lastCompletedRunResult = null;
+    this.onlineScoreSubmitted = false;
     this.updateGrenadeLobby();
     this.setMenuTab("play", false);
     this.syncScreens();
+    this.updateScoreSubmitPanel();
     this.updateHud();
     this.announce(savedProgress ? "Run progress saved. Returned to title." : "Returned to title.");
   }
@@ -2840,7 +2921,10 @@ class Game {
     this.ui.finalTime.textContent = formatTime(this.run.elapsed);
     this.ui.finalKills.textContent = this.run.kills.toString();
     this.ui.finalBosses.textContent = this.run.bossKills.toString();
+    this.lastCompletedRunResult = this.buildLeaderboardRunResult();
+    this.onlineScoreSubmitted = false;
     this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer);
+    this.updateScoreSubmitPanel();
     this.updateGrenadeLobby();
     this.renderQuestMenu();
     this.renderCharacterMenu();
@@ -3557,6 +3641,130 @@ class Game {
       return row;
     });
     this.ui.runHighlights.replaceChildren(...nodes);
+  }
+
+  buildLeaderboardRunResult() {
+    if (!this.run || !this.player) {
+      return null;
+    }
+    return {
+      score: Math.floor(Math.max(0, this.run.score)),
+      time: Math.max(0, this.run.elapsed),
+      kills: Math.floor(Math.max(0, this.run.kills)),
+      bosses: Math.floor(Math.max(0, this.run.bossKills)),
+      level: Math.floor(Math.max(1, this.run.level)),
+      character: this.player.characterId || CHARACTER_IDS.gunner,
+    };
+  }
+
+  getLastCompletedRunResult() {
+    return this.lastCompletedRunResult ? { ...this.lastCompletedRunResult } : null;
+  }
+
+  setOnlineLeaderboardEnabled(enabled) {
+    this.onlineLeaderboardEnabled = Boolean(enabled);
+    this.updateScoreSubmitPanel();
+  }
+
+  updateScoreSubmitPanel() {
+    if (!this.ui.scoreSubmitPanel) {
+      return;
+    }
+    const hasCompletedRun = Boolean(this.mode === "gameOver" && this.lastCompletedRunResult);
+    this.ui.scoreSubmitPanel.hidden = !hasCompletedRun;
+    if (!hasCompletedRun) {
+      return;
+    }
+
+    const canSubmit = Boolean(this.onlineLeaderboardEnabled && !this.onlineScoreSubmitted);
+    if (this.ui.leaderboardNameInput) {
+      this.ui.leaderboardNameInput.disabled = !canSubmit;
+    }
+    if (this.ui.submitScoreButton) {
+      this.ui.submitScoreButton.disabled = !canSubmit;
+      this.ui.submitScoreButton.textContent = this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+    }
+    if (this.ui.scoreSubmitStatus) {
+      this.ui.scoreSubmitStatus.textContent = this.onlineLeaderboardEnabled
+        ? this.onlineScoreSubmitted
+          ? "Score submitted."
+          : "Enter a name to submit this run."
+        : "Online leaderboard is not configured yet.";
+    }
+  }
+
+  setScoreSubmitStatus(text) {
+    if (this.ui.scoreSubmitStatus) {
+      this.ui.scoreSubmitStatus.textContent = text;
+    }
+  }
+
+  setScoreSubmitLoading(loading) {
+    const canSubmit = Boolean(this.onlineLeaderboardEnabled && this.lastCompletedRunResult && !this.onlineScoreSubmitted);
+    if (this.ui.leaderboardNameInput) {
+      this.ui.leaderboardNameInput.disabled = loading || !canSubmit;
+    }
+    if (this.ui.submitScoreButton) {
+      this.ui.submitScoreButton.disabled = loading || !canSubmit;
+      this.ui.submitScoreButton.textContent = loading ? "Submitting..." : this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+    }
+  }
+
+  markScoreSubmitted() {
+    this.onlineScoreSubmitted = true;
+    this.updateScoreSubmitPanel();
+  }
+
+  setLeaderboardStatus(text) {
+    if (this.ui.leaderboardStatus) {
+      this.ui.leaderboardStatus.textContent = text;
+    }
+  }
+
+  renderLeaderboardEntries(entries = []) {
+    if (!this.ui.leaderboardList) {
+      return;
+    }
+
+    const safeEntries = Array.isArray(entries) ? entries : [];
+    if (!safeEntries.length) {
+      const empty = document.createElement("div");
+      empty.className = "leaderboard-empty";
+      empty.textContent = "No online scores yet.";
+      this.ui.leaderboardList.replaceChildren(empty);
+      return;
+    }
+
+    const header = document.createElement("div");
+    header.className = "leaderboard-row header-row";
+    for (const label of ["#", "Name", "Score", "Time", "Kills", "Bosses", "Character"]) {
+      const cell = document.createElement("span");
+      cell.textContent = label;
+      header.append(cell);
+    }
+
+    const rows = safeEntries.slice(0, 20).map((entry, index) => {
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+      const rank = document.createElement("strong");
+      rank.textContent = `#${index + 1}`;
+      const name = document.createElement("strong");
+      name.textContent = String(entry.name ?? "Player").slice(0, 20);
+      const score = document.createElement("span");
+      score.textContent = formatWholeNumber(Math.max(0, Number(entry.score) || 0));
+      const time = document.createElement("span");
+      time.textContent = formatTime(Math.max(0, Number(entry.time) || 0));
+      const kills = document.createElement("span");
+      kills.textContent = formatWholeNumber(Math.max(0, Number(entry.kills) || 0));
+      const bosses = document.createElement("span");
+      bosses.textContent = formatWholeNumber(Math.max(0, Number(entry.bosses) || 0));
+      const character = document.createElement("span");
+      character.textContent = getCharacterById(entry.character).name;
+      row.replaceChildren(rank, name, score, time, kills, bosses, character);
+      return row;
+    });
+
+    this.ui.leaderboardList.replaceChildren(header, ...rows);
   }
 
   tryDash() {
@@ -5134,6 +5342,7 @@ class Game {
 }
 
 // src/main.js
+const LEADERBOARD_NAME_STORAGE_KEY = "arena-survival-leaderboard-name";
 const save = loadSave();
 const audio = new AudioSystem(save.settings);
 
@@ -5167,6 +5376,10 @@ const ui = {
   finalKills: document.querySelector("#final-kills"),
   finalBosses: document.querySelector("#final-bosses"),
   runHighlights: document.querySelector("#run-highlights"),
+  scoreSubmitPanel: document.querySelector("#score-submit-panel"),
+  scoreSubmitStatus: document.querySelector("#score-submit-status"),
+  leaderboardNameInput: document.querySelector("#leaderboard-name-input"),
+  submitScoreButton: document.querySelector("#submit-score-button"),
   gameOverTitle: document.querySelector("#gameover-title"),
   soundButton: document.querySelector("#sound-button"),
   menuSoundButton: document.querySelector("#menu-sound-button"),
@@ -5205,6 +5418,9 @@ const ui = {
   adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
   adminClearEnemiesButton: document.querySelector("#admin-clear-enemies-button"),
   adminSpawnBossButton: document.querySelector("#admin-spawn-boss-button"),
+  leaderboardRefreshButton: document.querySelector("#leaderboard-refresh-button"),
+  leaderboardStatus: document.querySelector("#leaderboard-status"),
+  leaderboardList: document.querySelector("#leaderboard-list"),
   menuTabButtons: Array.from(document.querySelectorAll("[data-menu-tab]")),
   menuPanels: Array.from(document.querySelectorAll("[data-menu-panel]")),
   statFields: Array.from(document.querySelectorAll("[data-stat]")),
@@ -5222,6 +5438,116 @@ function unlockAudio() {
     // Headless validation does not provide a user gesture for Web Audio.
   });
 }
+
+function loadLeaderboardName() {
+  try {
+    return window.localStorage.getItem(LEADERBOARD_NAME_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLeaderboardName(name) {
+  try {
+    window.localStorage.setItem(LEADERBOARD_NAME_STORAGE_KEY, name);
+  } catch {
+    // Private browsing or storage-disabled browsers can still submit for this session.
+  }
+}
+
+function getLeaderboardStatus(result) {
+  if (result?.disabled) {
+    return "Online leaderboard is not configured yet.";
+  }
+  if (result?.offline) {
+    return "Online leaderboard is unavailable right now.";
+  }
+  return result?.error || "Leaderboard request failed.";
+}
+
+function initializeOnlineLeaderboardUi() {
+  const enabled = isOnlineLeaderboardEnabled();
+  game.setOnlineLeaderboardEnabled(enabled);
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = !enabled;
+  }
+  if (ui.leaderboardNameInput) {
+    ui.leaderboardNameInput.value = loadLeaderboardName();
+  }
+  if (!enabled) {
+    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
+    game.renderLeaderboardEntries([]);
+  } else {
+    game.setLeaderboardStatus("Press Refresh to load online scores.");
+  }
+}
+
+async function refreshLeaderboard() {
+  if (!isOnlineLeaderboardEnabled()) {
+    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
+    game.renderLeaderboardEntries([]);
+    return;
+  }
+
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = true;
+  }
+  game.setLeaderboardStatus("Loading leaderboard...");
+  const result = await fetchLeaderboard();
+  if (result.ok) {
+    game.renderLeaderboardEntries(result.entries);
+    game.setLeaderboardStatus(result.entries.length ? "Top online runs loaded." : "No online scores yet.");
+  } else {
+    game.setLeaderboardStatus(getLeaderboardStatus(result));
+  }
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = !isOnlineLeaderboardEnabled();
+  }
+}
+
+async function submitCurrentScore() {
+  const runResult = game.getLastCompletedRunResult();
+  if (!runResult) {
+    game.setScoreSubmitStatus("No completed run is ready to submit.");
+    return;
+  }
+
+  const name = (ui.leaderboardNameInput?.value ?? "").trim();
+  if (!name) {
+    game.setScoreSubmitStatus("Enter a display name first.");
+    ui.leaderboardNameInput?.focus();
+    return;
+  }
+
+  if (name.length > 20) {
+    game.setScoreSubmitStatus("Display name must be 20 characters or less.");
+    ui.leaderboardNameInput?.focus();
+    return;
+  }
+
+  saveLeaderboardName(name);
+  game.setScoreSubmitLoading(true);
+  game.setScoreSubmitStatus("Submitting score...");
+  const result = await submitScore({ name, ...runResult });
+  if (result.ok) {
+    game.markScoreSubmitted();
+    game.setScoreSubmitStatus("Score submitted.");
+    game.renderLeaderboardEntries(result.entries);
+    game.setLeaderboardStatus("Leaderboard updated.");
+  } else {
+    game.setScoreSubmitStatus(getLeaderboardStatus(result));
+  }
+  game.setScoreSubmitLoading(false);
+}
+
+function selectMenuTab(tabId) {
+  game.setMenuTab(tabId);
+  if (tabId === "leaderboard") {
+    refreshLeaderboard();
+  }
+}
+
+initializeOnlineLeaderboardUi();
 
 document.querySelector("#start-button").addEventListener("click", () => {
   unlockAudio();
@@ -5282,17 +5608,20 @@ ui.adminLevelButton?.addEventListener("click", () => game.adminForceLevelUp());
 ui.adminGoldRunButton?.addEventListener("click", () => game.adminGrantRunGold(100));
 ui.adminClearEnemiesButton?.addEventListener("click", () => game.adminClearEnemies());
 ui.adminSpawnBossButton?.addEventListener("click", () => game.adminSpawnBoss());
+ui.leaderboardRefreshButton?.addEventListener("click", () => refreshLeaderboard());
+ui.submitScoreButton?.addEventListener("click", () => submitCurrentScore());
+ui.leaderboardNameInput?.addEventListener("change", () => saveLeaderboardName((ui.leaderboardNameInput.value ?? "").trim()));
 
 function focusMenuTab(nextIndex) {
   const buttonCount = ui.menuTabButtons.length;
   const safeIndex = (nextIndex + buttonCount) % buttonCount;
   const nextButton = ui.menuTabButtons[safeIndex];
   nextButton.focus();
-  game.setMenuTab(nextButton.dataset.menuTab);
+  selectMenuTab(nextButton.dataset.menuTab);
 }
 
 ui.menuTabButtons.forEach((button, index) => {
-  button.addEventListener("click", () => game.setMenuTab(button.dataset.menuTab));
+  button.addEventListener("click", () => selectMenuTab(button.dataset.menuTab));
   button.addEventListener("keydown", (event) => {
     if (event.code === "ArrowRight" || event.code === "ArrowDown") {
       event.preventDefault();
@@ -5377,6 +5706,8 @@ async function runSelfTest() {
     runStatsPersist: false,
     enemyGuideStatsPersist: false,
     quitToTitleSavesProgress: false,
+    leaderboardOfflinePanel: false,
+    gameOverSubmitPanel: false,
   };
 
   game.selectCharacter("gunner");
@@ -5508,8 +5839,19 @@ async function runSelfTest() {
   game.run.damageTaken = 4;
   game.run.level = 5;
   game.endRun();
+  const scoreSubmitPanel = document.querySelector("#score-submit-panel");
+  const scoreSubmitButton = document.querySelector("#submit-score-button");
+  results.gameOverSubmitPanel =
+    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton?.disabled) &&
+    game.getLastCompletedRunResult()?.score === 9999;
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
+  game.setMenuTab("leaderboard");
+  await refreshLeaderboard();
+  results.leaderboardOfflinePanel =
+    !isOnlineLeaderboardEnabled() &&
+    document.querySelector("#leaderboard-status")?.textContent.includes("not configured") &&
+    Boolean(document.querySelector("#leaderboard-list"));
   game.selectCharacter("katana");
   game.startRun();
   const katanaTarget = { x: game.player.x + 70, y: game.player.y };

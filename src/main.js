@@ -1,7 +1,9 @@
 import { AudioSystem } from "./audio.js";
 import { Game } from "./game.js";
+import { fetchLeaderboard, isOnlineLeaderboardEnabled, submitScore } from "./online.js";
 import { loadSave } from "./storage.js";
 
+const LEADERBOARD_NAME_STORAGE_KEY = "arena-survival-leaderboard-name";
 const save = loadSave();
 const audio = new AudioSystem(save.settings);
 
@@ -35,6 +37,10 @@ const ui = {
   finalKills: document.querySelector("#final-kills"),
   finalBosses: document.querySelector("#final-bosses"),
   runHighlights: document.querySelector("#run-highlights"),
+  scoreSubmitPanel: document.querySelector("#score-submit-panel"),
+  scoreSubmitStatus: document.querySelector("#score-submit-status"),
+  leaderboardNameInput: document.querySelector("#leaderboard-name-input"),
+  submitScoreButton: document.querySelector("#submit-score-button"),
   gameOverTitle: document.querySelector("#gameover-title"),
   soundButton: document.querySelector("#sound-button"),
   menuSoundButton: document.querySelector("#menu-sound-button"),
@@ -73,6 +79,9 @@ const ui = {
   adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
   adminClearEnemiesButton: document.querySelector("#admin-clear-enemies-button"),
   adminSpawnBossButton: document.querySelector("#admin-spawn-boss-button"),
+  leaderboardRefreshButton: document.querySelector("#leaderboard-refresh-button"),
+  leaderboardStatus: document.querySelector("#leaderboard-status"),
+  leaderboardList: document.querySelector("#leaderboard-list"),
   menuTabButtons: Array.from(document.querySelectorAll("[data-menu-tab]")),
   menuPanels: Array.from(document.querySelectorAll("[data-menu-panel]")),
   statFields: Array.from(document.querySelectorAll("[data-stat]")),
@@ -90,6 +99,116 @@ function unlockAudio() {
     // Headless validation does not provide a user gesture for Web Audio.
   });
 }
+
+function loadLeaderboardName() {
+  try {
+    return window.localStorage.getItem(LEADERBOARD_NAME_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLeaderboardName(name) {
+  try {
+    window.localStorage.setItem(LEADERBOARD_NAME_STORAGE_KEY, name);
+  } catch {
+    // Private browsing or storage-disabled browsers can still submit for this session.
+  }
+}
+
+function getLeaderboardStatus(result) {
+  if (result?.disabled) {
+    return "Online leaderboard is not configured yet.";
+  }
+  if (result?.offline) {
+    return "Online leaderboard is unavailable right now.";
+  }
+  return result?.error || "Leaderboard request failed.";
+}
+
+function initializeOnlineLeaderboardUi() {
+  const enabled = isOnlineLeaderboardEnabled();
+  game.setOnlineLeaderboardEnabled(enabled);
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = !enabled;
+  }
+  if (ui.leaderboardNameInput) {
+    ui.leaderboardNameInput.value = loadLeaderboardName();
+  }
+  if (!enabled) {
+    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
+    game.renderLeaderboardEntries([]);
+  } else {
+    game.setLeaderboardStatus("Press Refresh to load online scores.");
+  }
+}
+
+async function refreshLeaderboard() {
+  if (!isOnlineLeaderboardEnabled()) {
+    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
+    game.renderLeaderboardEntries([]);
+    return;
+  }
+
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = true;
+  }
+  game.setLeaderboardStatus("Loading leaderboard...");
+  const result = await fetchLeaderboard();
+  if (result.ok) {
+    game.renderLeaderboardEntries(result.entries);
+    game.setLeaderboardStatus(result.entries.length ? "Top online runs loaded." : "No online scores yet.");
+  } else {
+    game.setLeaderboardStatus(getLeaderboardStatus(result));
+  }
+  if (ui.leaderboardRefreshButton) {
+    ui.leaderboardRefreshButton.disabled = !isOnlineLeaderboardEnabled();
+  }
+}
+
+async function submitCurrentScore() {
+  const runResult = game.getLastCompletedRunResult();
+  if (!runResult) {
+    game.setScoreSubmitStatus("No completed run is ready to submit.");
+    return;
+  }
+
+  const name = (ui.leaderboardNameInput?.value ?? "").trim();
+  if (!name) {
+    game.setScoreSubmitStatus("Enter a display name first.");
+    ui.leaderboardNameInput?.focus();
+    return;
+  }
+
+  if (name.length > 20) {
+    game.setScoreSubmitStatus("Display name must be 20 characters or less.");
+    ui.leaderboardNameInput?.focus();
+    return;
+  }
+
+  saveLeaderboardName(name);
+  game.setScoreSubmitLoading(true);
+  game.setScoreSubmitStatus("Submitting score...");
+  const result = await submitScore({ name, ...runResult });
+  if (result.ok) {
+    game.markScoreSubmitted();
+    game.setScoreSubmitStatus("Score submitted.");
+    game.renderLeaderboardEntries(result.entries);
+    game.setLeaderboardStatus("Leaderboard updated.");
+  } else {
+    game.setScoreSubmitStatus(getLeaderboardStatus(result));
+  }
+  game.setScoreSubmitLoading(false);
+}
+
+function selectMenuTab(tabId) {
+  game.setMenuTab(tabId);
+  if (tabId === "leaderboard") {
+    refreshLeaderboard();
+  }
+}
+
+initializeOnlineLeaderboardUi();
 
 document.querySelector("#start-button").addEventListener("click", () => {
   unlockAudio();
@@ -150,17 +269,20 @@ ui.adminLevelButton?.addEventListener("click", () => game.adminForceLevelUp());
 ui.adminGoldRunButton?.addEventListener("click", () => game.adminGrantRunGold(100));
 ui.adminClearEnemiesButton?.addEventListener("click", () => game.adminClearEnemies());
 ui.adminSpawnBossButton?.addEventListener("click", () => game.adminSpawnBoss());
+ui.leaderboardRefreshButton?.addEventListener("click", () => refreshLeaderboard());
+ui.submitScoreButton?.addEventListener("click", () => submitCurrentScore());
+ui.leaderboardNameInput?.addEventListener("change", () => saveLeaderboardName((ui.leaderboardNameInput.value ?? "").trim()));
 
 function focusMenuTab(nextIndex) {
   const buttonCount = ui.menuTabButtons.length;
   const safeIndex = (nextIndex + buttonCount) % buttonCount;
   const nextButton = ui.menuTabButtons[safeIndex];
   nextButton.focus();
-  game.setMenuTab(nextButton.dataset.menuTab);
+  selectMenuTab(nextButton.dataset.menuTab);
 }
 
 ui.menuTabButtons.forEach((button, index) => {
-  button.addEventListener("click", () => game.setMenuTab(button.dataset.menuTab));
+  button.addEventListener("click", () => selectMenuTab(button.dataset.menuTab));
   button.addEventListener("keydown", (event) => {
     if (event.code === "ArrowRight" || event.code === "ArrowDown") {
       event.preventDefault();
@@ -245,6 +367,8 @@ async function runSelfTest() {
     runStatsPersist: false,
     enemyGuideStatsPersist: false,
     quitToTitleSavesProgress: false,
+    leaderboardOfflinePanel: false,
+    gameOverSubmitPanel: false,
   };
 
   game.selectCharacter("gunner");
@@ -376,8 +500,19 @@ async function runSelfTest() {
   game.run.damageTaken = 4;
   game.run.level = 5;
   game.endRun();
+  const scoreSubmitPanel = document.querySelector("#score-submit-panel");
+  const scoreSubmitButton = document.querySelector("#submit-score-button");
+  results.gameOverSubmitPanel =
+    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton?.disabled) &&
+    game.getLastCompletedRunResult()?.score === 9999;
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
+  game.setMenuTab("leaderboard");
+  await refreshLeaderboard();
+  results.leaderboardOfflinePanel =
+    !isOnlineLeaderboardEnabled() &&
+    document.querySelector("#leaderboard-status")?.textContent.includes("not configured") &&
+    Boolean(document.querySelector("#leaderboard-list"));
   game.selectCharacter("katana");
   game.startRun();
   const katanaTarget = { x: game.player.x + 70, y: game.player.y };
