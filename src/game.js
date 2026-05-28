@@ -1786,12 +1786,11 @@ export class Game {
     }
     const modeEnabled = Boolean(this.save.settings?.adminModeEnabled);
     const isPlayingRun = Boolean(this.run && this.player && this.mode === "playing");
-    const showPanel = Boolean(modeEnabled && isPlayingRun);
-    const canUseTools = Boolean(showPanel && this.adminUnlocked);
+    const showPanel = Boolean(this.adminUnlocked && modeEnabled && isPlayingRun);
     this.ui.adminGamePanel.hidden = !showPanel;
-    this.ui.adminGamePanel.dataset.locked = showPanel && !this.adminUnlocked ? "true" : "false";
+    this.ui.adminGamePanel.dataset.locked = "false";
     if (this.ui.adminGameStatus) {
-      this.ui.adminGameStatus.textContent = canUseTools ? "Admin Tools" : "Admin locked";
+      this.ui.adminGameStatus.textContent = "Admin Tools";
     }
     for (const button of [
       this.ui.adminHealButton,
@@ -1801,7 +1800,7 @@ export class Game {
       this.ui.adminSpawnBossButton,
     ]) {
       if (button) {
-        button.disabled = !canUseTools;
+        button.disabled = !showPanel;
       }
     }
   }

@@ -320,11 +320,11 @@ async function runSelfTest() {
   game.startRun();
   const adminPanel = document.querySelector("#admin-game-panel");
   const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
-  const lockedAdminPanelVisible = Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "true" && adminSpawnButton?.disabled);
+  const lockedAdminPanelHidden = Boolean(adminPanel && adminPanel.hidden && adminSpawnButton?.disabled);
   game.adminUnlocked = true;
   game.updateAdminModeUi();
   game.adminSpawnBoss();
-  results.adminGamePanel = lockedAdminPanelVisible && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
+  results.adminGamePanel = lockedAdminPanelHidden && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
   results.adminManualBoss = game.getDebugSnapshot().bossCount === 1;
   game.save.progress = { ...previousEngineerProgress, katanaUnlocked: false, engineerUnlocked: false, selectedCharacterId: "gunner" };
   game.adminUnlockAllCharacters();

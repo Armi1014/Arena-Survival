@@ -1,9 +1,4 @@
-﻿// Generated bundle so the game works when index.html is opened directly.
-
-// Source files are kept as modules in src/.
-
-// ---- src/data/constants.js ----
-
+// src/data/constants.js
 const LOGICAL_WIDTH = 1280;
 const LOGICAL_HEIGHT = 720;
 const STORAGE_KEY = "bubble-blitz-forever-save";
@@ -119,8 +114,7 @@ function randomRange(min, max) {
   return min + Math.random() * (max - min);
 }
 
-// ---- src/data/characters.js ----
-
+// src/data/characters.js
 const CHARACTER_IDS = {
   gunner: "gunner",
   katana: "katana",
@@ -189,8 +183,7 @@ function isCharacterUnlocked(progress, stats, characterId) {
   return false;
 }
 
-// ---- src/data/difficulty.js ----
-
+// src/data/difficulty.js
 const DIFFICULTY_TABLE = [
   { minute: 0, spawnBudgetPerSecond: 1.45, statScale: 1.0, weights: { nibbler: 2.4, spitter: 0.2, "acid-spitter": 0, bumper: 0, tank: 0 } },
   { minute: 1, spawnBudgetPerSecond: 1.95, statScale: 1.08, weights: { nibbler: 2.1, spitter: 0.55, "acid-spitter": 0.12, bumper: 0.18, tank: 0 } },
@@ -242,8 +235,7 @@ function getBossScale(cycleIndex) {
   };
 }
 
-// ---- src/data/enemies.js ----
-
+// src/data/enemies.js
 /** @type {Record<string, import("../types.js").EnemyDef>} */
 const ENEMY_DEFS = {
   nibbler: {
@@ -346,9 +338,7 @@ const BOSS_DEF = {
   accent: "#0f766e",
 };
 
-// ---- src/data/upgrades.js ----
-
-
+// src/data/upgrades.js
 const SHIELD_INTERVALS = [16, 12, 9];
 const SHIELD_CAPS = [1, 2, 2];
 
@@ -665,8 +655,7 @@ function getUpgradeById(upgradeId) {
   return UPGRADE_DEFS.find((upgrade) => upgrade.id === upgradeId) ?? null;
 }
 
-// ---- src/types.js ----
-
+// src/types.js
 /**
  * @typedef {Object} PlayerState
  * @property {number} x
@@ -798,9 +787,9 @@ function getUpgradeById(upgradeId) {
  * @property {boolean} recorded
  */
 
-// ---- src/storage.js ----
+{};
 
-
+// src/storage.js
 const AUDIO_DB_NAME = "bubble-blitz-forever-audio";
 const AUDIO_STORE_NAME = "song-files";
 const AUDIO_DB_VERSION = 1;
@@ -1211,8 +1200,7 @@ function updateSettings(save, partialSettings) {
   return next;
 }
 
-// ---- src/audio.js ----
-
+// src/audio.js
 class AudioSystem {
   constructor(initialSettings) {
     this.muted = Boolean(initialSettings?.muted);
@@ -1383,9 +1371,7 @@ class AudioSystem {
   }
 }
 
-// ---- src/game.js ----
-
-
+// src/game.js
 function normalizeVector(x, y) {
   const length = Math.hypot(x, y);
   return length ? { x: x / length, y: y / length } : { x: 0, y: 0 };
@@ -3154,12 +3140,11 @@ class Game {
     }
     const modeEnabled = Boolean(this.save.settings?.adminModeEnabled);
     const isPlayingRun = Boolean(this.run && this.player && this.mode === "playing");
-    const showPanel = Boolean(modeEnabled && isPlayingRun);
-    const canUseTools = Boolean(showPanel && this.adminUnlocked);
+    const showPanel = Boolean(this.adminUnlocked && modeEnabled && isPlayingRun);
     this.ui.adminGamePanel.hidden = !showPanel;
-    this.ui.adminGamePanel.dataset.locked = showPanel && !this.adminUnlocked ? "true" : "false";
+    this.ui.adminGamePanel.dataset.locked = "false";
     if (this.ui.adminGameStatus) {
-      this.ui.adminGameStatus.textContent = canUseTools ? "Admin Tools" : "Admin locked";
+      this.ui.adminGameStatus.textContent = "Admin Tools";
     }
     for (const button of [
       this.ui.adminHealButton,
@@ -3169,7 +3154,7 @@ class Game {
       this.ui.adminSpawnBossButton,
     ]) {
       if (button) {
-        button.disabled = !canUseTools;
+        button.disabled = !showPanel;
       }
     }
   }
@@ -5148,9 +5133,7 @@ class Game {
   }
 }
 
-// ---- src/main.js ----
-
-
+// src/main.js
 const save = loadSave();
 const audio = new AudioSystem(save.settings);
 
@@ -5469,11 +5452,11 @@ async function runSelfTest() {
   game.startRun();
   const adminPanel = document.querySelector("#admin-game-panel");
   const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
-  const lockedAdminPanelVisible = Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "true" && adminSpawnButton?.disabled);
+  const lockedAdminPanelHidden = Boolean(adminPanel && adminPanel.hidden && adminSpawnButton?.disabled);
   game.adminUnlocked = true;
   game.updateAdminModeUi();
   game.adminSpawnBoss();
-  results.adminGamePanel = lockedAdminPanelVisible && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
+  results.adminGamePanel = lockedAdminPanelHidden && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
   results.adminManualBoss = game.getDebugSnapshot().bossCount === 1;
   game.save.progress = { ...previousEngineerProgress, katanaUnlocked: false, engineerUnlocked: false, selectedCharacterId: "gunner" };
   game.adminUnlockAllCharacters();
