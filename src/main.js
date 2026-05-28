@@ -193,7 +193,7 @@ window.addEventListener("keydown", (event) => {
   const isInteractiveTarget = Boolean(event.target.closest?.("button, a, input, select, textarea, [role='tab']"));
   if (
     !isInteractiveTarget &&
-    ["Space", "Escape", "KeyM", "KeyE", "KeyW", "KeyA", "KeyS", "KeyD", "Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(
+    ["Space", "Escape", "KeyM", "KeyE", "KeyT", "KeyW", "KeyA", "KeyS", "KeyD", "Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(
       event.code,
     )
   ) {
@@ -286,9 +286,11 @@ async function runSelfTest() {
   game.startRun();
   game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
   const engineerShotCount = game.getDebugSnapshot().shotsFired;
-  game.stepManual(0.8);
+  const deployedTurret = game.tryDeployTurret();
+  const turretOnPlayer = Boolean(game.turrets[0] && game.turrets[0].x === game.player.x && game.turrets[0].y === game.player.y);
+  game.stepManual(0.2);
   const engineerSnapshot = game.getDebugSnapshot();
-  results.engineerTurret = engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
+  results.engineerTurret = deployedTurret && turretOnPlayer && engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
   game.renderCharacterMenu();
   [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Katana"))?.click();
   const selectedKatanaFromMenu = game.getSelectedCharacter().id === "katana";

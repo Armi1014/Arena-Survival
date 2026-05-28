@@ -33,6 +33,7 @@ Arena Survival is a static browser arcade game built around short survival runs.
 | --- | --- |
 | Move | `WASD` or arrow keys |
 | Dash | `Space` |
+| Engineer turret | `T` |
 | Pick upgrades | Number keys or click |
 | Pause / return flow | On-screen buttons |
 | Audio | Sound buttons in the top bar or settings |

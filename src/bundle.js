@@ -1757,6 +1757,12 @@ class Game {
       }
       return false;
     }
+    if (code === "KeyT") {
+      if (this.mode === "playing") {
+        this.tryDeployTurret();
+      }
+      return false;
+    }
     if (["Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(code)) {
       if (this.mode === "upgrade") {
         const index = Number(code.at(-1)) - 1;
@@ -1842,7 +1848,7 @@ class Game {
       dashReloadRatio: 0,
       overhealShieldBonus: 0,
       turretDeployCooldown: selectedCharacter.id === CHARACTER_IDS.engineer ? ENGINEER_TURRET.deployCooldown : 0,
-      turretDeployCooldownRemaining: selectedCharacter.id === CHARACTER_IDS.engineer ? 0.6 : 0,
+      turretDeployCooldownRemaining: 0,
       turretLifetime: ENGINEER_TURRET.lifetime,
       turretRange: ENGINEER_TURRET.range,
       turretFireCooldown: ENGINEER_TURRET.fireCooldown,
@@ -2104,11 +2110,6 @@ class Game {
       return;
     }
     this.player.turretDeployCooldownRemaining = Math.max(0, this.player.turretDeployCooldownRemaining - deltaSeconds);
-    const activeTurrets = this.turrets.filter((turret) => !turret.dead).length;
-    if (activeTurrets < this.player.maxTurrets && this.player.turretDeployCooldownRemaining <= 0) {
-      this.deployTurret();
-      this.player.turretDeployCooldownRemaining = this.player.turretDeployCooldown;
-    }
 
     for (const turret of this.turrets) {
       if (turret.dead) {
@@ -2145,10 +2146,27 @@ class Game {
     }
   }
 
+  tryDeployTurret() {
+    if (!this.player || this.mode !== "playing" || this.player.maxTurrets <= 0) {
+      return false;
+    }
+    const activeTurrets = this.turrets.filter((turret) => !turret.dead).length;
+    if (activeTurrets >= this.player.maxTurrets) {
+      this.showToast("Turret already active");
+      return false;
+    }
+    if (this.player.turretDeployCooldownRemaining > 0) {
+      this.showToast(`Turret ready in ${this.player.turretDeployCooldownRemaining.toFixed(1)}s`);
+      return false;
+    }
+    this.deployTurret();
+    this.player.turretDeployCooldownRemaining = this.player.turretDeployCooldown;
+    return true;
+  }
+
   deployTurret() {
-    const angle = this.backgroundTime * 1.7;
-    const x = clamp(this.player.x + Math.cos(angle) * 58, GAME_CONFIG.padding + 20, LOGICAL_WIDTH - GAME_CONFIG.padding - 20);
-    const y = clamp(this.player.y + Math.sin(angle) * 58, GAME_CONFIG.padding + 20, LOGICAL_HEIGHT - GAME_CONFIG.padding - 20);
+    const x = this.player.x;
+    const y = this.player.y;
     this.turrets.push({
       id: this.turretId += 1,
       x,
@@ -2857,11 +2875,14 @@ class Game {
   }
 
   selectCharacter(characterId) {
+    const character = getCharacterById(characterId);
+    if (this.getSelectedCharacter().id === character.id) {
+      return;
+    }
     if (!isCharacterUnlocked(this.save.progress, this.save.stats, characterId)) {
       this.showToast("Character locked");
       return;
     }
-    const character = getCharacterById(characterId);
     this.save = updateProgress(this.save, {
       katanaUnlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana),
       engineerUnlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer),
@@ -2970,10 +2991,17 @@ class Game {
         }
         this.selectCharacter(character.id);
       };
+      const handlePointerSelect = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSelect();
+      };
+      button.addEventListener("pointerdown", handlePointerSelect);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         handleSelect();
       });
+      card.addEventListener("pointerdown", handlePointerSelect);
       card.addEventListener("click", handleSelect);
       card.addEventListener("keydown", (event) => {
         if (event.code === "Enter" || event.code === "Space") {
@@ -5314,7 +5342,7 @@ window.addEventListener("keydown", (event) => {
   const isInteractiveTarget = Boolean(event.target.closest?.("button, a, input, select, textarea, [role='tab']"));
   if (
     !isInteractiveTarget &&
-    ["Space", "Escape", "KeyM", "KeyE", "KeyW", "KeyA", "KeyS", "KeyD", "Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(
+    ["Space", "Escape", "KeyM", "KeyE", "KeyT", "KeyW", "KeyA", "KeyS", "KeyD", "Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(
       event.code,
     )
   ) {
@@ -5407,9 +5435,11 @@ async function runSelfTest() {
   game.startRun();
   game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
   const engineerShotCount = game.getDebugSnapshot().shotsFired;
-  game.stepManual(0.8);
+  const deployedTurret = game.tryDeployTurret();
+  const turretOnPlayer = Boolean(game.turrets[0] && game.turrets[0].x === game.player.x && game.turrets[0].y === game.player.y);
+  game.stepManual(0.2);
   const engineerSnapshot = game.getDebugSnapshot();
-  results.engineerTurret = engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
+  results.engineerTurret = deployedTurret && turretOnPlayer && engineerSnapshot.turretCount === 1 && engineerSnapshot.shotsFired > engineerShotCount;
   game.renderCharacterMenu();
   [...document.querySelectorAll("#character-list .character-row")].find((row) => row.innerText.includes("Katana"))?.click();
   const selectedKatanaFromMenu = game.getSelectedCharacter().id === "katana";
