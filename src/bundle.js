@@ -1699,12 +1699,26 @@ const PLACEHOLDER_API_BASE_URL = "";
 const REQUEST_TIMEOUT_MS = 15000;
 const API_OVERRIDE_STORAGE_KEY = "arena-survival-api-base-url";
 
+function isLocalHostname(hostname) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".localhost");
+}
+
+function isLocalUrl(value) {
+  try {
+    return isLocalHostname(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function getApiBaseUrl() {
   const params = new URLSearchParams(window.location.search);
   const queryOverride = params.get("apiBase")?.trim();
   if (queryOverride) {
     try {
-      window.localStorage.setItem(API_OVERRIDE_STORAGE_KEY, queryOverride);
+      if (!isLocalUrl(queryOverride) || isLocalHostname(window.location.hostname)) {
+        window.localStorage.setItem(API_OVERRIDE_STORAGE_KEY, queryOverride);
+      }
     } catch {
       // Storage-disabled browsers can still use the override for the current page.
     }
@@ -1713,6 +1727,10 @@ function getApiBaseUrl() {
   try {
     const storedOverride = window.localStorage.getItem(API_OVERRIDE_STORAGE_KEY)?.trim();
     if (storedOverride) {
+      if (isLocalUrl(storedOverride) && !isLocalHostname(window.location.hostname)) {
+        window.localStorage.removeItem(API_OVERRIDE_STORAGE_KEY);
+        return LEADERBOARD_API_BASE_URL.trim().replace(/\/+$/, "");
+      }
       return storedOverride.replace(/\/+$/, "");
     }
   } catch {
