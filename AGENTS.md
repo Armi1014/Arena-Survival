@@ -152,7 +152,7 @@ set +a
 Recent successful deploy:
 
 ```text
-html5 | upload #17825049 | build #1710574 | version 2026-06-06-coop-multiplayer-v1
+html5 | upload #17825049 | build #1710610 | version 2026-06-06-coop-api-fallback-v1
 ```
 
 ## Current Gameplay Notes
