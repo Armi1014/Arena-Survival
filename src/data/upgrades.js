@@ -96,10 +96,9 @@ export const UPGRADE_DEFS = [
     cap: 4,
     color: "#d14343",
     accent: "#fee2e2",
-    describe: (rank) => `Rank ${rank}: max health +1 and heal 2 immediately.`,
+    describe: (rank) => `Rank ${rank}: max health +1.`,
     apply: (player) => {
       player.maxHp += 1;
-      player.hp = Math.min(player.maxHp, player.hp + 2);
     },
   },
   {
@@ -152,14 +151,18 @@ export const UPGRADE_DEFS = [
     },
   },
   {
-    id: "dash-reload",
-    name: "Dash Reload",
+    id: "ability-reload",
+    name: "Ability Reload",
     cap: 3,
     color: "#f59e0b",
     accent: "#fef3c7",
-    describe: (rank) => `Rank ${rank}: dashing reloads ${Math.round(rank * 35)}% of your weapon cooldown.`,
-    apply: (player, rank) => {
-      player.dashReloadRatio = rank * 0.35;
+    isAvailable: (player) => Boolean(player.equippedAbilityId),
+    describe: (rank) => `Rank ${rank}: equipped ability cooldowns shrink by ${Math.round((1 - 0.86 ** rank) * 100)}%.`,
+    apply: (player) => {
+      player.grenadeCooldown = Math.max(3.2, player.grenadeCooldown * 0.86);
+      player.grenadeCooldownRemaining = Math.min(player.grenadeCooldownRemaining, player.grenadeCooldown);
+      player.landmineCooldown = Math.max(4, player.landmineCooldown * 0.86);
+      player.landmineCooldownRemaining = Math.min(player.landmineCooldownRemaining, player.landmineCooldown);
     },
   },
   {
@@ -277,7 +280,7 @@ export const UPGRADE_DEFS = [
     cap: 4,
     color: "#f97316",
     accent: "#ffedd5",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade damage +3 and blast radius +10.`,
     apply: (player) => {
       player.grenadeDamage += 3;
@@ -290,7 +293,7 @@ export const UPGRADE_DEFS = [
     cap: 4,
     color: "#06b6d4",
     accent: "#cffafe",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade cooldown shrinks by 15%.`,
     apply: (player) => {
       player.grenadeCooldown = Math.max(3.2, player.grenadeCooldown * 0.85);
@@ -303,11 +306,101 @@ export const UPGRADE_DEFS = [
     cap: 3,
     color: "#ef4444",
     accent: "#fee2e2",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade blasts leave a burning zone for ${rank + 2}s.`,
     apply: (player, rank) => {
       player.grenadeZoneDuration = rank + 2;
       player.grenadeZoneDamage = 0.9 + rank * 0.35;
+    },
+  },
+  {
+    id: "blast-plating",
+    name: "Blast Plating",
+    cap: 4,
+    color: "#f59e0b",
+    accent: "#fef3c7",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: landmine damage +3 and blast radius +12.`,
+    apply: (player) => {
+      player.landmineDamage += 3;
+      player.landmineRadius += 12;
+    },
+  },
+  {
+    id: "fast-trigger",
+    name: "Fast Trigger",
+    cap: 4,
+    color: "#22d3ee",
+    accent: "#cffafe",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: landmine cooldown shrinks and arm time drops.`,
+    apply: (player) => {
+      player.landmineCooldown = Math.max(4, player.landmineCooldown * 0.84);
+      player.landmineCooldownRemaining = Math.min(player.landmineCooldownRemaining, player.landmineCooldown);
+      player.landmineArmTime = Math.max(0.16, player.landmineArmTime - 0.08);
+    },
+  },
+  {
+    id: "cluster-charge",
+    name: "Cluster Charge",
+    cap: 3,
+    color: "#ef4444",
+    accent: "#fee2e2",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: mine explosions launch ${rank + 3} piercing fragments.`,
+    apply: (player, rank) => {
+      player.landmineClusterFragments = rank + 3;
+    },
+  },
+  {
+    id: "rapid-assembly",
+    name: "Rapid Assembly",
+    cap: 4,
+    color: "#34d399",
+    accent: "#dcfce7",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +2s.`,
+    apply: (player) => {
+      player.turretDeployCooldown = Math.max(2.8, player.turretDeployCooldown * 0.82);
+      player.turretDeployCooldownRemaining = Math.min(player.turretDeployCooldownRemaining, player.turretDeployCooldown);
+      player.turretLifetime += 2;
+    },
+  },
+  {
+    id: "twin-sentries",
+    name: "Twin Sentries",
+    cap: 2,
+    color: "#06b6d4",
+    accent: "#cffafe",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: deploy +1 active turret.`,
+    apply: (player) => {
+      player.maxTurrets += 1;
+    },
+  },
+  {
+    id: "calibrated-turret",
+    name: "Calibrated Turret",
+    cap: 4,
+    color: "#a855f7",
+    accent: "#f3e8ff",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret range +60 and turret damage +0.5.`,
+    apply: (player) => {
+      player.turretRange += 60;
+      player.turretDamageBonus += 0.5;
+    },
+  },
+  {
+    id: "piercing-sentry",
+    name: "Piercing Sentry",
+    cap: 3,
+    color: "#64748b",
+    accent: "#e2e8f0",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret shots pierce +1 target.`,
+    apply: (player) => {
+      player.turretPierce += 1;
     },
   },
 ];

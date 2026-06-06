@@ -38,6 +38,15 @@
  * @property {number} grenadeProjectileSpeed
  * @property {number} grenadeFuse
  * @property {boolean} grenadeEquipped
+ * @property {string} equippedAbilityId
+ * @property {number} landmineCooldown
+ * @property {number} landmineCooldownRemaining
+ * @property {number} landmineDamage
+ * @property {number} landmineRadius
+ * @property {number} landmineArmTime
+ * @property {number} landmineTriggerRadius
+ * @property {number} maxLandmines
+ * @property {number} landmineClusterFragments
  * @property {number} slashDamage
  * @property {number} slashRange
  * @property {number} slashArc
@@ -51,6 +60,8 @@
  * @property {number} turretLifetime
  * @property {number} turretRange
  * @property {number} turretFireCooldown
+ * @property {number} turretDamageBonus
+ * @property {number} turretPierce
  * @property {number} maxTurrets
  */
 
@@ -78,10 +89,11 @@
  * @property {number} speed
  * @property {number} contactDamage
  * @property {number} xpValue
+ * @property {number} goldValue
  * @property {number} scoreValue
  * @property {string} color
  * @property {string} accent
- * @property {"nibbler" | "spitter" | "acid-spitter" | "bumper" | "tank" | "sentinel"} behavior
+ * @property {"nibbler" | "sprinter" | "spitter" | "marksman" | "acid-spitter" | "bumper" | "tank" | "sentinel"} behavior
  */
 
 /**
@@ -93,6 +105,7 @@
  * @property {number} speed
  * @property {number} contactDamage
  * @property {number} xpValue
+ * @property {number} goldValue
  * @property {number} scoreValue
  * @property {string} color
  * @property {string} accent
@@ -113,6 +126,16 @@
  */
 
 /**
+ * @typedef {Object} DeathCause
+ * @property {string} sourceEnemyTypeId
+ * @property {string} sourceName
+ * @property {string} damageKind
+ * @property {string} damageLabel
+ * @property {number} amount
+ * @property {string} label
+ */
+
+/**
  * @typedef {Object} RunStats
  * @property {number} elapsed
  * @property {number} level
@@ -124,8 +147,10 @@
  * @property {number} killScore
  * @property {number} score
  * @property {number} damageTaken
+ * @property {number} goldEarned
  * @property {Record<string, number>} enemyKills
  * @property {Record<string, number>} enemyDeaths
+ * @property {?DeathCause} [deathCause]
  * @property {boolean} recorded
  */
 

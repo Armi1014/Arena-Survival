@@ -1,40 +1,19 @@
 // src/data/constants.js
 const LOGICAL_WIDTH = 1280;
 const LOGICAL_HEIGHT = 720;
+const CAMERA_CONFIG = {
+  defaultZoom: 0.72,
+  minZoom: 0.5,
+  maxZoom: 1.2,
+  keyboardStep: 0.1,
+  wheelSensitivity: 0.0014,
+};
 const STORAGE_KEY = "bubble-blitz-forever-save";
-
 const SETTINGS_DEFAULTS = {
   muted: false,
   musicVolume: 0.45,
   adminModeEnabled: false,
-};
-
-const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
-
-const DEFAULT_SONGS = [
-  {
-    id: "arcade-pulse",
-    title: "Arcade Pulse",
-    artist: "Arena System",
-    price: 0,
-    builtIn: true,
-  },
-  {
-    id: "neon-run",
-    title: "Neon Run",
-    artist: "Arena System",
-    price: 120,
-    builtIn: true,
-  },
-  {
-    id: "boss-voltage",
-    title: "Boss Voltage",
-    artist: "Arena System",
-    price: 250,
-    builtIn: true,
-  },
-];
-
+};const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";const DEFAULT_SONGS = [];
 const PLAYER_BASE = {
   radius: 18,
   maxHp: 5,
@@ -60,20 +39,35 @@ const PLAYER_BASE = {
   grenadeRadius: 96,
   grenadeProjectileSpeed: 890,
   grenadeFuse: 0.78,
-};
-
-const SCORE_CONFIG = {
+  landmineCooldown: 9,
+  landmineDamage: 10,
+  landmineRadius: 120,
+  landmineArmTime: 0.5,
+  landmineTriggerRadius: 34,
+  maxLandmines: 4,
+};const SCORE_CONFIG = {
   survivalPerSecond: 12,
   killUnit: 42,
   bossBonus: 1200,
+};const GOLD_CONFIG = {
+  normalKill: 1,
+  bossKill: 25,
+  doubleChance: 0.01,
+  enemyKills: {
+    nibbler: 2,
+    sprinter: 1,
+    spitter: 5,
+    marksman: 6,
+    "acid-spitter": 7,
+    bumper: 8,
+    tank: 15,
+    sentinel: 3,
+  },
 };
-
 const XP_CONFIG = {
   base: 38,
   growth: 22,
-};
-
-const GAME_CONFIG = {
+};const GAME_CONFIG = {
   maxDeltaSeconds: 1 / 30,
   padding: 28,
   spawnPadding: 70,
@@ -81,36 +75,27 @@ const GAME_CONFIG = {
   bossInterval: 180,
   bossWarningLead: 8,
   maxEnemies: 90,
+  enemyRecycleMargin: 900,
+  enemyRecycleSeconds: 4,
 };
-
 function getXpThreshold(level) {
   return XP_CONFIG.base + (level - 1) * XP_CONFIG.growth;
-}
-
-function clamp(value, min, max) {
+}function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}
-
-function lerp(start, end, amount) {
+}function lerp(start, end, amount) {
   return start + (end - start) * amount;
-}
-
-function formatTime(totalSeconds) {
+}function formatTime(totalSeconds) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safeSeconds / 60)
     .toString()
     .padStart(2, "0");
   const seconds = (safeSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
-}
-
-function distanceSquared(ax, ay, bx, by) {
+}function distanceSquared(ax, ay, bx, by) {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
-}
-
-function randomRange(min, max) {
+}function randomRange(min, max) {
   return min + Math.random() * (max - min);
 }
 
@@ -119,13 +104,9 @@ const CHARACTER_IDS = {
   gunner: "gunner",
   katana: "katana",
   engineer: "engineer",
-};
+};const KATANA_UNLOCK_BOSSES = 3;const ENGINEER_UNLOCK_KILLS = 1000;
 
-const KATANA_UNLOCK_BOSSES = 3;
-const ENGINEER_UNLOCK_KILLS = 1000;
-
-/** @type {Record<string, import("../types.js").CharacterDef>} */
-const CHARACTER_DEFS = {
+/** @type {Record<string, import("../types.js").CharacterDef>} */const CHARACTER_DEFS = {
   [CHARACTER_IDS.gunner]: {
     id: CHARACTER_IDS.gunner,
     name: "Gunner",
@@ -164,13 +145,9 @@ const CHARACTER_DEFS = {
     color: "#34d399",
     accent: "#f59e0b",
   },
-};
-
-function getCharacterById(characterId) {
+};function getCharacterById(characterId) {
   return CHARACTER_DEFS[characterId] ?? CHARACTER_DEFS[CHARACTER_IDS.gunner];
-}
-
-function isCharacterUnlocked(progress, stats, characterId) {
+}function isCharacterUnlocked(progress, stats, characterId) {
   if (characterId === CHARACTER_IDS.gunner) {
     return true;
   }
@@ -185,18 +162,16 @@ function isCharacterUnlocked(progress, stats, characterId) {
 
 // src/data/difficulty.js
 const DIFFICULTY_TABLE = [
-  { minute: 0, spawnBudgetPerSecond: 1.45, statScale: 1.0, weights: { nibbler: 2.4, spitter: 0.2, "acid-spitter": 0, bumper: 0, tank: 0 } },
-  { minute: 1, spawnBudgetPerSecond: 1.95, statScale: 1.08, weights: { nibbler: 2.1, spitter: 0.55, "acid-spitter": 0.12, bumper: 0.18, tank: 0 } },
-  { minute: 2, spawnBudgetPerSecond: 2.25, statScale: 1.16, weights: { nibbler: 1.9, spitter: 0.82, "acid-spitter": 0.3, bumper: 0.38, tank: 0 } },
-  { minute: 3, spawnBudgetPerSecond: 2.65, statScale: 1.24, weights: { nibbler: 1.78, spitter: 1.0, "acid-spitter": 0.48, bumper: 0.55, tank: 0.08 } },
-  { minute: 4, spawnBudgetPerSecond: 2.95, statScale: 1.33, weights: { nibbler: 1.66, spitter: 1.14, "acid-spitter": 0.66, bumper: 0.74, tank: 0.16 } },
-  { minute: 5, spawnBudgetPerSecond: 3.2, statScale: 1.42, weights: { nibbler: 1.52, spitter: 1.28, "acid-spitter": 0.8, bumper: 0.92, tank: 0.24 } },
-  { minute: 6, spawnBudgetPerSecond: 3.45, statScale: 1.52, weights: { nibbler: 1.42, spitter: 1.44, "acid-spitter": 0.94, bumper: 1.05, tank: 0.34 } },
-  { minute: 7, spawnBudgetPerSecond: 3.7, statScale: 1.62, weights: { nibbler: 1.34, spitter: 1.56, "acid-spitter": 1.06, bumper: 1.14, tank: 0.44 } },
-  { minute: 8, spawnBudgetPerSecond: 3.95, statScale: 1.72, weights: { nibbler: 1.24, spitter: 1.7, "acid-spitter": 1.18, bumper: 1.24, tank: 0.54 } },
-];
-
-function getDifficultySnapshot(elapsedSeconds) {
+  { minute: 0, spawnBudgetPerSecond: 1.45, statScale: 1.0, weights: { nibbler: 2.35, sprinter: 0.22, spitter: 0.2, marksman: 0, "acid-spitter": 0, bumper: 0, tank: 0 } },
+  { minute: 1, spawnBudgetPerSecond: 1.95, statScale: 1.08, weights: { nibbler: 2.0, sprinter: 0.42, spitter: 0.55, marksman: 0.08, "acid-spitter": 0.12, bumper: 0.18, tank: 0 } },
+  { minute: 2, spawnBudgetPerSecond: 2.25, statScale: 1.16, weights: { nibbler: 1.74, sprinter: 0.58, spitter: 0.82, marksman: 0.25, "acid-spitter": 0.3, bumper: 0.38, tank: 0 } },
+  { minute: 3, spawnBudgetPerSecond: 2.65, statScale: 1.24, weights: { nibbler: 1.6, sprinter: 0.7, spitter: 1.0, marksman: 0.42, "acid-spitter": 0.48, bumper: 0.55, tank: 0.08 } },
+  { minute: 4, spawnBudgetPerSecond: 2.95, statScale: 1.33, weights: { nibbler: 1.46, sprinter: 0.78, spitter: 1.14, marksman: 0.58, "acid-spitter": 0.66, bumper: 0.74, tank: 0.16 } },
+  { minute: 5, spawnBudgetPerSecond: 3.2, statScale: 1.42, weights: { nibbler: 1.34, sprinter: 0.86, spitter: 1.28, marksman: 0.72, "acid-spitter": 0.8, bumper: 0.92, tank: 0.24 } },
+  { minute: 6, spawnBudgetPerSecond: 3.45, statScale: 1.52, weights: { nibbler: 1.24, sprinter: 0.92, spitter: 1.44, marksman: 0.84, "acid-spitter": 0.94, bumper: 1.05, tank: 0.34 } },
+  { minute: 7, spawnBudgetPerSecond: 3.7, statScale: 1.62, weights: { nibbler: 1.16, sprinter: 0.98, spitter: 1.56, marksman: 0.94, "acid-spitter": 1.06, bumper: 1.14, tank: 0.44 } },
+  { minute: 8, spawnBudgetPerSecond: 3.95, statScale: 1.72, weights: { nibbler: 1.08, sprinter: 1.04, spitter: 1.7, marksman: 1.02, "acid-spitter": 1.18, bumper: 1.24, tank: 0.54 } },
+];function getDifficultySnapshot(elapsedSeconds) {
   const minute = Math.floor(elapsedSeconds / 60);
   const lastEntry = DIFFICULTY_TABLE[DIFFICULTY_TABLE.length - 1];
   let entry = DIFFICULTY_TABLE[0];
@@ -220,15 +195,15 @@ function getDifficultySnapshot(elapsedSeconds) {
     statScale: lastEntry.statScale + overflowMinutes * 0.1,
     weights: {
       nibbler: Math.max(0.92, lastEntry.weights.nibbler - overflowMinutes * 0.03),
+      sprinter: lastEntry.weights.sprinter + overflowMinutes * 0.05,
       spitter: lastEntry.weights.spitter + overflowMinutes * 0.08,
+      marksman: lastEntry.weights.marksman + overflowMinutes * 0.06,
       "acid-spitter": lastEntry.weights["acid-spitter"] + overflowMinutes * 0.07,
       bumper: lastEntry.weights.bumper + overflowMinutes * 0.06,
       tank: lastEntry.weights.tank + overflowMinutes * 0.04,
     },
   };
-}
-
-function getBossScale(cycleIndex) {
+}function getBossScale(cycleIndex) {
   return {
     hpMultiplier: 1.35 ** cycleIndex,
     damageMultiplier: 1.15 ** cycleIndex,
@@ -236,8 +211,7 @@ function getBossScale(cycleIndex) {
 }
 
 // src/data/enemies.js
-/** @type {Record<string, import("../types.js").EnemyDef>} */
-const ENEMY_DEFS = {
+/** @type {Record<string, import("../types.js").EnemyDef>} */const ENEMY_DEFS = {
   nibbler: {
     id: "nibbler",
     name: "Runner",
@@ -247,10 +221,26 @@ const ENEMY_DEFS = {
     speed: 155,
     contactDamage: 1,
     xpValue: 12,
+    goldValue: 2,
     scoreValue: 1,
     color: "#d14343",
     accent: "#7f1d1d",
     behavior: "nibbler",
+  },
+  sprinter: {
+    id: "sprinter",
+    name: "Sprinter",
+    cost: 1.25,
+    radius: 13,
+    maxHp: 2,
+    speed: 215,
+    contactDamage: 1,
+    xpValue: 10,
+    goldValue: 1,
+    scoreValue: 1.1,
+    color: "#facc15",
+    accent: "#a16207",
+    behavior: "sprinter",
   },
   spitter: {
     id: "spitter",
@@ -261,10 +251,26 @@ const ENEMY_DEFS = {
     speed: 112,
     contactDamage: 1,
     xpValue: 18,
+    goldValue: 5,
     scoreValue: 1.5,
     color: "#2563eb",
     accent: "#1e3a8a",
     behavior: "spitter",
+  },
+  marksman: {
+    id: "marksman",
+    name: "Marksman",
+    cost: 2.35,
+    radius: 17,
+    maxHp: 5,
+    speed: 94,
+    contactDamage: 1,
+    xpValue: 24,
+    goldValue: 6,
+    scoreValue: 2,
+    color: "#8b5cf6",
+    accent: "#4c1d95",
+    behavior: "marksman",
   },
   "acid-spitter": {
     id: "acid-spitter",
@@ -275,6 +281,7 @@ const ENEMY_DEFS = {
     speed: 96,
     contactDamage: 1,
     xpValue: 22,
+    goldValue: 7,
     scoreValue: 1.8,
     color: "#22c55e",
     accent: "#14532d",
@@ -289,6 +296,7 @@ const ENEMY_DEFS = {
     speed: 78,
     contactDamage: 1,
     xpValue: 28,
+    goldValue: 8,
     scoreValue: 2.4,
     color: "#b7791f",
     accent: "#6b3f0b",
@@ -303,6 +311,7 @@ const ENEMY_DEFS = {
     speed: 58,
     contactDamage: 2,
     xpValue: 46,
+    goldValue: 15,
     scoreValue: 4.2,
     color: "#64748b",
     accent: "#334155",
@@ -317,6 +326,7 @@ const ENEMY_DEFS = {
     speed: 104,
     contactDamage: 1,
     xpValue: 24,
+    goldValue: 3,
     scoreValue: 2.1,
     color: "#14b8a6",
     accent: "#0f766e",
@@ -324,15 +334,15 @@ const ENEMY_DEFS = {
   },
 };
 
-/** @type {import("../types.js").BossDef} */
-const BOSS_DEF = {
+/** @type {import("../types.js").BossDef} */const BOSS_DEF = {
   id: "heavy-unit",
   name: "Heavy Unit",
   radius: 54,
   maxHp: 300,
   speed: 118,
   contactDamage: 2,
-  xpValue: 140,
+  xpValue: 300,
+  goldValue: 25,
   scoreValue: 16,
   color: "#2f3a47",
   accent: "#0f766e",
@@ -342,8 +352,7 @@ const BOSS_DEF = {
 const SHIELD_INTERVALS = [16, 12, 9];
 const SHIELD_CAPS = [1, 2, 2];
 
-/** @type {import("../types.js").UpgradeDef[]} */
-const UPGRADE_DEFS = [
+/** @type {import("../types.js").UpgradeDef[]} */const UPGRADE_DEFS = [
   {
     id: "rapid-pop",
     name: "Rapid Fire",
@@ -435,10 +444,9 @@ const UPGRADE_DEFS = [
     cap: 4,
     color: "#d14343",
     accent: "#fee2e2",
-    describe: (rank) => `Rank ${rank}: max health +1 and heal 2 immediately.`,
+    describe: (rank) => `Rank ${rank}: max health +1.`,
     apply: (player) => {
       player.maxHp += 1;
-      player.hp = Math.min(player.maxHp, player.hp + 2);
     },
   },
   {
@@ -491,14 +499,18 @@ const UPGRADE_DEFS = [
     },
   },
   {
-    id: "dash-reload",
-    name: "Dash Reload",
+    id: "ability-reload",
+    name: "Ability Reload",
     cap: 3,
     color: "#f59e0b",
     accent: "#fef3c7",
-    describe: (rank) => `Rank ${rank}: dashing reloads ${Math.round(rank * 35)}% of your weapon cooldown.`,
-    apply: (player, rank) => {
-      player.dashReloadRatio = rank * 0.35;
+    isAvailable: (player) => Boolean(player.equippedAbilityId),
+    describe: (rank) => `Rank ${rank}: equipped ability cooldowns shrink by ${Math.round((1 - 0.86 ** rank) * 100)}%.`,
+    apply: (player) => {
+      player.grenadeCooldown = Math.max(3.2, player.grenadeCooldown * 0.86);
+      player.grenadeCooldownRemaining = Math.min(player.grenadeCooldownRemaining, player.grenadeCooldown);
+      player.landmineCooldown = Math.max(4, player.landmineCooldown * 0.86);
+      player.landmineCooldownRemaining = Math.min(player.landmineCooldownRemaining, player.landmineCooldown);
     },
   },
   {
@@ -616,7 +628,7 @@ const UPGRADE_DEFS = [
     cap: 4,
     color: "#f97316",
     accent: "#ffedd5",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade damage +3 and blast radius +10.`,
     apply: (player) => {
       player.grenadeDamage += 3;
@@ -629,7 +641,7 @@ const UPGRADE_DEFS = [
     cap: 4,
     color: "#06b6d4",
     accent: "#cffafe",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade cooldown shrinks by 15%.`,
     apply: (player) => {
       player.grenadeCooldown = Math.max(3.2, player.grenadeCooldown * 0.85);
@@ -642,152 +654,106 @@ const UPGRADE_DEFS = [
     cap: 3,
     color: "#ef4444",
     accent: "#fee2e2",
-    isAvailable: (player) => player.grenadeEquipped,
+    isAvailable: (player) => player.equippedAbilityId === "grenade",
     describe: (rank) => `Rank ${rank}: grenade blasts leave a burning zone for ${rank + 2}s.`,
     apply: (player, rank) => {
       player.grenadeZoneDuration = rank + 2;
       player.grenadeZoneDamage = 0.9 + rank * 0.35;
     },
   },
-];
-
-function getUpgradeById(upgradeId) {
+  {
+    id: "blast-plating",
+    name: "Blast Plating",
+    cap: 4,
+    color: "#f59e0b",
+    accent: "#fef3c7",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: landmine damage +3 and blast radius +12.`,
+    apply: (player) => {
+      player.landmineDamage += 3;
+      player.landmineRadius += 12;
+    },
+  },
+  {
+    id: "fast-trigger",
+    name: "Fast Trigger",
+    cap: 4,
+    color: "#22d3ee",
+    accent: "#cffafe",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: landmine cooldown shrinks and arm time drops.`,
+    apply: (player) => {
+      player.landmineCooldown = Math.max(4, player.landmineCooldown * 0.84);
+      player.landmineCooldownRemaining = Math.min(player.landmineCooldownRemaining, player.landmineCooldown);
+      player.landmineArmTime = Math.max(0.16, player.landmineArmTime - 0.08);
+    },
+  },
+  {
+    id: "cluster-charge",
+    name: "Cluster Charge",
+    cap: 3,
+    color: "#ef4444",
+    accent: "#fee2e2",
+    isAvailable: (player) => player.equippedAbilityId === "landmine",
+    describe: (rank) => `Rank ${rank}: mine explosions launch ${rank + 3} piercing fragments.`,
+    apply: (player, rank) => {
+      player.landmineClusterFragments = rank + 3;
+    },
+  },
+  {
+    id: "rapid-assembly",
+    name: "Rapid Assembly",
+    cap: 4,
+    color: "#34d399",
+    accent: "#dcfce7",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +2s.`,
+    apply: (player) => {
+      player.turretDeployCooldown = Math.max(2.8, player.turretDeployCooldown * 0.82);
+      player.turretDeployCooldownRemaining = Math.min(player.turretDeployCooldownRemaining, player.turretDeployCooldown);
+      player.turretLifetime += 2;
+    },
+  },
+  {
+    id: "twin-sentries",
+    name: "Twin Sentries",
+    cap: 2,
+    color: "#06b6d4",
+    accent: "#cffafe",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: deploy +1 active turret.`,
+    apply: (player) => {
+      player.maxTurrets += 1;
+    },
+  },
+  {
+    id: "calibrated-turret",
+    name: "Calibrated Turret",
+    cap: 4,
+    color: "#a855f7",
+    accent: "#f3e8ff",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret range +60 and turret damage +0.5.`,
+    apply: (player) => {
+      player.turretRange += 60;
+      player.turretDamageBonus += 0.5;
+    },
+  },
+  {
+    id: "piercing-sentry",
+    name: "Piercing Sentry",
+    cap: 3,
+    color: "#64748b",
+    accent: "#e2e8f0",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret shots pierce +1 target.`,
+    apply: (player) => {
+      player.turretPierce += 1;
+    },
+  },
+];function getUpgradeById(upgradeId) {
   return UPGRADE_DEFS.find((upgrade) => upgrade.id === upgradeId) ?? null;
 }
-
-// src/types.js
-/**
- * @typedef {Object} PlayerState
- * @property {number} x
- * @property {number} y
- * @property {number} radius
- * @property {number} hp
- * @property {number} maxHp
- * @property {number} moveSpeed
- * @property {number} fireCooldown
- * @property {number} fireCooldownRemaining
- * @property {number} projectileSpeed
- * @property {number} projectileRadius
- * @property {number} projectileDamage
- * @property {number} projectileLifetime
- * @property {string} characterId
- * @property {"ranged" | "melee"} attackType
- * @property {number} pierce
- * @property {number} multishot
- * @property {number} spreadAngle
- * @property {number} dashSpeed
- * @property {number} dashDuration
- * @property {number} dashTimeRemaining
- * @property {number} dashCooldown
- * @property {number} dashCooldownRemaining
- * @property {number} dashInvulnerability
- * @property {number} invulnerabilityRemaining
- * @property {{x: number, y: number}} dashVector
- * @property {number} magnetRadius
- * @property {number} shields
- * @property {number} maxShields
- * @property {number} shieldRegenSeconds
- * @property {number} shieldRegenTimer
- * @property {number} xpMultiplier
- * @property {number} grenadeCooldown
- * @property {number} grenadeCooldownRemaining
- * @property {number} grenadeDamage
- * @property {number} grenadeRadius
- * @property {number} grenadeProjectileSpeed
- * @property {number} grenadeFuse
- * @property {boolean} grenadeEquipped
- * @property {number} slashDamage
- * @property {number} slashRange
- * @property {number} slashArc
- * @property {number} slashMaxTargets
- * @property {number} bleedDamagePerSecond
- * @property {number} bleedDuration
- * @property {number} counterInvulnerability
- * @property {number} dashSlashDamage
- * @property {number} turretDeployCooldown
- * @property {number} turretDeployCooldownRemaining
- * @property {number} turretLifetime
- * @property {number} turretRange
- * @property {number} turretFireCooldown
- * @property {number} maxTurrets
- */
-
-/**
- * @typedef {Object} CharacterDef
- * @property {string} id
- * @property {string} name
- * @property {string} description
- * @property {"ranged" | "melee"} attackType
- * @property {boolean} [unlockedByDefault]
- * @property {number} [unlockBossKills]
- * @property {number} [unlockTotalKills]
- * @property {string} color
- * @property {string} accent
- * @property {{damage: number, range: number, arc: number, cooldown: number, maxTargets: number, bleedDamagePerSecond: number, bleedDuration: number, counterInvulnerability: number, dashSlashDamage: number}} [slash]
- */
-
-/**
- * @typedef {Object} EnemyDef
- * @property {string} id
- * @property {string} name
- * @property {number} cost
- * @property {number} radius
- * @property {number} maxHp
- * @property {number} speed
- * @property {number} contactDamage
- * @property {number} xpValue
- * @property {number} scoreValue
- * @property {string} color
- * @property {string} accent
- * @property {"nibbler" | "spitter" | "acid-spitter" | "bumper" | "tank" | "sentinel"} behavior
- */
-
-/**
- * @typedef {Object} BossDef
- * @property {string} id
- * @property {string} name
- * @property {number} radius
- * @property {number} maxHp
- * @property {number} speed
- * @property {number} contactDamage
- * @property {number} xpValue
- * @property {number} scoreValue
- * @property {string} color
- * @property {string} accent
- */
-
-/**
- * @typedef {Object} UpgradeDef
- * @property {string} id
- * @property {string} name
- * @property {number} cap
- * @property {string} color
- * @property {string} accent
- * @property {string[]} [characters]
- * @property {string[]} [excludeCharacters]
- * @property {(player: PlayerState) => boolean} [isAvailable]
- * @property {(nextRank: number) => string} describe
- * @property {(player: PlayerState, nextRank: number) => void} apply
- */
-
-/**
- * @typedef {Object} RunStats
- * @property {number} elapsed
- * @property {number} level
- * @property {number} xp
- * @property {number} xpToNext
- * @property {number} kills
- * @property {number} bossKills
- * @property {number} shotsFired
- * @property {number} killScore
- * @property {number} score
- * @property {number} damageTaken
- * @property {Record<string, number>} enemyKills
- * @property {Record<string, number>} enemyDeaths
- * @property {boolean} recorded
- */
-
-{};
 
 // src/storage.js
 const AUDIO_DB_NAME = "bubble-blitz-forever-audio";
@@ -795,6 +761,8 @@ const AUDIO_STORE_NAME = "song-files";
 const AUDIO_DB_VERSION = 1;
 const songAudioUrls = new Map();
 const ENEMY_STAT_IDS = [...Object.keys(ENEMY_DEFS), BOSS_DEF.id];
+const ABILITY_ACCESSORY_IDS = ["grenade", "landmine"];
+const LEGACY_BUILT_IN_SONG_IDS = new Set(["arcade-pulse", "neon-run", "boss-voltage"]);
 
 function openAudioDatabase() {
   return new Promise((resolve, reject) => {
@@ -840,22 +808,16 @@ async function withAudioStore(mode, action) {
       database.close();
     });
   });
-}
-
-async function saveSongAudio(songId, file) {
+}async function saveSongAudio(songId, file) {
   await withAudioStore("readwrite", (store) => store.put(file, songId));
-}
-
-async function deleteSongAudio(songId) {
+}async function deleteSongAudio(songId) {
   const currentUrl = songAudioUrls.get(songId);
   if (currentUrl) {
     URL.revokeObjectURL(currentUrl);
     songAudioUrls.delete(songId);
   }
   await withAudioStore("readwrite", (store) => store.delete(songId));
-}
-
-async function hydrateAdminSongAudio(adminSongs) {
+}async function hydrateAdminSongAudio(adminSongs) {
   if (!Array.isArray(adminSongs) || !adminSongs.length || !window.indexedDB) {
     return adminSongs;
   }
@@ -902,16 +864,79 @@ function getEmptyStats() {
   };
 }
 
+function getEmptyLoadouts() {
+  return Object.fromEntries(Object.values(CHARACTER_IDS).map((characterId) => [characterId, { accessoryIds: [] }]));
+}
+
+function normalizeAbilityId(abilityId, grenadeUnlocked, landmineUnlocked) {
+  if (abilityId === "grenade" && grenadeUnlocked) {
+    return "grenade";
+  }
+  if (abilityId === "landmine" && landmineUnlocked) {
+    return "landmine";
+  }
+  return "";
+}
+
+function normalizeLoadouts(progress, selectedCharacterId, equippedAbilityId, grenadeUnlocked, landmineUnlocked) {
+  const loadouts = getEmptyLoadouts();
+  const sourceLoadouts = progress?.loadouts && typeof progress.loadouts === "object" ? progress.loadouts : {};
+  for (const characterId of Object.values(CHARACTER_IDS)) {
+    const rawAccessoryIds = Array.isArray(sourceLoadouts?.[characterId]?.accessoryIds)
+      ? sourceLoadouts[characterId].accessoryIds
+      : [];
+    const accessoryIds = rawAccessoryIds
+      .map((abilityId) => normalizeAbilityId(abilityId, grenadeUnlocked, landmineUnlocked))
+      .filter(Boolean)
+      .slice(0, 1);
+    loadouts[characterId] = { accessoryIds };
+  }
+  if (equippedAbilityId && !loadouts[selectedCharacterId]?.accessoryIds?.length) {
+    loadouts[selectedCharacterId] = { accessoryIds: [equippedAbilityId] };
+  }
+  return loadouts;
+}
+
+function getLoadoutAbilityId(loadouts, selectedCharacterId, grenadeUnlocked, landmineUnlocked) {
+  const accessoryIds = loadouts?.[selectedCharacterId]?.accessoryIds ?? [];
+  for (const accessoryId of accessoryIds) {
+    const normalized = normalizeAbilityId(accessoryId, grenadeUnlocked, landmineUnlocked);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return "";
+}
+
+function normalizeMusicState(music) {
+  const adminSongs = Array.isArray(music?.adminSongs) ? music.adminSongs.filter((song) => song?.id && song?.title) : [];
+  const catalogIds = new Set([...DEFAULT_SONGS.map((song) => song.id), ...adminSongs.map((song) => song.id)]);
+  const ownedSongIds = Array.isArray(music?.ownedSongIds)
+    ? music.ownedSongIds.filter((id) => typeof id === "string" && catalogIds.has(id) && !LEGACY_BUILT_IN_SONG_IDS.has(id))
+    : [];
+  const freeDefaultSongIds = DEFAULT_SONGS.filter((song) => Math.max(0, Number(song.price) || 0) === 0).map((song) => song.id);
+  const owned = Array.from(new Set([...freeDefaultSongIds, ...ownedSongIds]));
+  const selectedSongId =
+    typeof music?.selectedSongId === "string" && owned.includes(music.selectedSongId) && catalogIds.has(music.selectedSongId)
+      ? music.selectedSongId
+      : "";
+  return {
+    selectedSongId,
+    ownedSongIds: owned,
+    customRequests: Array.isArray(music?.customRequests) ? music.customRequests : [],
+    adminSongs,
+  };
+}
+
 function getEmptySave() {
-  const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
   return {
     highScore: 0,
     wallet: {
       gold: 0,
     },
     music: {
-      selectedSongId: defaultSongId,
-      ownedSongIds: [defaultSongId],
+      selectedSongId: "",
+      ownedSongIds: [],
       customRequests: [],
       adminSongs: [],
     },
@@ -919,9 +944,12 @@ function getEmptySave() {
     progress: {
       grenadeUnlocked: false,
       grenadeEquipped: false,
+      landmineUnlocked: false,
+      equippedAbilityId: "",
       katanaUnlocked: false,
       engineerUnlocked: false,
       selectedCharacterId: CHARACTER_IDS.gunner,
+      loadouts: getEmptyLoadouts(),
     },
     settings: { ...SETTINGS_DEFAULTS },
   };
@@ -967,9 +995,7 @@ function normalizeStats(stats, highScore = 0) {
     },
     enemy: normalizeEnemyStats(stats?.enemy),
   };
-}
-
-function loadSave() {
+}function loadSave() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -979,33 +1005,42 @@ function loadSave() {
     const parsed = JSON.parse(raw);
     const stats = normalizeStats(parsed?.stats, parsed?.highScore);
     const grenadeUnlocked = Boolean(parsed?.progress?.grenadeUnlocked || stats.best.kills >= 250);
+    const landmineUnlocked = Boolean(parsed?.progress?.landmineUnlocked || stats.best.time >= 300);
+    const legacyGrenadeEquipped = Boolean(grenadeUnlocked && parsed?.progress?.grenadeEquipped);
+    const requestedAbilityId = typeof parsed?.progress?.equippedAbilityId === "string" ? parsed.progress.equippedAbilityId : "";
+    const equippedAbilityId =
+      requestedAbilityId === "grenade" && grenadeUnlocked
+        ? "grenade"
+        : requestedAbilityId === "landmine" && landmineUnlocked
+          ? "landmine"
+          : legacyGrenadeEquipped
+            ? "grenade"
+            : "";
     const katanaUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.katana);
     const engineerUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.engineer);
     const selectedCharacterId = [CHARACTER_IDS.katana, CHARACTER_IDS.engineer].includes(parsed?.progress?.selectedCharacterId) &&
       isCharacterUnlocked({ ...parsed?.progress, katanaUnlocked, engineerUnlocked }, stats, parsed.progress.selectedCharacterId)
       ? parsed.progress.selectedCharacterId
       : CHARACTER_IDS.gunner;
-    const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
-    const adminSongs = Array.isArray(parsed?.music?.adminSongs) ? parsed.music.adminSongs.filter((song) => song?.id && song?.title) : [];
-    const ownedSongIds = Array.isArray(parsed?.music?.ownedSongIds) ? parsed.music.ownedSongIds : [];
+    const loadouts = normalizeLoadouts(parsed?.progress, selectedCharacterId, equippedAbilityId, grenadeUnlocked, landmineUnlocked);
+    const loadoutAbilityId = getLoadoutAbilityId(loadouts, selectedCharacterId, grenadeUnlocked, landmineUnlocked) || equippedAbilityId;
+    const music = normalizeMusicState(parsed?.music);
     return {
       highScore: Number.isFinite(parsed?.highScore) ? parsed.highScore : 0,
       wallet: {
         gold: Math.max(0, toFiniteNumber(parsed?.wallet?.gold)),
       },
-      music: {
-        selectedSongId: parsed?.music?.selectedSongId || defaultSongId,
-        ownedSongIds: Array.from(new Set([defaultSongId, ...ownedSongIds])),
-        customRequests: Array.isArray(parsed?.music?.customRequests) ? parsed.music.customRequests : [],
-        adminSongs,
-      },
+      music,
       stats,
       progress: {
         grenadeUnlocked,
-        grenadeEquipped: Boolean(grenadeUnlocked && parsed?.progress?.grenadeEquipped),
+        grenadeEquipped: loadoutAbilityId === "grenade",
+        landmineUnlocked,
+        equippedAbilityId: loadoutAbilityId,
         katanaUnlocked,
         engineerUnlocked,
         selectedCharacterId,
+        loadouts,
       },
       settings: {
         ...SETTINGS_DEFAULTS,
@@ -1015,9 +1050,7 @@ function loadSave() {
   } catch {
     return getEmptySave();
   }
-}
-
-function updateWallet(save, partialWallet) {
+}function updateWallet(save, partialWallet) {
   const next = {
     ...save,
     wallet: {
@@ -1028,28 +1061,18 @@ function updateWallet(save, partialWallet) {
   next.wallet.gold = Math.max(0, Math.floor(toFiniteNumber(next.wallet.gold)));
   persistSave(next);
   return next;
-}
-
-function updateMusic(save, partialMusic) {
-  const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
-  const currentMusic = save.music ?? {};
+}function updateMusic(save, partialMusic) {
+  const currentMusic = normalizeMusicState(save.music ?? {});
   const next = {
     ...save,
-    music: {
-      selectedSongId: currentMusic.selectedSongId || defaultSongId,
-      ownedSongIds: Array.from(new Set([defaultSongId, ...(currentMusic.ownedSongIds ?? [])])),
-      customRequests: currentMusic.customRequests ?? [],
-      adminSongs: currentMusic.adminSongs ?? [],
+    music: normalizeMusicState({
+      ...currentMusic,
       ...partialMusic,
-    },
+    }),
   };
-  next.music.ownedSongIds = Array.from(new Set([defaultSongId, ...(next.music.ownedSongIds ?? [])]));
-  next.music.adminSongs = Array.isArray(next.music.adminSongs) ? next.music.adminSongs : [];
-  next.music.customRequests = Array.isArray(next.music.customRequests) ? next.music.customRequests : [];
   persistSave(next);
   return next;
 }
-
 function persistSave(save) {
   const storedSave = {
     ...save,
@@ -1066,9 +1089,7 @@ function persistSave(save) {
     },
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storedSave));
-}
-
-function updateHighScore(save, score) {
+}function updateHighScore(save, score) {
   const nextHighScore = Math.floor(score);
   if (nextHighScore <= save.highScore) {
     return save;
@@ -1087,9 +1108,7 @@ function updateHighScore(save, score) {
   };
   persistSave(next);
   return next;
-}
-
-function recordRun(save, run) {
+}function recordRun(save, run) {
   const stats = normalizeStats(save.stats, save.highScore);
   const score = Math.floor(run.score);
   const elapsed = Math.max(0, run.elapsed);
@@ -1110,7 +1129,13 @@ function recordRun(save, run) {
     progress: {
       ...(save.progress ?? {}),
       grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked || kills >= 250),
-      grenadeEquipped: Boolean((save.progress?.grenadeUnlocked || kills >= 250) && save.progress?.grenadeEquipped),
+      grenadeEquipped: Boolean(save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped),
+      landmineUnlocked: Boolean(save.progress?.landmineUnlocked || elapsed >= 300),
+      equippedAbilityId: save.progress?.equippedAbilityId === "landmine" && (save.progress?.landmineUnlocked || elapsed >= 300)
+        ? "landmine"
+        : (save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped) && (save.progress?.grenadeUnlocked || kills >= 250)
+          ? "grenade"
+          : "",
       katanaUnlocked: Boolean(save.progress?.katanaUnlocked || stats.total.bosses + bosses >= KATANA_UNLOCK_BOSSES),
       engineerUnlocked: Boolean(save.progress?.engineerUnlocked || stats.total.kills + kills >= ENGINEER_UNLOCK_KILLS),
       selectedCharacterId: isCharacterUnlocked(
@@ -1131,6 +1156,13 @@ function recordRun(save, run) {
       )
         ? save.progress.selectedCharacterId
         : CHARACTER_IDS.gunner,
+      loadouts: normalizeLoadouts(
+        save.progress,
+        isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId) ? save.progress.selectedCharacterId : CHARACTER_IDS.gunner,
+        save.progress?.equippedAbilityId,
+        Boolean(save.progress?.grenadeUnlocked || kills >= 250),
+        Boolean(save.progress?.landmineUnlocked || elapsed >= 300),
+      ),
     },
     stats: {
       best: {
@@ -1154,9 +1186,7 @@ function recordRun(save, run) {
   };
   persistSave(next);
   return next;
-}
-
-function resetStats(save) {
+}function resetStats(save) {
   const next = {
     ...save,
     highScore: 0,
@@ -1164,31 +1194,69 @@ function resetStats(save) {
   };
   persistSave(next);
   return next;
-}
-
-function updateProgress(save, partialProgress) {
+}function updateProgress(save, partialProgress) {
+  const baseGrenadeUnlocked = Boolean(save.progress?.grenadeUnlocked);
+  const baseLandmineUnlocked = Boolean(save.progress?.landmineUnlocked);
+  const baseEquippedAbilityId =
+    save.progress?.equippedAbilityId === "landmine" && baseLandmineUnlocked
+      ? "landmine"
+      : (save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped) && baseGrenadeUnlocked
+        ? "grenade"
+        : "";
+  const baseSelectedCharacterId = isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId)
+    ? save.progress.selectedCharacterId
+    : CHARACTER_IDS.gunner;
+  const baseLoadouts = normalizeLoadouts(
+    save.progress,
+    baseSelectedCharacterId,
+    baseEquippedAbilityId,
+    baseGrenadeUnlocked,
+    baseLandmineUnlocked,
+  );
   const nextProgress = {
-    grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked),
-    grenadeEquipped: Boolean(save.progress?.grenadeUnlocked && save.progress?.grenadeEquipped),
+    grenadeUnlocked: baseGrenadeUnlocked,
+    grenadeEquipped: baseEquippedAbilityId === "grenade",
+    landmineUnlocked: baseLandmineUnlocked,
+    equippedAbilityId: baseEquippedAbilityId,
     katanaUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.katana),
     engineerUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.engineer),
-    selectedCharacterId: isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId)
-      ? save.progress.selectedCharacterId
-      : CHARACTER_IDS.gunner,
+    selectedCharacterId: baseSelectedCharacterId,
+    loadouts: baseLoadouts,
     ...partialProgress,
   };
-  nextProgress.grenadeEquipped = Boolean(nextProgress.grenadeUnlocked && nextProgress.grenadeEquipped);
+  nextProgress.loadouts = normalizeLoadouts(
+    nextProgress,
+    nextProgress.selectedCharacterId,
+    nextProgress.equippedAbilityId,
+    nextProgress.grenadeUnlocked,
+    nextProgress.landmineUnlocked,
+  );
+  nextProgress.equippedAbilityId =
+    getLoadoutAbilityId(nextProgress.loadouts, nextProgress.selectedCharacterId, nextProgress.grenadeUnlocked, nextProgress.landmineUnlocked) ||
+    normalizeAbilityId(nextProgress.equippedAbilityId, nextProgress.grenadeUnlocked, nextProgress.landmineUnlocked);
+  if (nextProgress.equippedAbilityId === "grenade" && !nextProgress.grenadeUnlocked) {
+    nextProgress.equippedAbilityId = "";
+  }
+  if (nextProgress.equippedAbilityId === "landmine" && !nextProgress.landmineUnlocked) {
+    nextProgress.equippedAbilityId = "";
+  }
+  nextProgress.grenadeEquipped = nextProgress.equippedAbilityId === "grenade";
   nextProgress.selectedCharacterId =
     isCharacterUnlocked(nextProgress, save.stats, nextProgress.selectedCharacterId) ? nextProgress.selectedCharacterId : CHARACTER_IDS.gunner;
+  nextProgress.loadouts = normalizeLoadouts(
+    nextProgress,
+    nextProgress.selectedCharacterId,
+    nextProgress.equippedAbilityId,
+    nextProgress.grenadeUnlocked,
+    nextProgress.landmineUnlocked,
+  );
   const next = {
     ...save,
     progress: nextProgress,
   };
   persistSave(next);
   return next;
-}
-
-function updateSettings(save, partialSettings) {
+}function updateSettings(save, partialSettings) {
   const next = {
     ...save,
     settings: {
@@ -1212,6 +1280,8 @@ class AudioSystem {
     this.generatedMusicTimer = 0;
     this.generatedStep = 0;
     this.currentSong = null;
+    this.effectGates = new Map();
+    this.specialGrenadeClipSrc = "./sounds/greande.mp3";
   }
 
   async unlock() {
@@ -1223,7 +1293,7 @@ class AudioSystem {
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       this.context = new AudioContextCtor();
       this.masterGain = this.context.createGain();
-      this.masterGain.gain.value = this.muted ? 0 : 0.12;
+      this.masterGain.gain.value = this.muted ? 0 : 0.14;
       this.masterGain.connect(this.context.destination);
       this.musicGain = this.context.createGain();
       this.musicGain.gain.value = this.muted ? 0 : this.musicVolume * 0.18;
@@ -1238,7 +1308,7 @@ class AudioSystem {
   setMuted(nextMuted) {
     this.muted = nextMuted;
     if (this.masterGain) {
-      this.masterGain.gain.value = nextMuted ? 0 : 0.12;
+      this.masterGain.gain.value = nextMuted ? 0 : 0.14;
     }
     if (this.musicGain) {
       this.musicGain.gain.value = nextMuted ? 0 : this.musicVolume * 0.18;
@@ -1260,11 +1330,11 @@ class AudioSystem {
 
   async playMusic(song) {
     this.currentSong = song;
-    await this.unlock();
     this.stopMusic();
     if (!song || this.muted) {
       return;
     }
+    await this.unlock();
     if (song.src) {
       this.musicAudio = new Audio(song.src);
       this.musicAudio.loop = true;
@@ -1321,53 +1391,305 @@ class AudioSystem {
     this.generatedMusicTimer = window.setInterval(playStep, 260);
   }
 
+  canPlayEffect(key, interval = 0) {
+    if (!this.context) {
+      return false;
+    }
+    const now = this.context.currentTime;
+    const previous = this.effectGates.get(key) ?? -Infinity;
+    if (now - previous < interval) {
+      return false;
+    }
+    this.effectGates.set(key, now);
+    return true;
+  }
+
   playShoot() {
-    this.playTone({ frequency: 640, endFrequency: 420, duration: 0.08, gain: 0.13, type: "triangle" });
+    if (!this.canPlayEffect("shoot", 0.035)) {
+      return;
+    }
+    this.playTone({ frequency: 760, endFrequency: 410, duration: 0.075, gain: 0.1, type: "triangle" });
+    this.playTone({ frequency: 1160, endFrequency: 760, duration: 0.045, gain: 0.04, type: "sine", delay: 0.018 });
+  }
+
+  playSlash() {
+    if (!this.canPlayEffect("slash", 0.07)) {
+      return;
+    }
+    this.playTone({ frequency: 420, endFrequency: 980, duration: 0.11, gain: 0.08, type: "sawtooth" });
+    this.playTone({ frequency: 740, endFrequency: 1220, duration: 0.09, gain: 0.045, type: "sine", delay: 0.025 });
+    this.playNoise({ duration: 0.06, gain: 0.035, filterFrequency: 2600, filterType: "highpass" });
   }
 
   playHit() {
-    this.playTone({ frequency: 220, endFrequency: 110, duration: 0.12, gain: 0.18, type: "square" });
+    if (!this.canPlayEffect("hit", 0.035)) {
+      return;
+    }
+    const impact = 170 + Math.random() * 70;
+    this.playTone({ frequency: impact, endFrequency: 80, duration: 0.09, gain: 0.055, type: "square" });
+    this.playNoise({ duration: 0.045, gain: 0.04, filterFrequency: 900, filterType: "bandpass" });
+  }
+
+  playEnemyDeath() {
+    if (!this.canPlayEffect("enemy-death", 0.045)) {
+      return;
+    }
+    const start = 340 + Math.random() * 170;
+    this.playTone({ frequency: start, endFrequency: start * 1.75, duration: 0.08, gain: 0.055, type: "triangle" });
+    this.playNoise({ duration: 0.055, gain: 0.026, filterFrequency: 1500, filterType: "bandpass", delay: 0.015 });
+  }
+
+  playBossDeath() {
+    if (!this.canPlayEffect("boss-death", 0.5)) {
+      return;
+    }
+    this.playNoise({ duration: 0.38, gain: 0.16, filterFrequency: 420, filterType: "lowpass" });
+    this.playTone({ frequency: 190, endFrequency: 55, duration: 0.48, gain: 0.16, type: "sawtooth" });
+    this.playTone({ frequency: 285, endFrequency: 80, duration: 0.42, gain: 0.09, type: "triangle", delay: 0.04 });
+    this.playTone({ frequency: 760, endFrequency: 1180, duration: 0.18, gain: 0.055, type: "sine", delay: 0.22 });
+  }
+
+  playGold(doubleGold = false) {
+    if (doubleGold) {
+      this.playDoubleGold();
+      return;
+    }
+    if (!this.canPlayEffect("gold", 0.045)) {
+      return;
+    }
+    this.playTone({ frequency: 1180, endFrequency: 1680, duration: 0.08, gain: 0.05, type: "sine" });
+    this.playTone({ frequency: 1680, endFrequency: 1320, duration: 0.09, gain: 0.04, type: "triangle", delay: 0.055 });
+  }
+
+  playPickup() {
+    if (!this.canPlayEffect("pickup", 0.045)) {
+      return;
+    }
+    this.playTone({ frequency: 720, endFrequency: 980, duration: 0.055, gain: 0.032, type: "sine" });
+  }
+
+  playDoubleGold() {
+    if (!this.canPlayEffect("double-gold", 0.25)) {
+      return;
+    }
+    for (const [index, note] of [880, 1175, 1568, 2093].entries()) {
+      this.playTone({ frequency: note, endFrequency: note * 1.08, duration: 0.13, gain: 0.052, type: "sine", delay: index * 0.045 });
+    }
+    this.playNoise({ duration: 0.12, gain: 0.025, filterFrequency: 3600, filterType: "highpass", delay: 0.08 });
   }
 
   playDash() {
-    this.playTone({ frequency: 450, endFrequency: 760, duration: 0.11, gain: 0.14, type: "sine" });
+    if (!this.canPlayEffect("dash", 0.08)) {
+      return;
+    }
+    this.playTone({ frequency: 390, endFrequency: 820, duration: 0.13, gain: 0.1, type: "sine" });
+    this.playNoise({ duration: 0.08, gain: 0.035, filterFrequency: 2400, filterType: "highpass" });
   }
 
   playLevelUp() {
-    this.playTone({ frequency: 520, endFrequency: 920, duration: 0.18, gain: 0.16, type: "triangle" });
-    this.playTone({ frequency: 760, endFrequency: 1080, duration: 0.16, gain: 0.1, type: "sine", delay: 0.05 });
+    if (!this.canPlayEffect("level-up", 0.25)) {
+      return;
+    }
+    for (const [index, note] of [520, 660, 790, 1040].entries()) {
+      this.playTone({ frequency: note, endFrequency: note * 1.18, duration: 0.15, gain: 0.07, type: index % 2 ? "sine" : "triangle", delay: index * 0.045 });
+    }
+  }
+
+  playUpgradeSelect() {
+    if (!this.canPlayEffect("upgrade-select", 0.16)) {
+      return;
+    }
+    this.playTone({ frequency: 660, endFrequency: 990, duration: 0.1, gain: 0.055, type: "triangle" });
+    this.playTone({ frequency: 990, endFrequency: 1320, duration: 0.12, gain: 0.046, type: "sine", delay: 0.055 });
   }
 
   playBossWarning() {
-    this.playTone({ frequency: 260, endFrequency: 180, duration: 0.16, gain: 0.18, type: "sawtooth" });
-    this.playTone({ frequency: 310, endFrequency: 230, duration: 0.16, gain: 0.12, type: "sawtooth", delay: 0.22 });
+    if (!this.canPlayEffect("boss-warning", 0.45)) {
+      return;
+    }
+    this.playTone({ frequency: 260, endFrequency: 170, duration: 0.18, gain: 0.16, type: "sawtooth" });
+    this.playTone({ frequency: 310, endFrequency: 215, duration: 0.18, gain: 0.12, type: "sawtooth", delay: 0.22 });
+    this.playNoise({ duration: 0.12, gain: 0.035, filterFrequency: 520, filterType: "lowpass", delay: 0.02 });
+  }
+
+  playBossSpawn() {
+    if (!this.canPlayEffect("boss-spawn", 0.6)) {
+      return;
+    }
+    this.playNoise({ duration: 0.3, gain: 0.12, filterFrequency: 300, filterType: "lowpass" });
+    this.playTone({ frequency: 120, endFrequency: 180, duration: 0.35, gain: 0.13, type: "sawtooth" });
+    this.playTone({ frequency: 80, endFrequency: 62, duration: 0.5, gain: 0.1, type: "triangle" });
+  }
+
+  playBossAttack(kind = "attack") {
+    if (!this.canPlayEffect(`boss-attack-${kind}`, 0.16)) {
+      return;
+    }
+    if (kind === "burst") {
+      this.playTone({ frequency: 180, endFrequency: 420, duration: 0.18, gain: 0.1, type: "sawtooth" });
+      this.playNoise({ duration: 0.11, gain: 0.055, filterFrequency: 1100, filterType: "bandpass" });
+      return;
+    }
+    if (kind === "summon") {
+      this.playTone({ frequency: 190, endFrequency: 570, duration: 0.28, gain: 0.09, type: "triangle" });
+      this.playTone({ frequency: 285, endFrequency: 760, duration: 0.22, gain: 0.06, type: "sine", delay: 0.06 });
+      return;
+    }
+    this.playTone({ frequency: 320, endFrequency: 150, duration: 0.2, gain: 0.1, type: "sawtooth" });
+    this.playNoise({ duration: 0.08, gain: 0.04, filterFrequency: 900, filterType: "bandpass", delay: 0.02 });
+  }
+
+  playEnemyShoot() {
+    if (!this.canPlayEffect("enemy-shoot", 0.12)) {
+      return;
+    }
+    this.playTone({ frequency: 520, endFrequency: 300, duration: 0.075, gain: 0.052, type: "sawtooth" });
+  }
+
+  playPlayerDamage() {
+    if (!this.canPlayEffect("player-damage", 0.18)) {
+      return;
+    }
+    this.playNoise({ duration: 0.13, gain: 0.09, filterFrequency: 480, filterType: "lowpass" });
+    this.playTone({ frequency: 180, endFrequency: 70, duration: 0.22, gain: 0.12, type: "sawtooth" });
+  }
+
+  playShieldBlock() {
+    if (!this.canPlayEffect("shield-block", 0.16)) {
+      return;
+    }
+    this.playTone({ frequency: 740, endFrequency: 1180, duration: 0.12, gain: 0.075, type: "sine" });
+    this.playTone({ frequency: 370, endFrequency: 920, duration: 0.14, gain: 0.045, type: "triangle", delay: 0.02 });
+  }
+
+  playGrenadeThrow() {
+    if (!this.canPlayEffect("grenade-throw", 0.12)) {
+      return;
+    }
+    this.playTone({ frequency: 360, endFrequency: 220, duration: 0.12, gain: 0.065, type: "triangle" });
+    this.playNoise({ duration: 0.05, gain: 0.02, filterFrequency: 1800, filterType: "highpass" });
+  }
+
+  playSpecialGrenadeThrowClip() {
+    if (typeof Audio === "undefined") {
+      return;
+    }
+    const clip = new Audio(this.specialGrenadeClipSrc);
+    clip.loop = false;
+    clip.muted = false;
+    clip.volume = 1;
+    clip.play().catch(() => {});
+  }
+
+  playExplosion(power = 1) {
+    if (!this.canPlayEffect("explosion", 0.08)) {
+      return;
+    }
+    const safePower = Math.max(0.5, Math.min(1.7, power));
+    this.playNoise({ duration: 0.26, gain: 0.12 * safePower, filterFrequency: 360, filterType: "lowpass" });
+    this.playNoise({ duration: 0.09, gain: 0.05 * safePower, filterFrequency: 1500, filterType: "bandpass" });
+    this.playTone({ frequency: 115, endFrequency: 52, duration: 0.34, gain: 0.1 * safePower, type: "sawtooth" });
+  }
+
+  playMinePlace() {
+    if (!this.canPlayEffect("mine-place", 0.08)) {
+      return;
+    }
+    this.playTone({ frequency: 420, endFrequency: 310, duration: 0.08, gain: 0.055, type: "triangle" });
+    this.playTone({ frequency: 620, endFrequency: 620, duration: 0.045, gain: 0.04, type: "sine", delay: 0.08 });
+  }
+
+  playMineArmed() {
+    if (!this.canPlayEffect("mine-armed", 0.12)) {
+      return;
+    }
+    this.playTone({ frequency: 820, endFrequency: 1180, duration: 0.07, gain: 0.045, type: "sine" });
+  }
+
+  playMineExplosion() {
+    this.playExplosion(1.15);
+    this.playTone({ frequency: 220, endFrequency: 92, duration: 0.2, gain: 0.08, type: "square", delay: 0.03 });
+  }
+
+  playTurretDeploy() {
+    if (!this.canPlayEffect("turret-deploy", 0.12)) {
+      return;
+    }
+    this.playTone({ frequency: 540, endFrequency: 760, duration: 0.08, gain: 0.055, type: "triangle" });
+    this.playTone({ frequency: 760, endFrequency: 1120, duration: 0.09, gain: 0.045, type: "sine", delay: 0.075 });
+  }
+
+  playTurretFire() {
+    if (!this.canPlayEffect("turret-fire", 0.045)) {
+      return;
+    }
+    this.playTone({ frequency: 980, endFrequency: 720, duration: 0.045, gain: 0.043, type: "square" });
   }
 
   playDeath() {
-    this.playTone({ frequency: 260, endFrequency: 90, duration: 0.42, gain: 0.24, type: "triangle" });
+    if (!this.canPlayEffect("death", 0.45)) {
+      return;
+    }
+    this.playNoise({ duration: 0.32, gain: 0.09, filterFrequency: 360, filterType: "lowpass" });
+    this.playTone({ frequency: 260, endFrequency: 86, duration: 0.5, gain: 0.18, type: "triangle" });
+    this.playTone({ frequency: 160, endFrequency: 58, duration: 0.62, gain: 0.1, type: "sawtooth", delay: 0.04 });
   }
 
-  playTone({ frequency, endFrequency, duration, gain, type, delay = 0 }) {
+  playTone({ frequency, endFrequency = frequency, duration, gain, type, delay = 0, attack = 0.008 }) {
     if (this.muted || !this.context || !this.masterGain) {
       return;
     }
 
+    const safeDuration = Math.max(0.02, duration);
+    const safeAttack = Math.max(0.002, Math.min(attack, safeDuration * 0.45));
     const now = this.context.currentTime + delay;
     const oscillator = this.context.createOscillator();
     const volume = this.context.createGain();
 
     oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, now);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, endFrequency), now + duration);
+    oscillator.frequency.setValueAtTime(Math.max(40, frequency), now);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, endFrequency), now + safeDuration);
 
     volume.gain.setValueAtTime(0.0001, now);
-    volume.gain.exponentialRampToValueAtTime(gain, now + 0.01);
-    volume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    volume.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + safeAttack);
+    volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
 
     oscillator.connect(volume);
     volume.connect(this.masterGain);
     oscillator.start(now);
-    oscillator.stop(now + duration + 0.03);
+    oscillator.stop(now + safeDuration + 0.03);
+  }
+
+  playNoise({ duration, gain, delay = 0, filterFrequency = 1000, filterType = "bandpass" }) {
+    if (this.muted || !this.context || !this.masterGain) {
+      return;
+    }
+
+    const safeDuration = Math.max(0.02, duration);
+    const sampleRate = this.context.sampleRate;
+    const frameCount = Math.max(1, Math.floor(sampleRate * safeDuration));
+    const buffer = this.context.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < frameCount; index += 1) {
+      const fade = 1 - index / frameCount;
+      data[index] = (Math.random() * 2 - 1) * fade;
+    }
+
+    const now = this.context.currentTime + delay;
+    const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter();
+    const volume = this.context.createGain();
+    source.buffer = buffer;
+    filter.type = filterType;
+    filter.frequency.setValueAtTime(Math.max(40, filterFrequency), now);
+    volume.gain.setValueAtTime(0.0001, now);
+    volume.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + 0.008);
+    volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
+    source.connect(filter);
+    filter.connect(volume);
+    volume.connect(this.masterGain);
+    source.start(now);
+    source.stop(now + safeDuration + 0.02);
   }
 }
 
@@ -1375,8 +1697,27 @@ class AudioSystem {
 const LEADERBOARD_API_BASE_URL = "https://arena-survival-leaderboard.onrender.com";
 const PLACEHOLDER_API_BASE_URL = "";
 const REQUEST_TIMEOUT_MS = 15000;
+const API_OVERRIDE_STORAGE_KEY = "arena-survival-api-base-url";
 
 function getApiBaseUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const queryOverride = params.get("apiBase")?.trim();
+  if (queryOverride) {
+    try {
+      window.localStorage.setItem(API_OVERRIDE_STORAGE_KEY, queryOverride);
+    } catch {
+      // Storage-disabled browsers can still use the override for the current page.
+    }
+    return queryOverride.replace(/\/+$/, "");
+  }
+  try {
+    const storedOverride = window.localStorage.getItem(API_OVERRIDE_STORAGE_KEY)?.trim();
+    if (storedOverride) {
+      return storedOverride.replace(/\/+$/, "");
+    }
+  } catch {
+    // Fall back to the built-in production URL.
+  }
   return LEADERBOARD_API_BASE_URL.trim().replace(/\/+$/, "");
 }
 
@@ -1424,21 +1765,240 @@ async function requestJson(path, options = {}) {
   } finally {
     window.clearTimeout(timeoutId);
   }
-}
-
-function isOnlineLeaderboardEnabled() {
+}function isOnlineLeaderboardEnabled() {
   return !isPlaceholderUrl(getApiBaseUrl());
 }
-
-async function fetchLeaderboard() {
-  return requestJson("/leaderboard");
+function getMultiplayerWebSocketUrl() {
+  const baseUrl = getApiBaseUrl();
+  if (isPlaceholderUrl(baseUrl)) {
+    return "";
+  }
+  try {
+    const url = new URL(baseUrl);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/multiplayer";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
-
+async function fetchLeaderboard(mode = "solo") {
+  const safeMode = mode === "coop" ? "coop" : "solo";
+  return requestJson(`/leaderboard?mode=${encodeURIComponent(safeMode)}`);
+}
+async function checkLeaderboardHealth() {
+  return requestJson("/health");
+}
 async function submitScore(runResult) {
   return requestJson("/leaderboard/submit", {
     method: "POST",
     body: JSON.stringify(runResult),
   });
+}
+
+// src/multiplayer.js
+const RECONNECTABLE_CLOSE_CODES = new Set([1006, 1011, 1012, 1013]);
+class MultiplayerClient {
+  constructor(handlers = {}) {
+    this.handlers = handlers;
+    this.socket = null;
+    this.roomCode = "";
+    this.playerId = "";
+    this.role = "";
+    this.sequence = 0;
+    this.state = null;
+    this.manualClose = false;
+  }
+
+  isConnected() {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  connect() {
+    const url = getMultiplayerWebSocketUrl();
+    if (!url) {
+      this.handlers.onError?.("Online multiplayer is not configured.");
+      return Promise.reject(new Error("Online multiplayer is not configured."));
+    }
+    this.close();
+    this.manualClose = false;
+    return new Promise((resolve, reject) => {
+      const socket = new WebSocket(url);
+      this.socket = socket;
+      socket.addEventListener("open", () => {
+        this.handlers.onStatus?.("Connected to multiplayer server.");
+        resolve();
+      }, { once: true });
+      socket.addEventListener("error", () => {
+        this.handlers.onError?.("Could not connect to multiplayer server.");
+        reject(new Error("Could not connect to multiplayer server."));
+      }, { once: true });
+      socket.addEventListener("message", (event) => this.handleMessage(event.data));
+      socket.addEventListener("close", (event) => {
+        const wasManual = this.manualClose;
+        this.socket = null;
+        if (!wasManual && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
+          this.handlers.onError?.("Multiplayer connection was interrupted.");
+        }
+        this.handlers.onClosed?.(event);
+      });
+    });
+  }
+
+  close() {
+    this.manualClose = true;
+    if (this.socket && this.socket.readyState <= WebSocket.OPEN) {
+      this.socket.close();
+    }
+    this.socket = null;
+    this.roomCode = "";
+    this.playerId = "";
+    this.role = "";
+    this.state = null;
+  }
+
+  async createRoom(profile) {
+    await this.connect();
+    this.send("room:create", profile);
+  }
+
+  async joinRoom(roomCode, profile) {
+    await this.connect();
+    this.roomCode = roomCode.trim().toUpperCase();
+    this.send("room:join", { ...profile, roomCode: this.roomCode }, this.roomCode);
+  }
+
+  setReady(ready, profile) {
+    this.send("room:ready", { ...profile, ready });
+  }
+
+  startRun() {
+    this.send("run:start", {});
+  }
+
+  sendInput(input) {
+    this.send("input:update", input);
+  }
+
+  sendSnapshot(snapshot) {
+    this.send("host:snapshot", snapshot);
+  }
+
+  sendHostEvent(payload) {
+    this.send("host:event", payload);
+  }
+
+  sendUpgradePick(upgradeId) {
+    this.send("upgrade:pick", { upgradeId });
+  }
+
+  sendReviveUpdate(active) {
+    this.send("revive:update", { active: Boolean(active) });
+  }
+
+  leave() {
+    this.send("room:leave", {});
+    this.close();
+  }
+
+  send(type, payload = {}, roomCode = this.roomCode) {
+    if (!this.isConnected()) {
+      return false;
+    }
+    this.sequence += 1;
+    this.socket.send(JSON.stringify({
+      type,
+      roomCode,
+      playerId: this.playerId,
+      seq: this.sequence,
+      payload,
+    }));
+    return true;
+  }
+
+  handleMessage(rawData) {
+    let message;
+    try {
+      message = JSON.parse(rawData);
+    } catch {
+      this.handlers.onError?.("Received an invalid multiplayer message.");
+      return;
+    }
+    if (!message || typeof message.type !== "string") {
+      return;
+    }
+    if (message.roomCode) {
+      this.roomCode = message.roomCode;
+    }
+    if (message.playerId && (message.type === "room:created" || message.type === "room:joined")) {
+      this.playerId = message.playerId;
+    }
+    if (message.type === "room:created") {
+      this.role = "host";
+      this.state = message.payload ?? null;
+      this.handlers.onCreated?.(message);
+      this.handlers.onState?.(this.state);
+      return;
+    }
+    if (message.type === "room:joined") {
+      this.role = "guest";
+      this.state = message.payload ?? null;
+      this.handlers.onJoined?.(message);
+      this.handlers.onState?.(this.state);
+      return;
+    }
+    if (message.type === "room:state") {
+      this.state = message.payload ?? null;
+      this.handlers.onState?.(this.state);
+      return;
+    }
+    if (message.type === "room:error") {
+      this.handlers.onError?.(message.payload?.error || "Multiplayer error.");
+      return;
+    }
+    if (message.type === "peer:joined") {
+      this.handlers.onPeerJoined?.(message);
+      if (message.payload) {
+        this.state = message.payload;
+        this.handlers.onState?.(this.state);
+      }
+      return;
+    }
+    if (message.type === "peer:left") {
+      this.handlers.onPeerLeft?.(message);
+      if (message.payload) {
+        this.state = message.payload;
+        this.handlers.onState?.(this.state);
+      }
+      return;
+    }
+    if (message.type === "peer:input") {
+      this.handlers.onPeerInput?.(message);
+      return;
+    }
+    if (message.type === "upgrade:pick") {
+      this.handlers.onUpgradePick?.(message);
+      return;
+    }
+    if (message.type === "revive:update") {
+      this.handlers.onReviveUpdate?.(message);
+      return;
+    }
+    if (message.type === "host:snapshot") {
+      this.handlers.onHostSnapshot?.(message);
+      return;
+    }
+    if (message.type === "host:event") {
+      this.handlers.onHostEvent?.(message);
+      return;
+    }
+    if (message.type === "room:closed") {
+      this.handlers.onClosedRoom?.(message.payload?.reason || "Room closed.");
+      this.close();
+    }
+  }
 }
 
 // src/game.js
@@ -1487,7 +2047,7 @@ function digestMatches(left, right) {
 const MENU_TAB_LABELS = {
   play: "Play",
   quests: "Quests",
-  characters: "Characters",
+  characters: "Inventory",
   stats: "Stats",
   leaderboard: "Leaderboard",
   guide: "Wiki",
@@ -1499,7 +2059,9 @@ const MENU_TAB_LABELS = {
 
 const ENEMY_GUIDE_COPY = {
   nibbler: "Fast chaser that pressures your movement lane.",
+  sprinter: "Lightweight rusher that trades health for extra speed.",
   spitter: "Keeps range and fires projectiles through the arena.",
+  marksman: "Slow ranged unit that fires fast precision shots from long range.",
   "acid-spitter": "Keeps distance and spits acid that leaves hazardous pools.",
   bumper: "Winds up, then charges through your position.",
   tank: "Slow heavy unit that blocks space and soaks damage.",
@@ -1510,11 +2072,123 @@ const ENEMY_GUIDE_DEFS = [...Object.values(ENEMY_DEFS), BOSS_DEF];
 const TRACKED_ENEMY_IDS = new Set(ENEMY_GUIDE_DEFS.map((definition) => definition.id));
 const BOSS_ATTACK_PHASES = ["charge", "volley", "burst", "summon"];
 
+const QUICK_RUN_GUIDE = [
+  {
+    title: "Early run",
+    label: "00:00-02:00",
+    copy: "Circle wide, keep an escape lane open, and collect XP after a pack thins out instead of diving through enemies.",
+  },
+  {
+    title: "Level-up priorities",
+    label: "Core picks",
+    copy: "Take damage, cooldown, pierce, or slash reach early. Add movement, shields, and magnet once the arena starts to crowd.",
+  },
+  {
+    title: "Boss waves",
+    label: "03:00+",
+    copy: "Do not spend dash before a charge. Clear summons first, then punish the boss while homing shots and volleys are cooling down.",
+  },
+];
+
+const STRATEGY_GUIDE = [
+  {
+    title: "Kiting route",
+    label: "Movement",
+    copy: "Use slow arcs around the arena edge, then cut through the center only when dash is ready and the enemy pack has stretched out.",
+  },
+  {
+    title: "Ability slot",
+    label: "Grenade / Mine",
+    copy: "Grenade is better for immediate pack breaks. Landmine rewards planning and choke points, especially with cluster upgrades.",
+  },
+  {
+    title: "Gold and XP",
+    label: "Economy",
+    copy: "Bosses pay much more gold and XP. Risky pickup dives are not worth losing health unless they secure an upgrade before a boss.",
+  },
+  {
+    title: "Engineer setup",
+    label: "Turrets",
+    copy: "Engineer turrets auto-deploy when enemies are present. Turret upgrades compound best when you already have projectile damage.",
+  },
+  {
+    title: "Katana sustain",
+    label: "Melee",
+    copy: "Katana heals every 50 normal kills. Use reach, arc, and guard upgrades to farm safely instead of face-tanking contact damage.",
+  },
+  {
+    title: "Boss counterplay",
+    label: "Heavy Unit",
+    copy: "Strafe across volley lines, dash through charge paths, and keep moving after the charge because homing shots continue to bend.",
+  },
+];
+
+const ENEMY_THREAT_NOTES = {
+  nibbler: "Basic pressure unit. Counter by kiting diagonally and thinning the front of the pack.",
+  sprinter: "Fast but fragile. Counter with early damage or wide movement before it collapses your lane.",
+  spitter: "Ranged area pressure. Counter by side-stepping shots and forcing it inside your weapon range.",
+  marksman: "Long-range precision shooter. Counter by changing direction after it lines up a shot.",
+  "acid-spitter": "Creates hazard zones. Counter by leaving the pool immediately and rotating away from corners.",
+  bumper: "Telegraphed charger. Counter by saving dash until the windup commits.",
+  tank: "Slow wall with high HP. Counter with pierce, splash, and clearing smaller enemies first.",
+  sentinel: "Boss summon with dash pressure. Counter by clearing it before it boxes you in.",
+  [BOSS_DEF.id]: "Major wave check. Counter with saved dash, wide spacing, and clearing summons before tunneling boss damage.",
+};
+
 const ENGINEER_TURRET = {
-  deployCooldown: 8,
-  lifetime: 8,
-  range: 360,
-  fireCooldown: 0.55,
+  deployCooldown: 10,
+  lifetime: 6,
+  range: 300,
+  fireCooldown: 0.8,
+  damageScale: 0.6,
+};
+
+const ABILITY_IDS = {
+  grenade: "grenade",
+  landmine: "landmine",
+};
+
+const ABILITY_LABELS = {
+  [ABILITY_IDS.grenade]: "Grenade",
+  [ABILITY_IDS.landmine]: "Landmine",
+};
+
+const ACCESSORY_DEFS = [
+  {
+    id: ABILITY_IDS.grenade,
+    name: "Grenade",
+    slot: "Ability",
+    description: "Throw a fast blast grenade with E during a run.",
+    isUnlocked: (progress) => Boolean(progress?.grenadeUnlocked),
+    lockedText: "Get 250 kills in a single run.",
+  },
+  {
+    id: ABILITY_IDS.landmine,
+    name: "Landmine",
+    slot: "Ability",
+    description: "Place an armed tripmine with E during a run.",
+    isUnlocked: (progress) => Boolean(progress?.landmineUnlocked),
+    lockedText: "Survive 05:00 in a single run.",
+  },
+];
+
+const HEAL_OFFER_CONFIG = {
+  interval: 10,
+  price: 500,
+};
+
+const MEDKIT_PICKUP = {
+  normalDropChance: 0.035,
+  bossDropChance: 0.35,
+  healAmount: 2,
+  lifetime: 16,
+};
+
+const COOP_CONFIG = {
+  reviveRadius: 74,
+  reviveSeconds: 3,
+  reviveHp: 2,
+  disconnectGraceSeconds: 8,
 };
 
 function createBossAttackQueue(previousPhase = "") {
@@ -1541,9 +2215,12 @@ const UPGRADE_ICONS = {
   "grenade-payload": "💣",
   "grenade-cycler": "🔄",
   "shatter-rounds": "🧨",
-  "dash-reload": "🔋",
+  "ability-reload": "🔋",
   "overheal-shield": "💚",
   "volatile-grenade": "🌋",
+  "blast-plating": "💥",
+  "fast-trigger": "⏱️",
+  "cluster-charge": "🧨",
   "sharpened-edge": "🗡️",
   "long-blade": "📏",
   "wide-cut": "🌙",
@@ -1552,6 +2229,10 @@ const UPGRADE_ICONS = {
   "bleeding-cut": "🩸",
   "counter-guard": "🛡️",
   "dash-slash": "💨",
+  "rapid-assembly": "🔧",
+  "twin-sentries": "🛰️",
+  "calibrated-turret": "📡",
+  "piercing-sentry": "🎯",
 };
 const UPGRADE_SHIELD_INTERVALS = [16, 12, 9];
 
@@ -1559,11 +2240,20 @@ function getUpgradeFamily(upgrade) {
   if (upgrade.characters?.includes(CHARACTER_IDS.katana)) {
     return "Katana";
   }
+  if (upgrade.characters?.includes(CHARACTER_IDS.engineer)) {
+    return "Engineer";
+  }
+  if (upgrade.id.includes("grenade")) {
+    return "Grenade";
+  }
+  if (["blast-plating", "fast-trigger", "cluster-charge"].includes(upgrade.id)) {
+    return "Landmine";
+  }
+  if (upgrade.id === "ability-reload" || upgrade.isAvailable) {
+    return "Ability";
+  }
   if (upgrade.excludeCharacters?.includes(CHARACTER_IDS.katana)) {
     return "Blaster";
-  }
-  if (upgrade.isAvailable) {
-    return "Ability";
   }
   return "Survival";
 }
@@ -1589,7 +2279,7 @@ function getUpgradeBoostCopy(upgrade, rank) {
     case "zip-ribbon":
       return "-14% Dash Cooldown";
     case "heart-balloon":
-      return "+1 Max Health / +2 Heal";
+      return "+1 Max Health";
     case "glitter-vac":
       return "+40 Magnet Radius";
     case "xp-surge":
@@ -1598,8 +2288,8 @@ function getUpgradeBoostCopy(upgrade, rank) {
       return `+Shield Regen: ${UPGRADE_SHIELD_INTERVALS[rank - 1]}s`;
     case "shatter-rounds":
       return `+${rank + 1} Shatter Fragments`;
-    case "dash-reload":
-      return `+${Math.round(rank * 35)}% Dash Reload`;
+    case "ability-reload":
+      return `-${Math.round((1 - 0.86 ** rank) * 100)}% Ability Cooldown`;
     case "sharpened-edge":
       return "+0.55 Slash Damage";
     case "long-blade":
@@ -1624,6 +2314,20 @@ function getUpgradeBoostCopy(upgrade, rank) {
       return "-15% Grenade Cooldown";
     case "volatile-grenade":
       return `+${rank + 2}s Burn Zone`;
+    case "blast-plating":
+      return "+3 Damage / +12 Radius";
+    case "fast-trigger":
+      return "-16% Cooldown / Faster Arm";
+    case "cluster-charge":
+      return `+${rank + 3} Mine Fragments`;
+    case "rapid-assembly":
+      return "-18% Turret Cooldown / +2s Lifetime";
+    case "twin-sentries":
+      return "+1 Active Turret";
+    case "calibrated-turret":
+      return "+60 Range / +0.5 Damage";
+    case "piercing-sentry":
+      return "+1 Turret Pierce";
     default:
       return getUpgradeEffectCopy(upgrade, rank);
   }
@@ -1633,8 +2337,11 @@ function formatWholeNumber(value) {
   return Math.floor(Math.max(0, value)).toLocaleString();
 }
 
-function weightedEnemyPick(weights, budget) {
-  const candidates = Object.values(ENEMY_DEFS).filter((definition) => definition.cost <= budget + 0.001);
+function getWeightedEnemyCandidates(weights) {
+  return Object.values(ENEMY_DEFS).filter((definition) => (weights[definition.id] ?? 0) > 0);
+}
+
+function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weights)) {
   if (!candidates.length) {
     return "nibbler";
   }
@@ -1650,9 +2357,7 @@ function weightedEnemyPick(weights, budget) {
     }
   }
   return candidates[candidates.length - 1].id;
-}
-
-class Game {
+}class Game {
   constructor({ canvas, ui, save, audio }) {
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
@@ -1662,7 +2367,8 @@ class Game {
 
     this.mode = "title";
     this.helpReturnMode = "title";
-    this.pointer = { x: LOGICAL_WIDTH * 0.5, y: LOGICAL_HEIGHT * 0.5, inside: false };
+    this.pointer = { x: 0, y: 0, screenX: LOGICAL_WIDTH * 0.5, screenY: LOGICAL_HEIGHT * 0.5, inside: false };
+    this.camera = { x: 0, y: 0, zoom: CAMERA_CONFIG.defaultZoom };
     this.keys = new Set();
     this.banner = null;
     this.backgroundTime = 0;
@@ -1678,6 +2384,18 @@ class Game {
     this.lastCompletedRunResult = null;
     this.onlineLeaderboardEnabled = false;
     this.onlineScoreSubmitted = false;
+    this.scoreSubmitState = "idle";
+    this.wikiDragState = null;
+    this.pendingHealOfferLevels = [];
+    this.activeHealOfferLevel = 0;
+    this.lastRenderedShopGold = null;
+    this.players = [];
+    this.multiplayerSession = null;
+    this.multiplayerHooks = {};
+    this.remoteInputs = new Map();
+    this.inputActions = { dash: 0, ability: 0, turret: 0 };
+    this.coopUpgradeDraft = null;
+    this.remoteRunRecorded = false;
 
     this.run = null;
     this.player = null;
@@ -1685,6 +2403,7 @@ class Game {
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.landmines = [];
     this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
@@ -1694,10 +2413,15 @@ class Game {
     this.upgradeCounts = Object.create(null);
     this.pendingLevelUps = 0;
     this.upgradeChoices = [];
+    this.pendingHealOfferLevels = [];
+    this.activeHealOfferLevel = 0;
     this.spawnBudget = 0;
+    this.spawnTargetType = "";
+    this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
     this.grenadeId = 0;
+    this.landmineId = 0;
     this.turretId = 0;
     this.effectId = 0;
     this.textId = 0;
@@ -1711,12 +2435,14 @@ class Game {
     this.renderSongShop();
     this.renderAdminPanel();
     this.updateAdminModeUi();
+    this.setupWikiWindow();
+    this.setupWikiNavigation();
     this.setMenuTab(this.menuTab, false);
     this.loop = this.loop.bind(this);
     this.updateSoundButton();
     this.updateMusicVolumeInput();
     this.updateSavedScoreLabels();
-    this.updateGrenadeLobby();
+    this.updateAbilityLobby();
     this.syncScreens();
     this.ui.runHighlights?.replaceChildren();
     this.updateScoreSubmitPanel();
@@ -1779,14 +2505,419 @@ class Game {
     }
   }
 
+  setMultiplayerHooks(hooks = {}) {
+    this.multiplayerHooks = hooks;
+  }
+
+  isCoopRun() {
+    return Boolean(this.multiplayerSession);
+  }
+
+  isMultiplayerHost() {
+    return this.multiplayerSession?.role === "host";
+  }
+
+  isMultiplayerGuest() {
+    return this.multiplayerSession?.role === "guest";
+  }
+
+  getLocalPlayer() {
+    if (!this.players?.length) {
+      return this.player;
+    }
+    return this.players.find((player) => player.id === this.multiplayerSession?.localPlayerId) ?? this.players[0] ?? this.player;
+  }
+
+  getAlivePlayers() {
+    return (this.players?.length ? this.players : [this.player]).filter((player) => player && !player.dead && !player.downed);
+  }
+
+  getClosestAlivePlayer(x, y) {
+    let closest = null;
+    let closestDistance = Infinity;
+    for (const player of this.getAlivePlayers()) {
+      const distance = distanceSquared(x, y, player.x, player.y);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = player;
+      }
+    }
+    return closest;
+  }
+
+  withPlayer(player, action) {
+    const previousPlayer = this.player;
+    const previousUpgradeCounts = this.upgradeCounts;
+    this.player = player;
+    this.upgradeCounts = player?.upgradeCounts ?? this.upgradeCounts;
+    try {
+      return action();
+    } finally {
+      this.player = previousPlayer;
+      this.upgradeCounts = previousUpgradeCounts;
+    }
+  }
+
+  createCoopPlayerState(profile, index = 0) {
+    const character = getCharacterById(profile?.character) ?? CHARACTER_DEFS[CHARACTER_IDS.gunner];
+    const slash = character.slash ?? CHARACTER_DEFS[CHARACTER_IDS.katana].slash;
+    const accessoryIds = Array.isArray(profile?.accessoryIds) ? profile.accessoryIds : [];
+    const equippedAbilityId = accessoryIds.includes(ABILITY_IDS.landmine)
+      ? ABILITY_IDS.landmine
+      : accessoryIds.includes(ABILITY_IDS.grenade)
+        ? ABILITY_IDS.grenade
+        : "";
+    return {
+      id: profile?.id || `player-${index + 1}`,
+      name: profile?.name || (index === 0 ? "Host" : "Guest"),
+      isLocal: Boolean(profile?.isLocal),
+      x: index === 0 ? -34 : 34,
+      y: 0,
+      radius: PLAYER_BASE.radius,
+      hp: PLAYER_BASE.maxHp,
+      maxHp: PLAYER_BASE.maxHp,
+      moveSpeed: PLAYER_BASE.moveSpeed,
+      fireCooldown: PLAYER_BASE.fireCooldown,
+      fireCooldownRemaining: 0,
+      projectileSpeed: PLAYER_BASE.projectileSpeed,
+      projectileRadius: PLAYER_BASE.projectileRadius,
+      projectileDamage: PLAYER_BASE.projectileDamage,
+      projectileLifetime: PLAYER_BASE.projectileLifetime,
+      characterId: character.id,
+      attackType: character.attackType,
+      pierce: PLAYER_BASE.pierce,
+      multishot: PLAYER_BASE.multishot,
+      spreadAngle: PLAYER_BASE.spreadAngle,
+      dashSpeed: PLAYER_BASE.dashSpeed,
+      dashDuration: PLAYER_BASE.dashDuration,
+      dashTimeRemaining: 0,
+      dashCooldown: PLAYER_BASE.dashCooldown,
+      dashCooldownRemaining: 0,
+      dashInvulnerability: PLAYER_BASE.dashInvulnerability,
+      invulnerabilityRemaining: 0,
+      dashVector: { x: 0, y: -1 },
+      magnetRadius: PLAYER_BASE.magnetRadius,
+      shields: 0,
+      maxShields: PLAYER_BASE.maxShields,
+      shieldRegenSeconds: PLAYER_BASE.shieldRegenSeconds,
+      shieldRegenTimer: 0,
+      xpMultiplier: PLAYER_BASE.xpMultiplier,
+      equippedAbilityId,
+      grenadeEquipped: equippedAbilityId === ABILITY_IDS.grenade,
+      grenadeCooldown: PLAYER_BASE.grenadeCooldown,
+      grenadeCooldownRemaining: 0,
+      grenadeDamage: PLAYER_BASE.grenadeDamage,
+      grenadeRadius: PLAYER_BASE.grenadeRadius,
+      grenadeProjectileSpeed: PLAYER_BASE.grenadeProjectileSpeed,
+      grenadeFuse: PLAYER_BASE.grenadeFuse,
+      landmineCooldown: PLAYER_BASE.landmineCooldown,
+      landmineCooldownRemaining: 0,
+      landmineDamage: PLAYER_BASE.landmineDamage,
+      landmineRadius: PLAYER_BASE.landmineRadius,
+      landmineArmTime: PLAYER_BASE.landmineArmTime,
+      landmineTriggerRadius: PLAYER_BASE.landmineTriggerRadius,
+      maxLandmines: PLAYER_BASE.maxLandmines,
+      landmineClusterFragments: 0,
+      shatterFragments: 0,
+      overhealShieldBonus: 0,
+      turretDeployCooldown: character.id === CHARACTER_IDS.engineer ? ENGINEER_TURRET.deployCooldown : 0,
+      turretDeployCooldownRemaining: 0,
+      turretLifetime: ENGINEER_TURRET.lifetime,
+      turretRange: ENGINEER_TURRET.range,
+      turretFireCooldown: ENGINEER_TURRET.fireCooldown,
+      turretDamageBonus: 0,
+      turretPierce: 0,
+      maxTurrets: character.id === CHARACTER_IDS.engineer ? 1 : 0,
+      grenadeZoneDuration: 0,
+      grenadeZoneDamage: 0,
+      slashDamage: slash?.damage ?? 0,
+      slashRange: slash?.range ?? 0,
+      slashArc: slash?.arc ?? 0,
+      slashMaxTargets: slash?.maxTargets ?? 1,
+      bleedDamagePerSecond: slash?.bleedDamagePerSecond ?? 0,
+      bleedDuration: slash?.bleedDuration ?? 0,
+      counterInvulnerability: slash?.counterInvulnerability ?? 0,
+      dashSlashDamage: slash?.dashSlashDamage ?? 0,
+      downed: false,
+      deathCause: null,
+      reviveProgress: 0,
+      pointer: { x: 0, y: -160 },
+      inputKeys: new Set(),
+      remoteActionSeq: { dash: 0, ability: 0, turret: 0 },
+      upgradeCounts: Object.create(null),
+    };
+  }
+
+  createMultiplayerProfile(name = "Player") {
+    const character = this.getSelectedCharacter();
+    return {
+      name: String(name || "Player").trim().slice(0, 20) || "Player",
+      character: character.id,
+      accessoryIds: this.getSelectedAccessoryIds(character.id),
+    };
+  }
+
+  createInputSnapshot() {
+    return {
+      keys: Array.from(this.keys),
+      pointer: { x: this.pointer.x, y: this.pointer.y },
+      actions: { ...this.inputActions },
+      revive: this.keys.has("KeyF"),
+    };
+  }
+
+  applyRemoteInput(playerId, input = {}) {
+    const player = this.players.find((candidate) => candidate.id === playerId);
+    if (!player || player.id === this.multiplayerSession?.localPlayerId) {
+      return;
+    }
+    player.inputKeys = new Set(Array.isArray(input.keys) ? input.keys.filter((key) => typeof key === "string") : []);
+    player.pointer = {
+      x: Number.isFinite(input.pointer?.x) ? input.pointer.x : player.x,
+      y: Number.isFinite(input.pointer?.y) ? input.pointer.y : player.y - 160,
+    };
+    const actions = input.actions ?? {};
+    for (const [actionName, methodName] of [
+      ["dash", "tryDash"],
+      ["ability", "tryAbility"],
+      ["turret", "tryDeployTurret"],
+    ]) {
+      const nextSeq = Math.max(0, Math.floor(Number(actions[actionName]) || 0));
+      if (nextSeq > (player.remoteActionSeq?.[actionName] ?? 0) && this.mode === "playing" && !player.downed) {
+        player.remoteActionSeq[actionName] = nextSeq;
+        this.withPlayer(player, () => this[methodName]());
+      }
+    }
+  }
+
+  createMultiplayerSnapshot() {
+    return {
+      mode: this.mode,
+      run: this.run ? {
+        elapsed: this.run.elapsed,
+        level: this.run.level,
+        xp: this.run.xp,
+        xpToNext: this.run.xpToNext,
+        kills: this.run.kills,
+        bossKills: this.run.bossKills,
+        shotsFired: this.run.shotsFired,
+        killScore: this.run.killScore,
+        score: this.run.score,
+        damageTaken: this.run.damageTaken,
+        enemyKills: this.run.enemyKills,
+        enemyDeaths: this.run.enemyDeaths,
+        goldEarned: this.run.goldEarned,
+        deathCause: this.run.deathCause,
+      } : null,
+      players: this.players.map((player) => this.serializePlayer(player)),
+      enemies: this.enemies,
+      projectiles: this.projectiles.map((projectile) => ({ ...projectile, hitIds: undefined })),
+      enemyProjectiles: this.enemyProjectiles.map((projectile) => ({ ...projectile, hitIds: undefined })),
+      grenades: this.grenades,
+      landmines: this.landmines,
+      turrets: this.turrets,
+      damageZones: this.damageZones,
+      pickups: this.pickups,
+      effects: this.effects,
+      floatingTexts: this.floatingTexts,
+      banner: this.banner,
+    };
+  }
+
+  serializePlayer(player) {
+    return {
+      ...player,
+      inputKeys: Array.from(player.inputKeys ?? []),
+      upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+    };
+  }
+
+  applyMultiplayerSnapshot(snapshot) {
+    if (!snapshot || !this.isMultiplayerGuest()) {
+      return;
+    }
+    this.mode = snapshot.mode ?? this.mode;
+    this.run = snapshot.run ? { ...snapshot.run, recorded: this.run?.recorded ?? false } : this.run;
+    this.players = Array.isArray(snapshot.players)
+      ? snapshot.players.map((player) => ({
+          ...player,
+          isLocal: player.id === this.multiplayerSession.localPlayerId,
+          inputKeys: new Set(player.inputKeys ?? []),
+          upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+        }))
+      : this.players;
+    this.player = this.getLocalPlayer();
+    this.upgradeCounts = this.player?.upgradeCounts ?? this.upgradeCounts;
+    this.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies : [];
+    this.projectiles = Array.isArray(snapshot.projectiles) ? snapshot.projectiles : [];
+    this.enemyProjectiles = Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles : [];
+    this.grenades = Array.isArray(snapshot.grenades) ? snapshot.grenades : [];
+    this.landmines = Array.isArray(snapshot.landmines) ? snapshot.landmines : [];
+    this.turrets = Array.isArray(snapshot.turrets) ? snapshot.turrets : [];
+    this.damageZones = Array.isArray(snapshot.damageZones) ? snapshot.damageZones : [];
+    this.pickups = Array.isArray(snapshot.pickups) ? snapshot.pickups : [];
+    this.effects = Array.isArray(snapshot.effects) ? snapshot.effects : [];
+    this.floatingTexts = Array.isArray(snapshot.floatingTexts) ? snapshot.floatingTexts : [];
+    this.banner = snapshot.banner ?? this.banner;
+    if (this.mode === "gameOver" && this.run && !this.remoteRunRecorded) {
+      if (this.ui.gameOverTitle) {
+        this.ui.gameOverTitle.textContent = "Co-op run finished.";
+      }
+      if (this.ui.finalScore) {
+        this.ui.finalScore.textContent = Math.floor(this.run.score).toLocaleString();
+      }
+      if (this.ui.finalTime) {
+        this.ui.finalTime.textContent = formatTime(this.run.elapsed);
+      }
+      if (this.ui.finalKills) {
+        this.ui.finalKills.textContent = this.run.kills.toString();
+      }
+      if (this.ui.finalBosses) {
+        this.ui.finalBosses.textContent = this.run.bossKills.toString();
+      }
+      this.updateDeathCauseCard(this.run.deathCause);
+      this.save = recordRun(this.save, this.run);
+      this.remoteRunRecorded = true;
+      this.lastCompletedRunResult = this.buildLeaderboardRunResult();
+      this.updateScoreSubmitPanel();
+      this.renderQuestMenu();
+      this.renderCharacterMenu();
+      this.updateAbilityLobby();
+    }
+    this.syncScreens();
+    this.updateHud();
+  }
+
+  getCameraZoom() {
+    return clamp(this.camera.zoom ?? CAMERA_CONFIG.defaultZoom, CAMERA_CONFIG.minZoom, CAMERA_CONFIG.maxZoom);
+  }
+
+  getCameraViewSize() {
+    const zoom = this.getCameraZoom();
+    return {
+      width: LOGICAL_WIDTH / zoom,
+      height: LOGICAL_HEIGHT / zoom,
+    };
+  }
+
+  updateCamera() {
+    const zoom = this.getCameraZoom();
+    const view = this.getCameraViewSize();
+    this.camera.zoom = zoom;
+    const followPlayer = this.getLocalPlayer();
+    if (!followPlayer) {
+      this.camera.x = -view.width * 0.5;
+      this.camera.y = -view.height * 0.5;
+      return;
+    }
+    this.camera.x = followPlayer.x - view.width * 0.5;
+    this.camera.y = followPlayer.y - view.height * 0.5;
+  }
+
+  getCameraRect(margin = 0) {
+    const view = this.getCameraViewSize();
+    return {
+      x: this.camera.x - margin,
+      y: this.camera.y - margin,
+      width: view.width + margin * 2,
+      height: view.height + margin * 2,
+    };
+  }
+
+  getActiveSpawnRect(margin = 0) {
+    const alivePlayers = this.getAlivePlayers();
+    if (!this.isCoopRun() || alivePlayers.length <= 1) {
+      return this.getCameraRect(margin);
+    }
+    const view = this.getCameraViewSize();
+    const rects = alivePlayers.map((player) => ({
+      x: player.x - view.width * 0.5,
+      y: player.y - view.height * 0.5,
+      width: view.width,
+      height: view.height,
+    }));
+    const minX = Math.min(...rects.map((rect) => rect.x)) - margin;
+    const minY = Math.min(...rects.map((rect) => rect.y)) - margin;
+    const maxX = Math.max(...rects.map((rect) => rect.x + rect.width)) + margin;
+    const maxY = Math.max(...rects.map((rect) => rect.y + rect.height)) + margin;
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
+
+  screenToWorld(screenX, screenY) {
+    const zoom = this.getCameraZoom();
+    return {
+      x: this.camera.x + screenX / zoom,
+      y: this.camera.y + screenY / zoom,
+    };
+  }
+
   onPointerMove(clientX, clientY) {
     const bounds = this.canvas.getBoundingClientRect();
-    this.pointer.x = clamp(((clientX - bounds.left) / bounds.width) * LOGICAL_WIDTH, 0, LOGICAL_WIDTH);
-    this.pointer.y = clamp(((clientY - bounds.top) / bounds.height) * LOGICAL_HEIGHT, 0, LOGICAL_HEIGHT);
+    const screenX = clamp(((clientX - bounds.left) / bounds.width) * LOGICAL_WIDTH, 0, LOGICAL_WIDTH);
+    const screenY = clamp(((clientY - bounds.top) / bounds.height) * LOGICAL_HEIGHT, 0, LOGICAL_HEIGHT);
+    this.updatePointerFromScreen(screenX, screenY);
+  }
+
+  updatePointerFromScreen(screenX, screenY) {
+    const worldPoint = this.screenToWorld(screenX, screenY);
+    this.pointer.x = worldPoint.x;
+    this.pointer.y = worldPoint.y;
+    this.pointer.screenX = screenX;
+    this.pointer.screenY = screenY;
     this.pointer.inside = true;
+    const localPlayer = this.getLocalPlayer();
+    if (localPlayer) {
+      localPlayer.pointer = { x: worldPoint.x, y: worldPoint.y };
+    }
+  }
+
+  refreshPointerWorldPosition() {
+    if (!this.pointer.inside) {
+      return;
+    }
+    this.updatePointerFromScreen(this.pointer.screenX ?? LOGICAL_WIDTH * 0.5, this.pointer.screenY ?? LOGICAL_HEIGHT * 0.5);
+  }
+
+  setCameraZoom(nextZoom) {
+    const zoom = clamp(nextZoom, CAMERA_CONFIG.minZoom, CAMERA_CONFIG.maxZoom);
+    if (Math.abs(zoom - this.getCameraZoom()) < 0.0001) {
+      return false;
+    }
+    this.camera.zoom = zoom;
+    this.updateCamera();
+    this.refreshPointerWorldPosition();
+    return true;
+  }
+
+  adjustCameraZoom(direction) {
+    const step = 1 + CAMERA_CONFIG.keyboardStep;
+    return this.setCameraZoom(direction > 0 ? this.getCameraZoom() * step : this.getCameraZoom() / step);
+  }
+
+  resetCameraZoom() {
+    return this.setCameraZoom(CAMERA_CONFIG.defaultZoom);
+  }
+
+  onWheel(deltaY, clientX, clientY) {
+    const bounds = this.canvas.getBoundingClientRect();
+    if (clientX < bounds.left || clientX > bounds.right || clientY < bounds.top || clientY > bounds.bottom) {
+      return true;
+    }
+    this.onPointerMove(clientX, clientY);
+    const zoomFactor = Math.exp(-deltaY * CAMERA_CONFIG.wheelSensitivity);
+    this.setCameraZoom(this.getCameraZoom() * zoomFactor);
+    return false;
   }
 
   handleCanvasClick() {
+    if (this.isMultiplayerGuest()) {
+      return;
+    }
     this.tryAutoFire();
   }
 
@@ -1799,29 +2930,66 @@ class Game {
         this.pause();
       } else if (this.mode === "paused") {
         this.resume();
+      } else if (this.mode === "healOffer") {
+        this.skipHealOffer();
       }
+      return false;
+    }
+    if (this.mode === "healOffer" && (code === "Enter" || code === "KeyY")) {
+      this.acceptHealOffer();
+      return false;
+    }
+    if (this.mode === "healOffer" && code === "KeyN") {
+      this.skipHealOffer();
       return false;
     }
     if (code === "KeyM") {
       this.toggleMute();
       return false;
     }
+    if (code === "Equal" || code === "NumpadAdd") {
+      this.adjustCameraZoom(1);
+      return false;
+    }
+    if (code === "Minus" || code === "NumpadSubtract") {
+      this.adjustCameraZoom(-1);
+      return false;
+    }
+    if (code === "Digit0" || code === "Numpad0") {
+      this.resetCameraZoom();
+      return false;
+    }
     if (code === "Space") {
+      this.inputActions.dash += 1;
+      if (this.isMultiplayerGuest()) {
+        return false;
+      }
       if (this.mode === "playing") {
         this.tryDash();
       }
       return false;
     }
     if (code === "KeyE") {
+      this.inputActions.ability += 1;
+      if (this.isMultiplayerGuest()) {
+        return false;
+      }
       if (this.mode === "playing") {
-        this.tryGrenade();
+        this.tryAbility();
       }
       return false;
     }
     if (code === "KeyT") {
+      this.inputActions.turret += 1;
+      if (this.isMultiplayerGuest()) {
+        return false;
+      }
       if (this.mode === "playing") {
         this.tryDeployTurret();
       }
+      return false;
+    }
+    if (code === "KeyF") {
       return false;
     }
     if (["Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(code)) {
@@ -1848,7 +3016,8 @@ class Game {
     }
   }
 
-  startRun() {
+  startRun(options = {}) {
+    const multiplayer = options.multiplayer ?? null;
     const selectedCharacter = this.getSelectedCharacter();
     const slash = selectedCharacter.slash ?? CHARACTER_DEFS[CHARACTER_IDS.katana].slash;
     this.run = {
@@ -1864,11 +3033,29 @@ class Game {
       damageTaken: 0,
       enemyKills: {},
       enemyDeaths: {},
+      goldEarned: 0,
+      deathCause: null,
       recorded: false,
     };
+    this.multiplayerSession = multiplayer
+      ? {
+          role: multiplayer.role,
+          roomCode: multiplayer.roomCode,
+          localPlayerId: multiplayer.localPlayerId,
+          players: multiplayer.players ?? [],
+        }
+      : null;
+    this.remoteRunRecorded = false;
+    this.coopUpgradeDraft = null;
+    this.remoteInputs = new Map();
+    this.inputActions = { dash: 0, ability: 0, turret: 0 };
+    const equippedAbilityId = this.getEquippedAbilityId();
     this.player = {
-      x: LOGICAL_WIDTH * 0.5,
-      y: LOGICAL_HEIGHT * 0.5,
+      id: multiplayer?.localPlayerId ?? "solo",
+      name: multiplayer?.players?.find((player) => player.id === multiplayer.localPlayerId)?.name ?? "Player",
+      isLocal: true,
+      x: 0,
+      y: 0,
       radius: PLAYER_BASE.radius,
       hp: PLAYER_BASE.maxHp,
       maxHp: PLAYER_BASE.maxHp,
@@ -1898,21 +3085,31 @@ class Game {
       shieldRegenSeconds: PLAYER_BASE.shieldRegenSeconds,
       shieldRegenTimer: 0,
       xpMultiplier: PLAYER_BASE.xpMultiplier,
-      grenadeEquipped: Boolean(this.save.progress?.grenadeUnlocked && this.save.progress?.grenadeEquipped),
+      equippedAbilityId,
+      grenadeEquipped: equippedAbilityId === ABILITY_IDS.grenade,
       grenadeCooldown: PLAYER_BASE.grenadeCooldown,
       grenadeCooldownRemaining: 0,
       grenadeDamage: PLAYER_BASE.grenadeDamage,
       grenadeRadius: PLAYER_BASE.grenadeRadius,
       grenadeProjectileSpeed: PLAYER_BASE.grenadeProjectileSpeed,
       grenadeFuse: PLAYER_BASE.grenadeFuse,
+      landmineCooldown: PLAYER_BASE.landmineCooldown,
+      landmineCooldownRemaining: 0,
+      landmineDamage: PLAYER_BASE.landmineDamage,
+      landmineRadius: PLAYER_BASE.landmineRadius,
+      landmineArmTime: PLAYER_BASE.landmineArmTime,
+      landmineTriggerRadius: PLAYER_BASE.landmineTriggerRadius,
+      maxLandmines: PLAYER_BASE.maxLandmines,
+      landmineClusterFragments: 0,
       shatterFragments: 0,
-      dashReloadRatio: 0,
       overhealShieldBonus: 0,
       turretDeployCooldown: selectedCharacter.id === CHARACTER_IDS.engineer ? ENGINEER_TURRET.deployCooldown : 0,
       turretDeployCooldownRemaining: 0,
       turretLifetime: ENGINEER_TURRET.lifetime,
       turretRange: ENGINEER_TURRET.range,
       turretFireCooldown: ENGINEER_TURRET.fireCooldown,
+      turretDamageBonus: 0,
+      turretPierce: 0,
       maxTurrets: selectedCharacter.id === CHARACTER_IDS.engineer ? 1 : 0,
       grenadeZoneDuration: 0,
       grenadeZoneDamage: 0,
@@ -1924,11 +3121,33 @@ class Game {
       bleedDuration: slash?.bleedDuration ?? 0,
       counterInvulnerability: slash?.counterInvulnerability ?? 0,
       dashSlashDamage: slash?.dashSlashDamage ?? 0,
+      downed: false,
+      deathCause: null,
+      reviveProgress: 0,
+      pointer: { x: 0, y: -160 },
+      inputKeys: new Set(),
+      remoteActionSeq: { dash: 0, ability: 0, turret: 0 },
+      upgradeCounts: this.upgradeCounts,
     };
+    if (multiplayer?.players?.length) {
+      const localProfile = multiplayer.players.find((player) => player.id === multiplayer.localPlayerId);
+      if (localProfile) {
+        this.player.name = localProfile.name;
+        this.player.id = localProfile.id;
+      }
+    }
+    this.players = [this.player];
+    if (this.isMultiplayerHost()) {
+      const remoteProfiles = (multiplayer.players ?? []).filter((profile) => profile.id !== multiplayer.localPlayerId);
+      for (const [index, profile] of remoteProfiles.entries()) {
+        this.players.push(this.createCoopPlayerState({ ...profile, isLocal: false }, index + 1));
+      }
+    }
     this.enemies = [];
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.landmines = [];
     this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
@@ -1936,17 +3155,22 @@ class Game {
     this.floatingTexts = [];
     this.toasts = [];
     this.upgradeCounts = Object.create(null);
+    this.player.upgradeCounts = this.upgradeCounts;
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
     this.lastCompletedRunResult = null;
     this.onlineScoreSubmitted = false;
+    this.scoreSubmitState = "idle";
     this.pendingLevelUps = 0;
     this.upgradeChoices = [];
     this.spawnBudget = 0;
+    this.spawnTargetType = "";
+    this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
     this.grenadeId = 0;
+    this.landmineId = 0;
     this.turretId = 0;
     this.effectId = 0;
     this.textId = 0;
@@ -1954,6 +3178,8 @@ class Game {
     this.nextBossTime = GAME_CONFIG.bossInterval;
     this.warnedBossAt = null;
     this.banner = null;
+    this.updateCamera();
+    this.pointer = { x: this.player.x, y: this.player.y, screenX: LOGICAL_WIDTH * 0.5, screenY: LOGICAL_HEIGHT * 0.5, inside: false };
     this.mode = "playing";
     this.helpReturnMode = "paused";
     this.resetStatsPending = false;
@@ -1961,6 +3187,7 @@ class Game {
     this.hitSoundCooldown = 0;
     this.screenShake = 0;
     this.syncScreens();
+    this.updateDeathCauseCard(null);
     this.updateScoreSubmitPanel();
     this.playSelectedMusic();
     this.updateHud();
@@ -1971,12 +3198,21 @@ class Game {
     const savedProgress = this.saveCurrentRunProgress();
     this.mode = "title";
     this.helpReturnMode = "title";
+    this.camera = { x: 0, y: 0, zoom: CAMERA_CONFIG.defaultZoom };
+    this.pointer = { x: 0, y: 0, screenX: LOGICAL_WIDTH * 0.5, screenY: LOGICAL_HEIGHT * 0.5, inside: false };
     this.run = null;
     this.player = null;
+    this.players = [];
+    this.multiplayerSession = null;
+    this.remoteInputs = new Map();
+    this.coopUpgradeDraft = null;
+    this.remoteRunRecorded = false;
+    this.updateCamera();
     this.enemies = [];
     this.projectiles = [];
     this.enemyProjectiles = [];
     this.grenades = [];
+    this.landmines = [];
     this.turrets = [];
     this.damageZones = [];
     this.pickups = [];
@@ -1986,12 +3222,15 @@ class Game {
     this.banner = null;
     this.pendingLevelUps = 0;
     this.upgradeChoices = [];
+    this.pendingHealOfferLevels = [];
+    this.activeHealOfferLevel = 0;
     this.runMilestones = new Set();
     this.runHighlights = [];
     this.maxedUpgradeIds = new Set();
     this.lastCompletedRunResult = null;
     this.onlineScoreSubmitted = false;
-    this.updateGrenadeLobby();
+    this.scoreSubmitState = "idle";
+    this.updateAbilityLobby();
     this.setMenuTab("play", false);
     this.syncScreens();
     this.updateScoreSubmitPanel();
@@ -2007,7 +3246,7 @@ class Game {
     this.run.recorded = true;
     this.updateSavedScoreLabels();
     this.buildMenuGuide();
-    this.updateGrenadeLobby();
+    this.updateAbilityLobby();
     this.renderQuestMenu();
     this.renderCharacterMenu();
     return true;
@@ -2015,6 +3254,57 @@ class Game {
 
   restartRun() {
     this.startRun();
+  }
+
+  startMultiplayerGuest({ roomCode, localPlayerId, players = [] } = {}) {
+    this.multiplayerSession = {
+      role: "guest",
+      roomCode,
+      localPlayerId,
+      players,
+    };
+    this.remoteRunRecorded = false;
+    this.coopUpgradeDraft = null;
+    this.run = {
+      elapsed: 0,
+      level: 1,
+      xp: 0,
+      xpToNext: getXpThreshold(1),
+      kills: 0,
+      bossKills: 0,
+      shotsFired: 0,
+      killScore: 0,
+      score: 0,
+      damageTaken: 0,
+      enemyKills: {},
+      enemyDeaths: {},
+      goldEarned: 0,
+      deathCause: null,
+      recorded: false,
+    };
+    this.players = players.map((profile, index) => this.createCoopPlayerState({ ...profile, isLocal: profile.id === localPlayerId }, index));
+    this.player = this.getLocalPlayer();
+    this.upgradeCounts = this.player?.upgradeCounts ?? Object.create(null);
+    this.mode = "playing";
+    this.helpReturnMode = "paused";
+    this.enemies = [];
+    this.projectiles = [];
+    this.enemyProjectiles = [];
+    this.grenades = [];
+    this.landmines = [];
+    this.turrets = [];
+    this.damageZones = [];
+    this.pickups = [];
+    this.effects = [];
+    this.floatingTexts = [];
+    this.toasts = [];
+    this.banner = null;
+    this.updateCamera();
+    this.syncScreens();
+    this.updateDeathCauseCard(null);
+    this.updateScoreSubmitPanel();
+    this.updateHud();
+    this.announce("Joined co-op run.");
   }
 
   showHelp() {
@@ -2067,14 +3357,8 @@ class Game {
       return;
     }
     const nextRank = (this.upgradeCounts[upgradeId] ?? 0) + 1;
-    const wasHealthy = this.player.hp >= this.player.maxHp;
     this.upgradeCounts[upgradeId] = nextRank;
     upgrade.apply(this.player, nextRank);
-    if (upgradeId === "heart-balloon" && wasHealthy && this.player.overhealShieldBonus > 0) {
-      this.player.maxShields = Math.max(this.player.maxShields, this.player.overhealShieldBonus);
-      this.player.shields = Math.min(this.player.maxShields, this.player.shields + this.player.overhealShieldBonus);
-      this.spawnFloatingText(this.player.x, this.player.y - 76, `+${this.player.overhealShieldBonus} Shield`, "#86efac", 0.9);
-    }
   }
 
   getDebugSnapshot() {
@@ -2088,8 +3372,20 @@ class Game {
       enemyCount: this.enemies.length,
       bossCount: this.enemies.filter((enemy) => enemy.isBoss && !enemy.dead).length,
       turretCount: this.turrets.filter((turret) => !turret.dead).length,
+      landmineCount: this.landmines.filter((mine) => !mine.dead).length,
       playerHp: this.player?.hp ?? 0,
+      players: (this.players ?? []).map((player) => ({
+        id: player.id,
+        hp: player.hp,
+        downed: Boolean(player.downed),
+        characterId: player.characterId,
+      })),
+      multiplayer: this.multiplayerSession ? { ...this.multiplayerSession, players: this.multiplayerSession.players } : null,
+      equippedAbilityId: this.player?.equippedAbilityId ?? this.getEquippedAbilityId(),
       characterId: this.player?.characterId ?? this.getSelectedCharacter().id,
+      world: { infinite: true },
+      camera: { ...this.camera },
+      pointer: { ...this.pointer },
       attackType: this.player?.attackType ?? this.getSelectedCharacter().attackType,
       dashCooldownRemaining: this.player?.dashCooldownRemaining ?? 0,
       invulnerabilityRemaining: this.player?.invulnerabilityRemaining ?? 0,
@@ -2104,28 +3400,51 @@ class Game {
   }
 
   updateGame(deltaSeconds) {
+    if (this.isMultiplayerGuest()) {
+      this.updateToasts(deltaSeconds);
+      this.updateCamera();
+      return;
+    }
     if (!this.player || !this.run) {
       return;
     }
     this.run.elapsed += deltaSeconds;
+    if (this.run.elapsed >= 300 && !this.save.progress?.landmineUnlocked) {
+      this.unlockMilestone("landmine-unlock", "Landmine quest complete");
+    }
     this.hitSoundCooldown = Math.max(0, this.hitSoundCooldown - deltaSeconds);
     this.screenShake = Math.max(0, this.screenShake - deltaSeconds * 24);
-    this.player.grenadeCooldownRemaining = Math.max(0, this.player.grenadeCooldownRemaining - deltaSeconds);
     this.updateBanner(deltaSeconds);
-    this.updatePlayer(deltaSeconds);
-    this.updateTurrets(deltaSeconds);
-    this.tryAutoFire();
+    const localPlayer = this.getLocalPlayer();
+    for (const player of this.players.length ? this.players : [this.player]) {
+      if (!player || player.downed || player.dead) {
+        continue;
+      }
+      this.withPlayer(player, () => {
+        player.grenadeCooldownRemaining = Math.max(0, player.grenadeCooldownRemaining - deltaSeconds);
+        player.landmineCooldownRemaining = Math.max(0, player.landmineCooldownRemaining - deltaSeconds);
+        this.updatePlayer(deltaSeconds);
+        this.updateTurrets(deltaSeconds);
+        this.tryAutoFire();
+      });
+    }
+    this.player = localPlayer;
+    this.upgradeCounts = localPlayer?.upgradeCounts ?? this.upgradeCounts;
+    this.updateCamera();
+    this.updateCoopRevives(deltaSeconds);
     this.updateBossSchedule();
     this.updateSpawning(deltaSeconds);
     this.updateEnemies(deltaSeconds);
     this.updateProjectiles(deltaSeconds);
     this.updateGrenades(deltaSeconds);
+    this.updateLandmines(deltaSeconds);
     this.updateDamageZones(deltaSeconds);
     this.updatePickups(deltaSeconds);
     this.updateEffects(deltaSeconds);
     this.updateFloatingTexts(deltaSeconds);
     this.updateToasts(deltaSeconds);
     this.handleCollisions();
+    this.updateCamera();
     this.cleanupDeadEntities();
     this.run.score = Math.floor(this.run.elapsed * SCORE_CONFIG.survivalPerSecond + this.run.killScore);
 
@@ -2134,11 +3453,18 @@ class Game {
       this.run.level += 1;
       this.run.xpToNext = getXpThreshold(this.run.level);
       this.pendingLevelUps += 1;
+      if (this.run.level % HEAL_OFFER_CONFIG.interval === 0) {
+        this.pendingHealOfferLevels.push(this.run.level);
+      }
       this.flashLevelUp();
     }
 
     if (this.pendingLevelUps > 0 && this.mode === "playing") {
-      this.showUpgradeDraft();
+      if (this.isMultiplayerHost()) {
+        this.showCoopUpgradeDraft();
+      } else {
+        this.showNextLevelReward();
+      }
     }
   }
 
@@ -2168,8 +3494,6 @@ class Game {
       player.y += movement.y * player.moveSpeed * deltaSeconds;
     }
 
-    player.x = clamp(player.x, GAME_CONFIG.padding, LOGICAL_WIDTH - GAME_CONFIG.padding);
-    player.y = clamp(player.y, GAME_CONFIG.padding, LOGICAL_HEIGHT - GAME_CONFIG.padding);
   }
 
   updateTurrets(deltaSeconds) {
@@ -2179,9 +3503,10 @@ class Game {
     this.player.turretDeployCooldownRemaining = Math.max(0, this.player.turretDeployCooldownRemaining - deltaSeconds);
 
     for (const turret of this.turrets) {
-      if (turret.dead) {
+      if (turret.dead || turret.ownerId !== this.player.id) {
         continue;
       }
+      turret.range = Math.max(turret.range, this.player.turretRange);
       turret.life -= deltaSeconds;
       if (turret.life <= 0) {
         turret.dead = true;
@@ -2197,19 +3522,37 @@ class Game {
         continue;
       }
       const angle = Math.atan2(target.y - turret.y, target.x - turret.x);
+      turret.aimAngle = angle;
+      turret.muzzleFlash = 0.12;
       this.spawnPlayerProjectile(
         turret.x + Math.cos(angle) * 20,
         turret.y + Math.sin(angle) * 20,
         angle,
         this.player.projectileSpeed,
-        this.player.projectileRadius,
-        this.player.projectileDamage,
+        Math.max(5, this.player.projectileRadius * 0.75),
+        Math.max(0.45, this.player.projectileDamage * ENGINEER_TURRET.damageScale + this.player.turretDamageBonus),
         this.player.projectileLifetime,
         "turret",
+        { remainingHits: 1 + this.player.turretPierce },
       );
       turret.fireCooldownRemaining = this.player.turretFireCooldown;
       this.run.shotsFired += 1;
+      this.audio.playTurretFire();
       this.spawnEffect(turret.x, turret.y, 16, "rgba(52, 211, 153, 0.75)", 0.14, "burst");
+    }
+    for (const turret of this.turrets) {
+      if (!turret.dead) {
+        turret.muzzleFlash = Math.max(0, (turret.muzzleFlash ?? 0) - deltaSeconds);
+      }
+    }
+    if (
+      this.mode === "playing" &&
+      this.player.turretDeployCooldownRemaining <= 0 &&
+      this.turrets.filter((turret) => !turret.dead && turret.ownerId === this.player.id).length < this.player.maxTurrets &&
+      this.enemies.some((enemy) => !enemy.dead)
+    ) {
+      this.deployTurret();
+      this.player.turretDeployCooldownRemaining = this.player.turretDeployCooldown;
     }
   }
 
@@ -2217,7 +3560,7 @@ class Game {
     if (!this.player || this.mode !== "playing" || this.player.maxTurrets <= 0) {
       return false;
     }
-    const activeTurrets = this.turrets.filter((turret) => !turret.dead).length;
+    const activeTurrets = this.turrets.filter((turret) => !turret.dead && turret.ownerId === this.player.id).length;
     if (activeTurrets >= this.player.maxTurrets) {
       this.showToast("Turret already active");
       return false;
@@ -2236,6 +3579,7 @@ class Game {
     const y = this.player.y;
     this.turrets.push({
       id: this.turretId += 1,
+      ownerId: this.player.id,
       x,
       y,
       radius: 18,
@@ -2243,8 +3587,11 @@ class Game {
       maxLife: this.player.turretLifetime,
       range: this.player.turretRange,
       fireCooldownRemaining: 0.1,
+      aimAngle: -Math.PI / 2,
+      muzzleFlash: 0,
       dead: false,
     });
+    this.audio.playTurretDeploy();
     this.spawnEffect(x, y, 36, "rgba(52, 211, 153, 0.7)", 0.28, "ring");
     this.spawnFloatingText(x, y - 28, "Turret online", "#86efac", 0.8);
   }
@@ -2278,22 +3625,37 @@ class Game {
     const difficulty = getDifficultySnapshot(this.run.elapsed);
     this.spawnBudget += difficulty.spawnBudgetPerSecond * deltaSeconds;
 
-    const minimumCost = Math.min(...Object.values(ENEMY_DEFS).map((definition) => definition.cost));
+    const candidates = getWeightedEnemyCandidates(difficulty.weights);
+    if (!candidates.length) {
+      return;
+    }
+    const minimumCost = Math.min(...candidates.map((definition) => definition.cost));
     while (this.spawnBudget >= minimumCost && this.enemies.length < GAME_CONFIG.maxEnemies) {
-      const enemyType = weightedEnemyPick(difficulty.weights, this.spawnBudget);
-      const definition = ENEMY_DEFS[enemyType];
+      let definition = ENEMY_DEFS[this.spawnTargetType];
+      if (!definition || (difficulty.weights[definition.id] ?? 0) <= 0) {
+        const nonRunnerCandidates = candidates.filter((candidate) => candidate.id !== "nibbler");
+        const preferredCandidates = this.spawnVarietyPity >= 2 && nonRunnerCandidates.length
+          ? nonRunnerCandidates
+          : candidates;
+        const enemyType = weightedEnemyPick(difficulty.weights, preferredCandidates);
+        definition = ENEMY_DEFS[enemyType];
+        this.spawnTargetType = definition?.id ?? "";
+      }
       if (!definition || definition.cost > this.spawnBudget + 0.001) {
         break;
       }
-      this.spawnEnemy(enemyType, difficulty.statScale);
+      this.spawnEnemy(definition.id, difficulty.statScale);
       this.spawnBudget -= definition.cost;
+      this.spawnVarietyPity = definition.id === "nibbler" ? this.spawnVarietyPity + 1 : 0;
+      this.spawnTargetType = "";
     }
   }
 
   updateEnemies(deltaSeconds) {
-    if (!this.player) {
+    if (!this.player || (this.isCoopRun() && this.getAlivePlayers().length === 0)) {
       return;
     }
+    const localPlayer = this.getLocalPlayer();
     for (const enemy of this.enemies) {
       if (enemy.dead) {
         continue;
@@ -2310,12 +3672,20 @@ class Game {
       }
       enemy.hitFlash = Math.max(0, enemy.hitFlash - deltaSeconds * 4);
       enemy.squish = Math.max(0, enemy.squish - deltaSeconds * 3);
+      const targetPlayer = this.getClosestAlivePlayer(enemy.x, enemy.y);
+      if (!targetPlayer) {
+        continue;
+      }
+      this.player = targetPlayer;
+      this.upgradeCounts = targetPlayer.upgradeCounts ?? this.upgradeCounts;
       if (enemy.isBoss) {
         this.updateBoss(enemy, deltaSeconds);
-      } else if (enemy.typeId === "nibbler") {
+      } else if (enemy.typeId === "nibbler" || enemy.typeId === "sprinter") {
         this.updateNibbler(enemy);
       } else if (enemy.typeId === "spitter") {
         this.updateSpitter(enemy, deltaSeconds);
+      } else if (enemy.typeId === "marksman") {
+        this.updateMarksman(enemy, deltaSeconds);
       } else if (enemy.typeId === "acid-spitter") {
         this.updateAcidSpitter(enemy, deltaSeconds);
       } else if (enemy.typeId === "bumper") {
@@ -2327,8 +3697,34 @@ class Game {
       }
       enemy.x += enemy.vx * deltaSeconds;
       enemy.y += enemy.vy * deltaSeconds;
-      enemy.x = clamp(enemy.x, -GAME_CONFIG.spawnPadding, LOGICAL_WIDTH + GAME_CONFIG.spawnPadding);
-      enemy.y = clamp(enemy.y, -GAME_CONFIG.spawnPadding, LOGICAL_HEIGHT + GAME_CONFIG.spawnPadding);
+      this.recycleFarEnemy(enemy, deltaSeconds);
+    }
+    this.player = localPlayer;
+    this.upgradeCounts = localPlayer?.upgradeCounts ?? this.upgradeCounts;
+  }
+
+  recycleFarEnemy(enemy, deltaSeconds) {
+    if (enemy.dead || enemy.isBoss || !this.player) {
+      return;
+    }
+    const view = this.getActiveSpawnRect(GAME_CONFIG.enemyRecycleMargin);
+    const farFromCamera =
+      enemy.x < view.x ||
+      enemy.x > view.x + view.width ||
+      enemy.y < view.y ||
+      enemy.y > view.y + view.height;
+    enemy.offscreenTime = farFromCamera ? (enemy.offscreenTime ?? 0) + deltaSeconds : 0;
+    if (enemy.offscreenTime < GAME_CONFIG.enemyRecycleSeconds) {
+      return;
+    }
+    const spawnPoint = this.getSpawnPoint(enemy.radius);
+    enemy.x = spawnPoint.x;
+    enemy.y = spawnPoint.y;
+    enemy.vx = 0;
+    enemy.vy = 0;
+    enemy.offscreenTime = 0;
+    if (Number.isFinite(enemy.attackCooldownBase)) {
+      enemy.attackCooldownRemaining = Math.max(enemy.attackCooldownRemaining ?? 0, Math.min(0.7, enemy.attackCooldownBase));
     }
   }
 
@@ -2362,6 +3758,31 @@ class Game {
     }
   }
 
+  updateMarksman(enemy, deltaSeconds) {
+    const toPlayerX = this.player.x - enemy.x;
+    const toPlayerY = this.player.y - enemy.y;
+    const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
+    const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
+    const strafe = { x: -direction.y * enemy.orbitDirection, y: direction.x * enemy.orbitDirection };
+    let moveX = strafe.x * enemy.speed * 0.28;
+    let moveY = strafe.y * enemy.speed * 0.28;
+    if (distance > enemy.preferredRange + 44) {
+      moveX += direction.x * enemy.speed * 0.7;
+      moveY += direction.y * enemy.speed * 0.7;
+    } else if (distance < enemy.preferredRange - 68) {
+      moveX -= direction.x * enemy.speed;
+      moveY -= direction.y * enemy.speed;
+    }
+    enemy.vx = moveX;
+    enemy.vy = moveY;
+    enemy.attackCooldownRemaining -= deltaSeconds;
+    if (enemy.attackCooldownRemaining <= 0 && distance < enemy.attackRange) {
+      this.spawnEnemyProjectile(enemy, direction, enemy.projectileSpeed, 8, enemy.projectileDamage, 4.1, "#ede9fe", "#8b5cf6");
+      enemy.attackCooldownRemaining = enemy.attackCooldownBase;
+      this.spawnEffect(enemy.x, enemy.y, 20, "rgba(139, 92, 246, 0.72)", 0.16, "burst");
+    }
+  }
+
   updateAcidSpitter(enemy, deltaSeconds) {
     const toPlayerX = this.player.x - enemy.x;
     const toPlayerY = this.player.y - enemy.y;
@@ -2381,13 +3802,15 @@ class Game {
     enemy.vy = moveY;
     enemy.attackCooldownRemaining -= deltaSeconds;
     if (enemy.attackCooldownRemaining <= 0 && distance < enemy.attackRange) {
-      this.spawnEnemyProjectile(enemy, direction, enemy.projectileSpeed, 12, enemy.projectileDamage, 3.2, "#bbf7d0", "#22c55e", {
+      this.spawnEnemyProjectile(enemy, direction, enemy.projectileSpeed, 8, enemy.projectileDamage, 2.7, "#ecfccb", "#84cc16", {
         acidZoneRadius: enemy.acidZoneRadius,
         acidZoneDamage: enemy.acidZoneDamage,
         acidZoneDuration: enemy.acidZoneDuration,
+        kind: "acid-spit",
+        trailScale: 6.2,
       });
       enemy.attackCooldownRemaining = enemy.attackCooldownBase;
-      this.spawnEffect(enemy.x, enemy.y, 20, "rgba(34, 197, 94, 0.72)", 0.16, "burst");
+      this.spawnEffect(enemy.x + direction.x * enemy.radius, enemy.y + direction.y * enemy.radius, 30, "rgba(163, 230, 53, 0.84)", 0.2, "burst");
     }
   }
 
@@ -2416,13 +3839,7 @@ class Game {
       enemy.vx = enemy.chargeDirection.x * enemy.chargeSpeed;
       enemy.vy = enemy.chargeDirection.y * enemy.chargeSpeed;
       enemy.stateTimer -= deltaSeconds;
-      if (
-        enemy.stateTimer <= 0 ||
-        enemy.x < GAME_CONFIG.padding ||
-        enemy.x > LOGICAL_WIDTH - GAME_CONFIG.padding ||
-        enemy.y < GAME_CONFIG.padding ||
-        enemy.y > LOGICAL_HEIGHT - GAME_CONFIG.padding
-      ) {
+      if (enemy.stateTimer <= 0) {
         enemy.state = "seek";
         enemy.attackCooldownRemaining = enemy.chargeCooldown;
       }
@@ -2458,13 +3875,7 @@ class Game {
       enemy.vx = enemy.chargeDirection.x * enemy.chargeSpeed;
       enemy.vy = enemy.chargeDirection.y * enemy.chargeSpeed;
       enemy.stateTimer -= deltaSeconds;
-      if (
-        enemy.stateTimer <= 0 ||
-        enemy.x < GAME_CONFIG.padding ||
-        enemy.x > LOGICAL_WIDTH - GAME_CONFIG.padding ||
-        enemy.y < GAME_CONFIG.padding ||
-        enemy.y > LOGICAL_HEIGHT - GAME_CONFIG.padding
-      ) {
+      if (enemy.stateTimer <= 0) {
         enemy.state = "seek";
         enemy.attackCooldownRemaining = enemy.dashCooldown;
       }
@@ -2533,13 +3944,7 @@ class Game {
       enemy.vx = enemy.chargeDirection.x * enemy.chargeSpeed;
       enemy.vy = enemy.chargeDirection.y * enemy.chargeSpeed;
       enemy.phaseTimer -= deltaSeconds;
-      if (
-        enemy.phaseTimer <= 0 ||
-        enemy.x < GAME_CONFIG.padding ||
-        enemy.x > LOGICAL_WIDTH - GAME_CONFIG.padding ||
-        enemy.y < GAME_CONFIG.padding ||
-        enemy.y > LOGICAL_HEIGHT - GAME_CONFIG.padding
-      ) {
+      if (enemy.phaseTimer <= 0) {
         enemy.state = "roam";
         enemy.phaseTimer = 2;
       }
@@ -2606,22 +4011,17 @@ class Game {
       projectile.x += projectile.vx * deltaSeconds;
       projectile.y += projectile.vy * deltaSeconds;
       projectile.life -= deltaSeconds;
-      if (
-        projectile.life <= 0 ||
-        projectile.x < -80 ||
-        projectile.x > LOGICAL_WIDTH + 80 ||
-        projectile.y < -80 ||
-        projectile.y > LOGICAL_HEIGHT + 80
-      ) {
+      if (projectile.life <= 0) {
         projectile.dead = true;
       }
     };
     this.projectiles.forEach(advance);
     for (const projectile of this.enemyProjectiles) {
-      if (projectile.homingTimeRemaining > 0 && projectile.homingTarget === "player" && this.player) {
+      const homingPlayer = this.getClosestAlivePlayer(projectile.x, projectile.y) ?? this.player;
+      if (projectile.homingTimeRemaining > 0 && projectile.homingTarget === "player" && homingPlayer) {
         const speed = Math.max(1, Math.hypot(projectile.vx, projectile.vy));
         const currentAngle = Math.atan2(projectile.vy, projectile.vx);
-        const targetAngle = Math.atan2(this.player.y - projectile.y, this.player.x - projectile.x);
+        const targetAngle = Math.atan2(homingPlayer.y - projectile.y, homingPlayer.x - projectile.x);
         const deltaAngle = Math.atan2(Math.sin(targetAngle - currentAngle), Math.cos(targetAngle - currentAngle));
         const turn = clamp(deltaAngle, -projectile.homingTurnRate * deltaSeconds, projectile.homingTurnRate * deltaSeconds);
         const nextAngle = currentAngle + turn;
@@ -2645,14 +4045,35 @@ class Game {
       grenade.x += grenade.vx * deltaSeconds;
       grenade.y += grenade.vy * deltaSeconds;
       grenade.life -= deltaSeconds;
-      if (
-        grenade.life <= 0 ||
-        grenade.x < -80 ||
-        grenade.x > LOGICAL_WIDTH + 80 ||
-        grenade.y < -80 ||
-        grenade.y > LOGICAL_HEIGHT + 80
-      ) {
+      if (grenade.life <= 0) {
         this.explodeGrenade(grenade);
+      }
+    }
+  }
+
+  updateLandmines(deltaSeconds) {
+    for (const mine of this.landmines) {
+      if (mine.dead) {
+        continue;
+      }
+      const wasArming = mine.armTimeRemaining > 0;
+      mine.armTimeRemaining = Math.max(0, mine.armTimeRemaining - deltaSeconds);
+      if (wasArming && mine.armTimeRemaining <= 0 && !mine.armedSoundPlayed) {
+        mine.armedSoundPlayed = true;
+        this.audio.playMineArmed();
+      }
+      if (mine.armTimeRemaining > 0) {
+        continue;
+      }
+      for (const enemy of this.enemies) {
+        if (enemy.dead) {
+          continue;
+        }
+        const triggerRadius = mine.triggerRadius + enemy.radius;
+        if (distanceSquared(mine.x, mine.y, enemy.x, enemy.y) <= triggerRadius * triggerRadius) {
+          this.explodeLandmine(mine);
+          break;
+        }
       }
     }
   }
@@ -2661,6 +4082,7 @@ class Game {
     if (!this.player) {
       return;
     }
+    const candidates = this.getAlivePlayers();
     for (const pickup of this.pickups) {
       if (pickup.dead) {
         continue;
@@ -2670,11 +4092,31 @@ class Game {
         pickup.dead = true;
         continue;
       }
-      const toPlayerX = this.player.x - pickup.x;
-      const toPlayerY = this.player.y - pickup.y;
+      const isMedkit = pickup.type === "medkit";
+      let collector = null;
+      let closestDistance = Infinity;
+      for (const player of candidates) {
+        if (isMedkit && player.hp >= player.maxHp) {
+          continue;
+        }
+        const distance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          collector = player;
+        }
+      }
+      if (!collector) {
+        pickup.vx *= 0.92;
+        pickup.vy *= 0.92;
+        pickup.x += pickup.vx * deltaSeconds;
+        pickup.y += pickup.vy * deltaSeconds;
+        continue;
+      }
+      const toPlayerX = collector.x - pickup.x;
+      const toPlayerY = collector.y - pickup.y;
       const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
-      if (distance < this.player.magnetRadius || distance < 36) {
-        const pull = 1 - clamp(distance / this.player.magnetRadius, 0, 1);
+      if (distance < collector.magnetRadius || distance < 36) {
+        const pull = 1 - clamp(distance / collector.magnetRadius, 0, 1);
         const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
         pickup.vx += direction.x * (420 + pull * 540) * deltaSeconds;
         pickup.vy += direction.y * (420 + pull * 540) * deltaSeconds;
@@ -2683,13 +4125,36 @@ class Game {
       pickup.vy *= 0.92;
       pickup.x += pickup.vx * deltaSeconds;
       pickup.y += pickup.vy * deltaSeconds;
-      if (distanceSquared(pickup.x, pickup.y, this.player.x, this.player.y) <= (pickup.radius + this.player.radius + 2) ** 2) {
+      if (distanceSquared(pickup.x, pickup.y, collector.x, collector.y) <= (pickup.radius + collector.radius + 2) ** 2) {
         pickup.dead = true;
-        this.run.xp += pickup.value * this.player.xpMultiplier;
-        this.spawnFloatingText(pickup.x, pickup.y - 10, `+${Math.ceil(pickup.value * this.player.xpMultiplier)} XP`, "#86efac", 0.55);
-        this.spawnEffect(pickup.x, pickup.y, 18, "rgba(15, 118, 110, 0.75)", 0.22, "burst");
+        if (isMedkit) {
+          this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
+        } else {
+          this.run.xp += pickup.value * collector.xpMultiplier;
+          this.audio.playPickup();
+          this.spawnFloatingText(pickup.x, pickup.y - 10, `+${Math.ceil(pickup.value * collector.xpMultiplier)} XP`, "#86efac", 0.55);
+          this.spawnEffect(pickup.x, pickup.y, 18, "rgba(15, 118, 110, 0.75)", 0.22, "burst");
+        }
       }
     }
+  }
+
+  collectMedkitPickup(pickup) {
+    if (!this.player) {
+      return;
+    }
+    const missingHp = Math.max(0, this.player.maxHp - this.player.hp);
+    const healed = Math.min(missingHp, Math.max(0, pickup.value ?? MEDKIT_PICKUP.healAmount));
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + healed);
+    if (healed > 0 && this.player.overhealShieldBonus > 0 && pickup.value > missingHp) {
+      this.player.maxShields = Math.max(this.player.maxShields, this.player.overhealShieldBonus);
+      this.player.shields = Math.min(this.player.maxShields, this.player.shields + this.player.overhealShieldBonus);
+      this.spawnFloatingText(pickup.x, pickup.y - 30, `+${this.player.overhealShieldBonus} Shield`, "#86efac", 0.78);
+    }
+    this.audio.playPickup();
+    this.spawnFloatingText(pickup.x, pickup.y - 10, `+${healed} HP`, "#fecdd3", 0.78);
+    this.spawnEffect(pickup.x, pickup.y, 24, "rgba(248, 113, 113, 0.78)", 0.24, "burst");
+    this.updateHud();
   }
 
   updateDamageZones(deltaSeconds) {
@@ -2699,8 +4164,10 @@ class Game {
       if (zone.tickRemaining <= 0) {
         zone.tickRemaining = zone.tickInterval;
         if (zone.owner === "enemy") {
-          if (this.player && distanceSquared(zone.x, zone.y, this.player.x, this.player.y) <= (zone.radius + this.player.radius) ** 2) {
-            this.takePlayerDamage(zone.damage, zone.sourceEnemyTypeId ?? "");
+          for (const player of this.getAlivePlayers()) {
+            if (distanceSquared(zone.x, zone.y, player.x, player.y) <= (zone.radius + player.radius) ** 2) {
+              this.withPlayer(player, () => this.takePlayerDamage(zone.damage, zone.sourceEnemyTypeId ?? "", "acid-pool"));
+            }
           }
           continue;
         }
@@ -2767,14 +4234,17 @@ class Game {
       if (projectile.dead) {
         continue;
       }
-      const collisionRadius = projectile.radius + this.player.radius;
-      if (distanceSquared(projectile.x, projectile.y, this.player.x, this.player.y) <= collisionRadius * collisionRadius) {
-        projectile.dead = true;
-        if (projectile.acidZoneRadius && !projectile.zoneSpawned) {
-          this.spawnAcidZone(projectile.x, projectile.y, projectile.acidZoneRadius, projectile.acidZoneDamage, projectile.acidZoneDuration);
-          projectile.zoneSpawned = true;
+      for (const player of this.getAlivePlayers()) {
+        const collisionRadius = projectile.radius + player.radius;
+        if (distanceSquared(projectile.x, projectile.y, player.x, player.y) <= collisionRadius * collisionRadius) {
+          projectile.dead = true;
+          if (projectile.acidZoneRadius && !projectile.zoneSpawned) {
+            this.spawnAcidZone(projectile.x, projectile.y, projectile.acidZoneRadius, projectile.acidZoneDamage, projectile.acidZoneDuration);
+            projectile.zoneSpawned = true;
+          }
+          this.withPlayer(player, () => this.takePlayerDamage(projectile.damage, projectile.sourceEnemyTypeId, projectile.kind === "acid-spit" ? "acid-spit" : "projectile"));
+          break;
         }
-        this.takePlayerDamage(projectile.damage, projectile.sourceEnemyTypeId);
       }
     }
 
@@ -2798,16 +4268,49 @@ class Game {
       if (enemy.dead) {
         continue;
       }
-      const collisionRadius = enemy.radius + this.player.radius;
-      if (distanceSquared(enemy.x, enemy.y, this.player.x, this.player.y) <= collisionRadius * collisionRadius) {
-        const didDamage = this.takePlayerDamage(enemy.contactDamage, enemy.typeId);
-        if (didDamage) {
-          const push = normalizeVector(this.player.x - enemy.x, this.player.y - enemy.y);
-          enemy.x -= push.x * 12;
-          enemy.y -= push.y * 12;
-          this.player.x += push.x * 16;
-          this.player.y += push.y * 16;
+      for (const player of this.getAlivePlayers()) {
+        const collisionRadius = enemy.radius + player.radius;
+        if (distanceSquared(enemy.x, enemy.y, player.x, player.y) <= collisionRadius * collisionRadius) {
+          const didDamage = this.withPlayer(player, () => this.takePlayerDamage(enemy.contactDamage, enemy.typeId, "contact"));
+          if (didDamage) {
+            const push = normalizeVector(player.x - enemy.x, player.y - enemy.y);
+            enemy.x -= push.x * 12;
+            enemy.y -= push.y * 12;
+            player.x += push.x * 16;
+            player.y += push.y * 16;
+          }
         }
+      }
+    }
+  }
+
+  updateCoopRevives(deltaSeconds) {
+    if (!this.isMultiplayerHost()) {
+      return;
+    }
+    const downedPlayers = this.players.filter((player) => player.downed && !player.dead);
+    if (!downedPlayers.length) {
+      return;
+    }
+    const alivePlayers = this.getAlivePlayers();
+    for (const downedPlayer of downedPlayers) {
+      const reviver = alivePlayers.find((player) => {
+        const keys = player.isLocal === false ? player.inputKeys : this.keys;
+        return keys?.has("KeyF") && distanceSquared(player.x, player.y, downedPlayer.x, downedPlayer.y) <= COOP_CONFIG.reviveRadius ** 2;
+      });
+      if (!reviver) {
+        downedPlayer.reviveProgress = Math.max(0, downedPlayer.reviveProgress - deltaSeconds * 0.75);
+        continue;
+      }
+      downedPlayer.reviveProgress += deltaSeconds;
+      this.spawnFloatingText(downedPlayer.x, downedPlayer.y - 48, "Reviving", "#bbf7d0", 0.18);
+      if (downedPlayer.reviveProgress >= COOP_CONFIG.reviveSeconds) {
+        downedPlayer.downed = false;
+        downedPlayer.hp = Math.min(downedPlayer.maxHp, COOP_CONFIG.reviveHp);
+        downedPlayer.invulnerabilityRemaining = 1.2;
+        downedPlayer.reviveProgress = 0;
+        this.spawnEffect(downedPlayer.x, downedPlayer.y, 48, "rgba(134, 239, 172, 0.72)", 0.32, "ring");
+        this.spawnFloatingText(downedPlayer.x, downedPlayer.y - 54, "Revived", "#86efac", 0.9);
       }
     }
   }
@@ -2817,6 +4320,7 @@ class Game {
     this.projectiles = this.projectiles.filter((projectile) => !projectile.dead);
     this.enemyProjectiles = this.enemyProjectiles.filter((projectile) => !projectile.dead);
     this.grenades = this.grenades.filter((grenade) => !grenade.dead);
+    this.landmines = this.landmines.filter((mine) => !mine.dead);
     this.turrets = this.turrets.filter((turret) => !turret.dead);
     this.pickups = this.pickups.filter((pickup) => !pickup.dead);
     this.effects = this.effects.filter((effect) => effect.life > 0);
@@ -2839,7 +4343,7 @@ class Game {
     }
   }
 
-  takePlayerDamage(amount, sourceEnemyTypeId = "") {
+  takePlayerDamage(amount, sourceEnemyTypeId = "", damageKind = "contact") {
     if (!this.player || this.player.invulnerabilityRemaining > 0 || this.mode !== "playing") {
       return false;
     }
@@ -2848,25 +4352,61 @@ class Game {
       this.player.invulnerabilityRemaining = 0.28;
       this.screenShake = Math.max(this.screenShake, 6);
       this.spawnEffect(this.player.x, this.player.y, 32, "rgba(37, 99, 235, 0.75)", 0.3, "ring");
-      if (this.hitSoundCooldown <= 0) {
-        this.audio.playHit();
-        this.hitSoundCooldown = 0.06;
-      }
+      this.audio.playShieldBlock();
       return true;
     }
     this.player.hp = Math.max(0, this.player.hp - amount);
     this.player.invulnerabilityRemaining = 0.75;
     this.run.damageTaken += amount;
     this.screenShake = Math.max(this.screenShake, 11);
-    if (this.hitSoundCooldown <= 0) {
-      this.audio.playHit();
-      this.hitSoundCooldown = 0.06;
-    }
+    this.audio.playPlayerDamage();
     if (this.player.hp <= 0) {
+      const deathCause = this.createDeathCause(sourceEnemyTypeId, damageKind, amount);
+      this.player.deathCause = deathCause;
       this.recordEnemyDeath(sourceEnemyTypeId);
-      this.endRun();
+      if (this.isMultiplayerHost()) {
+        this.player.downed = true;
+        this.player.hp = 0;
+        this.player.reviveProgress = 0;
+        this.spawnFloatingText(this.player.x, this.player.y - 52, "Downed", "#fecdd3", 1);
+        this.spawnEffect(this.player.x, this.player.y, 44, "rgba(248, 113, 113, 0.68)", 0.3, "ring");
+        if (!this.getAlivePlayers().length) {
+          this.run.deathCause = deathCause;
+          this.endRun();
+        }
+      } else {
+        this.run.deathCause = deathCause;
+        this.endRun();
+      }
     }
     return true;
+  }
+
+  createDeathCause(sourceEnemyTypeId = "", damageKind = "contact", amount = 0) {
+    const sourceName = this.getEnemyDisplayName(sourceEnemyTypeId);
+    const kindLabels = {
+      contact: "Contact",
+      projectile: "Projectile",
+      "acid-spit": "Acid spit",
+      "acid-pool": "Acid pool",
+    };
+    const damageLabel = kindLabels[damageKind] ?? "Hazard";
+    const killerLabel = sourceName || "Unknown Hazard";
+    return {
+      sourceEnemyTypeId,
+      sourceName: killerLabel,
+      damageKind,
+      damageLabel,
+      amount: Math.max(0, Number(amount) || 0),
+      label: `Killed by ${killerLabel} - ${damageLabel}`,
+    };
+  }
+
+  getEnemyDisplayName(enemyTypeId) {
+    if (enemyTypeId === BOSS_DEF.id) {
+      return BOSS_DEF.name;
+    }
+    return ENEMY_DEFS[enemyTypeId]?.name ?? "";
   }
 
   recordEnemyKill(enemyTypeId) {
@@ -2883,6 +4423,43 @@ class Game {
     this.run.enemyDeaths[enemyTypeId] = (this.run.enemyDeaths[enemyTypeId] ?? 0) + 1;
   }
 
+  awardGold(baseAmount, x, y, label = "gold") {
+    if (!this.run || baseAmount <= 0) {
+      return 0;
+    }
+    const doubled = Math.random() < GOLD_CONFIG.doubleChance;
+    const amount = Math.max(0, Math.floor(baseAmount * (doubled ? 2 : 1)));
+    this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) + amount });
+    this.run.goldEarned = (this.run.goldEarned ?? 0) + amount;
+    this.audio.playGold(doubled);
+    const text = doubled ? `DOUBLE GOLD +${amount}` : `+${amount} ${label}`;
+    this.spawnFloatingText(x, y, text, doubled ? "#fde68a" : "#fbbf24", doubled ? 1.05 : 0.7);
+    if (this.ui.goldCounter) {
+      this.ui.goldCounter.classList.remove("gold-pop");
+      void this.ui.goldCounter.offsetWidth;
+      this.ui.goldCounter.classList.add("gold-pop");
+    }
+    this.renderSongShop();
+    this.renderAdminPanel();
+    this.updateHud();
+    return amount;
+  }
+
+  getEnemyGoldValue(enemy) {
+    if (enemy.isBoss) {
+      return Math.max(0, Math.floor(enemy.goldValue ?? BOSS_DEF.goldValue ?? GOLD_CONFIG.bossKill));
+    }
+    return Math.max(0, Math.floor(enemy.goldValue ?? GOLD_CONFIG.enemyKills?.[enemy.typeId] ?? GOLD_CONFIG.normalKill));
+  }
+
+  maybeSpawnMedkit(enemy) {
+    const chance = enemy.isBoss ? MEDKIT_PICKUP.bossDropChance : MEDKIT_PICKUP.normalDropChance;
+    if (Math.random() >= chance) {
+      return;
+    }
+    this.spawnMedkit(enemy.x, enemy.y);
+  }
+
   endRun() {
     if (!this.run) {
       return;
@@ -2890,6 +4467,7 @@ class Game {
     const previousHighScore = this.save.highScore;
     const previousBest = { ...(this.save.stats?.best ?? {}) };
     const unlockedGrenade = !this.save.progress?.grenadeUnlocked && this.run.kills >= 250;
+    const unlockedLandmine = !this.save.progress?.landmineUnlocked && this.run.elapsed >= 300;
     const unlockedKatana =
       !isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.katana) &&
       (this.save.stats?.total?.bosses ?? 0) + this.run.bossKills >= KATANA_UNLOCK_BOSSES;
@@ -2914,6 +4492,8 @@ class Game {
       this.ui.gameOverTitle.textContent = "Engineer unlocked!";
     } else if (unlockedGrenade) {
       this.ui.gameOverTitle.textContent = "Grenade unlocked!";
+    } else if (unlockedLandmine) {
+      this.ui.gameOverTitle.textContent = "Landmine unlocked!";
     } else {
       this.ui.gameOverTitle.textContent = "The wave overran you.";
     }
@@ -2921,14 +4501,28 @@ class Game {
     this.ui.finalTime.textContent = formatTime(this.run.elapsed);
     this.ui.finalKills.textContent = this.run.kills.toString();
     this.ui.finalBosses.textContent = this.run.bossKills.toString();
+    this.updateDeathCauseCard(this.run.deathCause);
     this.lastCompletedRunResult = this.buildLeaderboardRunResult();
     this.onlineScoreSubmitted = false;
-    this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer);
+    this.buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedLandmine, unlockedKatana, unlockedEngineer);
     this.updateScoreSubmitPanel();
-    this.updateGrenadeLobby();
+    this.updateAbilityLobby();
     this.renderQuestMenu();
     this.renderCharacterMenu();
     this.announce(`Run over. Final score ${Math.floor(this.run.score)}.`);
+  }
+
+  updateDeathCauseCard(deathCause) {
+    if (!this.ui.deathCauseCard || !this.ui.deathCauseText) {
+      return;
+    }
+    if (!deathCause) {
+      this.ui.deathCauseCard.hidden = true;
+      this.ui.deathCauseText.textContent = "";
+      return;
+    }
+    this.ui.deathCauseText.textContent = deathCause.label ?? "Killed by Unknown Hazard";
+    this.ui.deathCauseCard.hidden = false;
   }
 
   getSongCatalog() {
@@ -2942,6 +4536,56 @@ class Game {
       return getCharacterById(selectedId);
     }
     return CHARACTER_DEFS[CHARACTER_IDS.gunner];
+  }
+
+  getLoadouts() {
+    const loadouts = this.save.progress?.loadouts && typeof this.save.progress.loadouts === "object" ? this.save.progress.loadouts : {};
+    return Object.fromEntries(
+      Object.values(CHARACTER_IDS).map((characterId) => {
+        const accessoryIds = Array.isArray(loadouts?.[characterId]?.accessoryIds) ? loadouts[characterId].accessoryIds : [];
+        return [characterId, { accessoryIds: accessoryIds.filter((id) => ACCESSORY_DEFS.some((accessory) => accessory.id === id)).slice(0, 1) }];
+      }),
+    );
+  }
+
+  getSelectedAccessoryIds(characterId = this.getSelectedCharacter().id) {
+    return this.getLoadouts()?.[characterId]?.accessoryIds ?? [];
+  }
+
+  isAccessoryUnlocked(accessoryId) {
+    const accessory = ACCESSORY_DEFS.find((item) => item.id === accessoryId);
+    return Boolean(accessory?.isUnlocked(this.save.progress));
+  }
+
+  getEquippedAbilityId() {
+    const progress = this.save.progress ?? {};
+    const selectedAccessoryIds = this.getSelectedAccessoryIds();
+    for (const accessoryId of selectedAccessoryIds) {
+      if (accessoryId === ABILITY_IDS.grenade && progress.grenadeUnlocked) {
+        return ABILITY_IDS.grenade;
+      }
+      if (accessoryId === ABILITY_IDS.landmine && progress.landmineUnlocked) {
+        return ABILITY_IDS.landmine;
+      }
+    }
+    if (progress.equippedAbilityId === ABILITY_IDS.grenade && progress.grenadeUnlocked) {
+      return ABILITY_IDS.grenade;
+    }
+    if (progress.equippedAbilityId === ABILITY_IDS.landmine && progress.landmineUnlocked) {
+      return ABILITY_IDS.landmine;
+    }
+    return progress.grenadeEquipped && progress.grenadeUnlocked ? ABILITY_IDS.grenade : "";
+  }
+
+  getLoadoutSummary(characterId = this.getSelectedCharacter().id) {
+    const character = getCharacterById(characterId);
+    const accessoryNames = this.getSelectedAccessoryIds(characterId)
+      .map((accessoryId) => ACCESSORY_DEFS.find((accessory) => accessory.id === accessoryId)?.name)
+      .filter(Boolean);
+    return {
+      characterName: character.name,
+      accessoryText: accessoryNames.length ? accessoryNames.join(", ") : "No accessories equipped",
+    };
   }
 
   selectCharacter(characterId) {
@@ -2958,6 +4602,7 @@ class Game {
       engineerUnlocked: isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer),
       selectedCharacterId: character.id,
     });
+    this.updateAbilityLobby();
     this.renderCharacterMenu();
     this.renderQuestMenu();
     this.showToast(`${character.name} selected`);
@@ -2966,6 +4611,7 @@ class Game {
 
   getQuestRows() {
     const bestKills = Math.max(0, this.save.stats?.best?.kills ?? 0);
+    const bestTime = Math.max(0, this.save.stats?.best?.time ?? 0);
     const totalKills = Math.max(0, this.save.stats?.total?.kills ?? 0);
     const totalBosses = Math.max(0, this.save.stats?.total?.bosses ?? 0);
     return [
@@ -2988,6 +4634,15 @@ class Game {
         description: `Defeat ${KATANA_UNLOCK_BOSSES} bosses total.`,
       },
       {
+        id: "landmine",
+        title: "Demolition Trial",
+        reward: "Landmine ability",
+        progress: Math.min(300, Math.floor(bestTime)),
+        requirement: 300,
+        unlocked: Boolean(this.save.progress?.landmineUnlocked),
+        description: "Survive for 5 minutes in a single run.",
+      },
+      {
         id: "engineer",
         title: "Engineering License",
         reward: "Engineer character",
@@ -3003,24 +4658,59 @@ class Game {
     if (!this.ui.questList) {
       return;
     }
-    const rows = this.getQuestRows().map((quest) => {
-      const row = document.createElement("div");
-      row.className = `quest-row${quest.unlocked ? " unlocked" : ""}`;
-      const body = document.createElement("div");
-      const progressPercent = clamp(quest.progress / quest.requirement, 0, 1) * 100;
-      body.innerHTML = `
-        <strong>${quest.title}</strong>
-        <span>${quest.reward} - ${quest.unlocked ? "Unlocked" : `${quest.progress}/${quest.requirement}`}</span>
-        <p>${quest.description}</p>
-        <div class="quest-progress" aria-hidden="true"><span style="width: ${progressPercent}%"></span></div>
-      `;
-      const badge = document.createElement("span");
-      badge.className = "quest-badge";
-      badge.textContent = quest.unlocked ? "Done" : "Locked";
-      row.replaceChildren(body, badge);
-      return row;
-    });
-    this.ui.questList.replaceChildren(...rows);
+    const quests = this.getQuestRows();
+    const getQuestState = (quest) => {
+      if (quest.unlocked) {
+        return "completed";
+      }
+      return quest.progress > 0 ? "active" : "locked";
+    };
+    const getQuestStatusLabel = (state) => {
+      if (state === "completed") {
+        return "Done";
+      }
+      return state === "active" ? "Active" : "Locked";
+    };
+    const groups = [
+      { title: "Active Quests", state: "active", quests: quests.filter((quest) => getQuestState(quest) === "active") },
+      { title: "Completed", state: "completed", quests: quests.filter((quest) => getQuestState(quest) === "completed") },
+      { title: "Locked", state: "locked", quests: quests.filter((quest) => getQuestState(quest) === "locked") },
+    ];
+    const nodes = groups
+      .filter((group) => group.quests.length)
+      .map((group) => {
+        const section = document.createElement("section");
+        section.className = `quest-section quest-section-${group.state}`;
+        const heading = document.createElement("div");
+        heading.className = "quest-section-heading";
+        heading.innerHTML = `<strong>${group.title}</strong><span>${group.quests.length}</span>`;
+        const cards = document.createElement("div");
+        cards.className = "quest-card-grid";
+        const rows = group.quests.map((quest) => {
+          const state = getQuestState(quest);
+          const row = document.createElement("article");
+          row.className = `quest-row quest-${state}${quest.unlocked ? " unlocked" : ""}`;
+          const progressPercent = clamp(quest.progress / quest.requirement, 0, 1) * 100;
+          const body = document.createElement("div");
+          body.className = "quest-card-body";
+          body.innerHTML = `
+            <div class="quest-card-title">
+              <strong>${quest.title}</strong>
+              <span class="quest-badge quest-badge-${state}">${getQuestStatusLabel(state)}</span>
+            </div>
+            <span>${quest.reward}</span>
+            <p>${quest.description}</p>
+            <div class="quest-progress-label"><span>${quest.unlocked ? "Unlocked" : `${quest.progress}/${quest.requirement}`}</span><span>${Math.round(progressPercent)}%</span></div>
+            <div class="quest-progress" aria-hidden="true"><span style="width: ${progressPercent}%"></span></div>
+          `;
+          row.replaceChildren(body);
+          return row;
+        });
+        cards.replaceChildren(...rows);
+        section.replaceChildren(heading, cards);
+        return section;
+      });
+    this.ui.questList.replaceChildren(...nodes);
   }
 
   renderCharacterMenu() {
@@ -3028,14 +4718,18 @@ class Game {
       return;
     }
     const selectedId = this.getSelectedCharacter().id;
-    const nodes = Object.values(CHARACTER_DEFS).map((character) => {
+    const previousSectionOpen = {
+      characters: this.ui.characterList.querySelector('[data-inventory-section="characters"]')?.open ?? true,
+      accessories: this.ui.characterList.querySelector('[data-inventory-section="accessories"]')?.open ?? true,
+    };
+    const characterRows = Object.values(CHARACTER_DEFS).map((character) => {
       const unlocked = isCharacterUnlocked(this.save.progress, this.save.stats, character.id);
       const selected = selectedId === character.id;
       const card = document.createElement("div");
       card.className = `character-row${selected ? " selected" : ""}${unlocked ? "" : " locked"}`;
       card.tabIndex = 0;
       card.setAttribute("role", "button");
-      card.setAttribute("aria-disabled", selected ? "true" : "false");
+      card.setAttribute("aria-disabled", !unlocked || selected ? "true" : "false");
       card.setAttribute("aria-label", `${character.name}. ${selected ? "Selected" : unlocked ? "Select character" : "Locked"}.`);
       const body = document.createElement("div");
       const requirement =
@@ -3053,7 +4747,7 @@ class Game {
       button.type = "button";
       button.className = selected ? "ghost-button" : "primary-button";
       button.textContent = selected ? "Selected" : unlocked ? "Select" : "Locked";
-      button.disabled = selected;
+      button.disabled = selected || !unlocked;
       button.setAttribute("aria-disabled", !unlocked || selected ? "true" : "false");
       const handleSelect = () => {
         if (selected) {
@@ -3082,12 +4776,64 @@ class Game {
       card.replaceChildren(body, button);
       return card;
     });
-    this.ui.characterList.replaceChildren(...nodes);
+    const accessoryRows = ACCESSORY_DEFS.map((accessory) => {
+      const unlocked = accessory.isUnlocked(this.save.progress);
+      const equipped = this.getSelectedAccessoryIds(selectedId).includes(accessory.id);
+      const row = document.createElement("div");
+      row.className = `accessory-row${equipped ? " selected" : ""}${unlocked ? "" : " locked"}`;
+      const body = document.createElement("div");
+      body.innerHTML = `
+        <strong>${accessory.name}</strong>
+        <span>${accessory.slot} - ${unlocked ? "Unlocked" : accessory.lockedText}</span>
+        <p>${accessory.description}</p>
+      `;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = equipped ? "ghost-button" : "primary-button";
+      button.textContent = equipped ? "Equipped" : unlocked ? "Equip" : "Locked";
+      button.disabled = !unlocked;
+      button.setAttribute("aria-pressed", equipped ? "true" : "false");
+      button.addEventListener("click", () => this.toggleAbilityEquip(accessory.id));
+      row.replaceChildren(body, button);
+      return row;
+    });
+
+    const charactersSection = document.createElement("details");
+    charactersSection.className = "inventory-section";
+    charactersSection.dataset.inventorySection = "characters";
+    charactersSection.open = previousSectionOpen.characters;
+    const charactersSummary = document.createElement("summary");
+    charactersSummary.setAttribute("aria-expanded", charactersSection.open ? "true" : "false");
+    charactersSummary.innerHTML = `<span>Characters</span><strong>${this.getSelectedCharacter().name}</strong>`;
+    charactersSection.addEventListener("toggle", () => {
+      charactersSummary.setAttribute("aria-expanded", charactersSection.open ? "true" : "false");
+    });
+    const characterList = document.createElement("div");
+    characterList.className = "inventory-grid character-list-inner";
+    characterList.replaceChildren(...characterRows);
+    charactersSection.replaceChildren(charactersSummary, characterList);
+
+    const accessoriesSection = document.createElement("details");
+    accessoriesSection.className = "inventory-section";
+    accessoriesSection.dataset.inventorySection = "accessories";
+    accessoriesSection.open = previousSectionOpen.accessories;
+    const accessoriesSummary = document.createElement("summary");
+    accessoriesSummary.setAttribute("aria-expanded", accessoriesSection.open ? "true" : "false");
+    accessoriesSummary.innerHTML = `<span>Accessories</span><strong>${this.getLoadoutSummary(selectedId).accessoryText}</strong>`;
+    accessoriesSection.addEventListener("toggle", () => {
+      accessoriesSummary.setAttribute("aria-expanded", accessoriesSection.open ? "true" : "false");
+    });
+    const accessoryList = document.createElement("div");
+    accessoryList.className = "inventory-grid accessory-list";
+    accessoryList.replaceChildren(...accessoryRows);
+    accessoriesSection.replaceChildren(accessoriesSummary, accessoryList);
+
+    this.ui.characterList.replaceChildren(charactersSection, accessoriesSection);
   }
 
   getSelectedSong() {
     const catalog = this.getSongCatalog();
-    return catalog.find((song) => song.id === this.save.music?.selectedSongId) ?? catalog[0] ?? null;
+    return catalog.find((song) => song.id === this.save.music?.selectedSongId) ?? null;
   }
 
   isSongOwned(songId) {
@@ -3153,9 +4899,25 @@ class Game {
     if (!this.ui.songShopList || !this.ui.shopGold) {
       return;
     }
-    this.ui.shopGold.textContent = formatWholeNumber(this.save.wallet?.gold ?? 0);
+    const gold = Math.max(0, this.save.wallet?.gold ?? 0);
+    this.ui.shopGold.textContent = formatWholeNumber(gold);
+    const wallet = this.ui.shopGold.closest?.(".shop-wallet");
+    if (wallet && this.lastRenderedShopGold !== null && this.lastRenderedShopGold !== gold) {
+      wallet.classList.remove("shop-wallet-pop");
+      void wallet.offsetWidth;
+      wallet.classList.add("shop-wallet-pop");
+    }
+    this.lastRenderedShopGold = gold;
     const selectedSongId = this.save.music?.selectedSongId;
-    const nodes = this.getSongCatalog().map((song) => {
+    const catalog = this.getSongCatalog();
+    if (!catalog.length) {
+      const empty = document.createElement("div");
+      empty.className = "song-row song-empty-row";
+      empty.innerHTML = `<div><strong>No songs installed</strong><span>Default songs were removed. Admins can add custom music here.</span></div>`;
+      this.ui.songShopList.replaceChildren(empty);
+      return;
+    }
+    const nodes = catalog.map((song) => {
       const owned = this.isSongOwned(song.id);
       const selected = selectedSongId === song.id;
       const row = document.createElement("div");
@@ -3234,8 +4996,11 @@ class Game {
       this.ui.adminHealButton,
       this.ui.adminLevelButton,
       this.ui.adminGoldRunButton,
+      this.ui.adminResetAbilityButton,
       this.ui.adminClearEnemiesButton,
+      this.ui.adminClearProjectilesButton,
       this.ui.adminSpawnBossButton,
+      this.ui.adminSpawnEnemyButton,
     ]) {
       if (button) {
         button.disabled = !showPanel;
@@ -3271,6 +5036,55 @@ class Game {
     this.updateHud();
   }
 
+  adminGrantSaveGold(amount = 1000) {
+    if (!this.adminUnlocked) {
+      return;
+    }
+    const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) + safeAmount });
+    this.renderSongShop();
+    this.renderAdminPanel();
+    this.updateHud();
+    this.showToast(`Added ${safeAmount} gold`);
+  }
+
+  adminGrantXp(amount = 120) {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    this.run.xp += safeAmount;
+    this.spawnFloatingText(this.player.x, this.player.y - 68, `+${safeAmount} XP`, "#86efac", 0.9);
+    this.showToast("Admin XP granted");
+  }
+
+  adminResetAbilityCooldown() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    this.player.grenadeCooldownRemaining = 0;
+    this.player.landmineCooldownRemaining = 0;
+    this.player.turretDeployCooldownRemaining = 0;
+    this.spawnFloatingText(this.player.x, this.player.y - 58, "Cooldowns ready", "#fef08a", 0.86);
+    this.updateHud();
+  }
+
+  adminUnlockAllAbilities() {
+    if (!this.adminUnlocked) {
+      return;
+    }
+    this.save = updateProgress(this.save, {
+      grenadeUnlocked: true,
+      landmineUnlocked: true,
+      equippedAbilityId: this.getEquippedAbilityId(),
+    });
+    this.updateAbilityLobby();
+    this.renderCharacterMenu();
+    this.renderQuestMenu();
+    this.renderAdminPanel();
+    this.showToast("All abilities unlocked");
+  }
+
   adminUnlockAllCharacters() {
     if (!this.adminUnlocked) {
       return;
@@ -3294,8 +5108,11 @@ class Game {
     this.run.xp = 0;
     this.run.xpToNext = getXpThreshold(this.run.level);
     this.pendingLevelUps += 1;
+    if (this.run.level % HEAL_OFFER_CONFIG.interval === 0) {
+      this.pendingHealOfferLevels.push(this.run.level);
+    }
     this.flashLevelUp();
-    this.showUpgradeDraft();
+    this.showNextLevelReward();
   }
 
   adminClearEnemies() {
@@ -3315,6 +5132,20 @@ class Game {
     this.updateHud();
   }
 
+  adminClearProjectiles() {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    const cleared = this.projectiles.length + this.enemyProjectiles.length + this.grenades.length + this.landmines.length + this.damageZones.length;
+    this.projectiles = [];
+    this.enemyProjectiles = [];
+    this.grenades = [];
+    this.landmines = [];
+    this.damageZones = [];
+    this.showToast(cleared ? `Cleared ${cleared} hazards` : "No hazards to clear");
+    this.updateHud();
+  }
+
   adminSpawnBoss() {
     if (!this.canUseRunAdminTools()) {
       return;
@@ -3327,6 +5158,19 @@ class Game {
     this.spawnBoss(cycleIndex);
     this.nextBossTime = Math.max(this.nextBossTime, this.run.elapsed + GAME_CONFIG.bossInterval);
     this.showToast("Admin boss spawned");
+  }
+
+  adminSpawnEnemy(typeId = "nibbler") {
+    if (!this.canUseRunAdminTools()) {
+      return;
+    }
+    if (!ENEMY_DEFS[typeId]) {
+      this.showToast("Unknown enemy");
+      return;
+    }
+    const difficulty = getDifficultySnapshot(this.run.elapsed);
+    this.spawnEnemy(typeId, difficulty.statScale);
+    this.showToast(`${ENEMY_DEFS[typeId].name} spawned`);
   }
 
   setAdminGold(value) {
@@ -3398,11 +5242,11 @@ class Game {
   }
 
   adminLockSong(songId) {
-    if (!this.adminUnlocked || songId === DEFAULT_SONGS[0].id) {
+    if (!this.adminUnlocked) {
       return;
     }
     const ownedSongIds = (this.save.music?.ownedSongIds ?? []).filter((id) => id !== songId);
-    const selectedSongId = this.save.music?.selectedSongId === songId ? DEFAULT_SONGS[0].id : this.save.music?.selectedSongId;
+    const selectedSongId = this.save.music?.selectedSongId === songId ? "" : this.save.music?.selectedSongId;
     this.save = updateMusic(this.save, { ownedSongIds, selectedSongId });
     this.renderSongShop();
     this.renderAdminPanel();
@@ -3436,7 +5280,7 @@ class Game {
     this.adminDeleteSongPendingId = "";
     const adminSongs = (this.save.music?.adminSongs ?? []).filter((song) => song.id !== songId);
     const ownedSongIds = (this.save.music?.ownedSongIds ?? []).filter((id) => id !== songId);
-    const selectedSongId = this.save.music?.selectedSongId === songId ? DEFAULT_SONGS[0].id : this.save.music?.selectedSongId;
+    const selectedSongId = this.save.music?.selectedSongId === songId ? "" : this.save.music?.selectedSongId;
     this.save = updateMusic(this.save, { adminSongs, ownedSongIds, selectedSongId });
     deleteSongAudio(songId).catch(() => {});
     this.renderSongShop();
@@ -3461,7 +5305,7 @@ class Game {
     this.adminClearSongsPending = false;
     const customSongIds = new Set(customSongs.map((song) => song.id));
     const ownedSongIds = (this.save.music?.ownedSongIds ?? []).filter((id) => !customSongIds.has(id));
-    const selectedSongId = customSongIds.has(this.save.music?.selectedSongId) ? DEFAULT_SONGS[0].id : this.save.music?.selectedSongId;
+    const selectedSongId = customSongIds.has(this.save.music?.selectedSongId) ? "" : this.save.music?.selectedSongId;
     this.save = updateMusic(this.save, { adminSongs: [], ownedSongIds, selectedSongId });
     await Promise.all(customSongs.map((song) => deleteSongAudio(song.id).catch(() => {})));
     this.renderSongShop();
@@ -3487,10 +5331,32 @@ class Game {
       this.ui.adminUnlockCharactersButton.textContent = allCharactersUnlocked ? "All Characters Unlocked" : "Unlock All Characters";
       this.ui.adminUnlockCharactersButton.disabled = allCharactersUnlocked;
     }
+    if (this.ui.adminUnlockAbilitiesButton) {
+      const allAbilitiesUnlocked = Boolean(this.save.progress?.grenadeUnlocked && this.save.progress?.landmineUnlocked);
+      this.ui.adminUnlockAbilitiesButton.textContent = allAbilitiesUnlocked ? "All Abilities Unlocked" : "Unlock All Abilities";
+      this.ui.adminUnlockAbilitiesButton.disabled = allAbilitiesUnlocked;
+    }
+    if (this.ui.adminSpawnEnemySelect && !this.ui.adminSpawnEnemySelect.options.length) {
+      const options = Object.values(ENEMY_DEFS).map((enemy) => {
+        const option = document.createElement("option");
+        option.value = enemy.id;
+        option.textContent = enemy.name;
+        return option;
+      });
+      this.ui.adminSpawnEnemySelect.replaceChildren(...options);
+    }
     if (!this.ui.adminSongList) {
       return;
     }
-    const nodes = this.getSongCatalog().map((song) => {
+    const catalog = this.getSongCatalog();
+    if (!catalog.length) {
+      const empty = document.createElement("div");
+      empty.className = "song-row song-empty-row";
+      empty.innerHTML = `<div><strong>No songs installed</strong><span>Add a custom song to make it available in the shop.</span></div>`;
+      this.ui.adminSongList.replaceChildren(empty);
+      return;
+    }
+    const nodes = catalog.map((song) => {
       const row = document.createElement("div");
       row.className = "song-row";
       const body = document.createElement("div");
@@ -3539,7 +5405,7 @@ class Game {
       unlock.disabled = this.isSongOwned(song.id);
       unlock.addEventListener("click", () => this.adminUnlockSong(song.id));
       actions.append(unlock);
-      if (this.isSongOwned(song.id) && song.id !== DEFAULT_SONGS[0].id) {
+      if (this.isSongOwned(song.id)) {
         const lock = document.createElement("button");
         lock.type = "button";
         lock.className = "ghost-button";
@@ -3592,7 +5458,7 @@ class Game {
     this.showToast("Song updated");
   }
 
-  buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedKatana, unlockedEngineer) {
+  buildRunHighlights(previousHighScore, previousBest, unlockedGrenade, unlockedLandmine, unlockedKatana, unlockedEngineer) {
     const highlights = [...this.runHighlights];
     const score = Math.floor(this.run.score);
     const bestChecks = [
@@ -3611,6 +5477,11 @@ class Game {
       highlights.unshift({ title: "Grenade unlocked", value: "Quest complete" });
     } else if (!this.save.progress?.grenadeUnlocked) {
       highlights.push({ title: "Grenade quest", value: `${Math.min(250, Math.max(this.run.kills, previousBest.kills ?? 0))}/250 kills` });
+    }
+    if (unlockedLandmine) {
+      highlights.unshift({ title: "Landmine unlocked", value: "Quest complete" });
+    } else if (!this.save.progress?.landmineUnlocked) {
+      highlights.push({ title: "Landmine quest", value: `${formatTime(Math.min(300, Math.max(this.run.elapsed, previousBest.time ?? 0)))}/05:00` });
     }
     if (unlockedKatana) {
       highlights.unshift({ title: "Katana unlocked", value: "Quest complete" });
@@ -3648,12 +5519,23 @@ class Game {
       return null;
     }
     return {
+      mode: this.isCoopRun() ? "coop" : "solo",
+      name: this.isCoopRun()
+        ? this.players.map((player) => player.name || getCharacterById(player.characterId).name).join(" + ").slice(0, 40)
+        : undefined,
+      players: this.isCoopRun()
+        ? this.players.map((player) => ({
+            name: player.name || "Player",
+            character: player.characterId || CHARACTER_IDS.gunner,
+          }))
+        : undefined,
       score: Math.floor(Math.max(0, this.run.score)),
       time: Math.max(0, this.run.elapsed),
       kills: Math.floor(Math.max(0, this.run.kills)),
       bosses: Math.floor(Math.max(0, this.run.bossKills)),
       level: Math.floor(Math.max(1, this.run.level)),
       character: this.player.characterId || CHARACTER_IDS.gunner,
+      deathCause: this.run.deathCause ? { ...this.run.deathCause } : null,
     };
   }
 
@@ -3676,20 +5558,26 @@ class Game {
       return;
     }
 
-    const canSubmit = Boolean(this.onlineLeaderboardEnabled && !this.onlineScoreSubmitted);
+    const submittedOnline = this.scoreSubmitState === "submitted-online" || this.onlineScoreSubmitted;
+    const retryAvailable = this.scoreSubmitState === "saved-local-retry";
+    const canSubmit = !submittedOnline;
     if (this.ui.leaderboardNameInput) {
       this.ui.leaderboardNameInput.disabled = !canSubmit;
     }
     if (this.ui.submitScoreButton) {
       this.ui.submitScoreButton.disabled = !canSubmit;
-      this.ui.submitScoreButton.textContent = this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+      this.ui.submitScoreButton.textContent = submittedOnline ? "Submitted" : retryAvailable ? "Retry Online" : "Submit Score";
     }
     if (this.ui.scoreSubmitStatus) {
-      this.ui.scoreSubmitStatus.textContent = this.onlineLeaderboardEnabled
-        ? this.onlineScoreSubmitted
-          ? "Score submitted."
-          : "Enter a name to submit this run."
-        : "Online leaderboard is not configured yet.";
+      if (submittedOnline) {
+        this.ui.scoreSubmitStatus.textContent = "Score submitted online.";
+      } else if (retryAvailable) {
+        this.ui.scoreSubmitStatus.textContent = "Saved locally. Retry online when available.";
+      } else {
+        this.ui.scoreSubmitStatus.textContent = this.onlineLeaderboardEnabled
+          ? "Enter a name to submit this run online."
+          : "Online leaderboard is not configured. Submit saves locally.";
+      }
     }
   }
 
@@ -3700,19 +5588,58 @@ class Game {
   }
 
   setScoreSubmitLoading(loading) {
-    const canSubmit = Boolean(this.onlineLeaderboardEnabled && this.lastCompletedRunResult && !this.onlineScoreSubmitted);
+    const canSubmit = Boolean(this.lastCompletedRunResult && this.scoreSubmitState !== "submitted-online" && !this.onlineScoreSubmitted);
     if (this.ui.leaderboardNameInput) {
       this.ui.leaderboardNameInput.disabled = loading || !canSubmit;
     }
     if (this.ui.submitScoreButton) {
       this.ui.submitScoreButton.disabled = loading || !canSubmit;
-      this.ui.submitScoreButton.textContent = loading ? "Submitting..." : this.onlineScoreSubmitted ? "Submitted" : "Submit Score";
+      this.ui.submitScoreButton.textContent = loading
+        ? "Submitting..."
+        : this.scoreSubmitState === "submitted-online" || this.onlineScoreSubmitted
+          ? "Submitted"
+          : this.scoreSubmitState === "saved-local-retry"
+            ? "Retry Online"
+            : "Submit Score";
     }
   }
 
   markScoreSubmitted() {
     this.onlineScoreSubmitted = true;
+    this.scoreSubmitState = "submitted-online";
     this.updateScoreSubmitPanel();
+  }
+
+  markScoreSavedLocally() {
+    this.onlineScoreSubmitted = false;
+    this.scoreSubmitState = "saved-local-retry";
+    this.updateScoreSubmitPanel();
+  }
+
+  handleCoopPeerLeft(playerId) {
+    if (!this.isMultiplayerHost()) {
+      return;
+    }
+    const peer = this.players.find((player) => player.id === playerId);
+    if (peer) {
+      peer.downed = true;
+      peer.dead = true;
+      peer.hp = 0;
+    }
+    this.coopUpgradeDraft?.pending?.delete(playerId);
+    if (this.coopUpgradeDraft && this.coopUpgradeDraft.pending.size <= 0) {
+      this.finishCoopUpgradeDraft();
+    }
+    if (this.mode === "playing") {
+      this.pause("Teammate disconnected. Continuing solo shortly.");
+    }
+    window.setTimeout(() => {
+      if (this.isMultiplayerHost() && this.mode === "paused") {
+        this.players = this.players.filter((player) => player.id !== playerId);
+        this.player = this.getLocalPlayer();
+        this.resume();
+      }
+    }, COOP_CONFIG.disconnectGraceSeconds * 1000);
   }
 
   setLeaderboardStatus(text) {
@@ -3749,7 +5676,7 @@ class Game {
       const rank = document.createElement("strong");
       rank.textContent = `#${index + 1}`;
       const name = document.createElement("strong");
-      name.textContent = String(entry.name ?? "Player").slice(0, 20);
+      name.textContent = String(entry.name ?? "Player").slice(0, 40);
       const score = document.createElement("span");
       score.textContent = formatWholeNumber(Math.max(0, Number(entry.score) || 0));
       const time = document.createElement("span");
@@ -3759,7 +5686,9 @@ class Game {
       const bosses = document.createElement("span");
       bosses.textContent = formatWholeNumber(Math.max(0, Number(entry.bosses) || 0));
       const character = document.createElement("span");
-      character.textContent = getCharacterById(entry.character).name;
+      character.textContent = Array.isArray(entry.players) && entry.players.length
+        ? entry.players.map((player) => getCharacterById(player.character).name).join(" + ")
+        : getCharacterById(entry.character).name;
       row.replaceChildren(rank, name, score, time, kills, bosses, character);
       return row;
     });
@@ -3782,10 +5711,6 @@ class Game {
     this.player.dashTimeRemaining = this.player.dashDuration;
     this.player.dashCooldownRemaining = this.player.dashCooldown;
     this.player.invulnerabilityRemaining = Math.max(this.player.invulnerabilityRemaining, this.player.dashInvulnerability);
-    if (this.player.dashReloadRatio > 0) {
-      this.player.fireCooldownRemaining = Math.max(0, this.player.fireCooldownRemaining - this.player.fireCooldown * this.player.dashReloadRatio);
-      this.spawnFloatingText(this.player.x, this.player.y - 28, "Reload", "#fef08a", 0.62);
-    }
     this.screenShake = Math.max(this.screenShake, 4);
     this.audio.playDash();
     this.spawnEffect(this.player.x, this.player.y, 38, "rgba(245, 158, 11, 0.82)", 0.32, "ring");
@@ -3828,7 +5753,7 @@ class Game {
     }
 
     const closestEnemy = this.getClosestEnemy(this.player.x, this.player.y);
-    const target = closestEnemy ?? this.pointer;
+    const target = closestEnemy ?? this.player.pointer ?? this.pointer;
     const direction = normalizeVector(target.x - this.player.x, target.y - this.player.y);
     return direction.x || direction.y ? direction : { x: 0, y: -1 };
   }
@@ -3859,6 +5784,7 @@ class Game {
         color: "#ecfeff",
         accent: "#22d3ee",
         owner: "player",
+        ownerId: this.player.id,
         source: "weapon",
         dead: false,
       });
@@ -3883,7 +5809,7 @@ class Game {
       this.player.fireCooldownRemaining = this.player.fireCooldown;
       this.run.shotsFired += 1;
     }
-    this.audio.playShoot();
+    this.audio.playSlash();
     if (hitCount > 0 && this.player.counterInvulnerability > 0) {
       this.player.invulnerabilityRemaining = Math.max(this.player.invulnerabilityRemaining, this.player.counterInvulnerability);
     }
@@ -3947,7 +5873,7 @@ class Game {
       !this.player ||
       !this.run ||
       this.mode !== "playing" ||
-      !this.player.grenadeEquipped ||
+      this.player.equippedAbilityId !== ABILITY_IDS.grenade ||
       this.player.grenadeCooldownRemaining > 0
     ) {
       return;
@@ -3957,6 +5883,7 @@ class Game {
     const spawnY = this.player.y + direction.y * (this.player.radius + 16);
     this.grenades.push({
       id: this.grenadeId += 1,
+      ownerId: this.player.id,
       x: spawnX,
       y: spawnY,
       vx: direction.x * this.player.grenadeProjectileSpeed,
@@ -3965,11 +5892,67 @@ class Game {
       blastRadius: this.player.grenadeRadius,
       damage: this.player.grenadeDamage,
       life: this.player.grenadeFuse,
+      zoneDuration: this.player.grenadeZoneDuration,
+      zoneDamage: this.player.grenadeZoneDamage,
       dead: false,
     });
     this.player.grenadeCooldownRemaining = this.player.grenadeCooldown;
     this.screenShake = Math.max(this.screenShake, 4);
+    this.audio.playGrenadeThrow();
+    if (Math.random() < 0.1) {
+      this.audio.playSpecialGrenadeThrowClip();
+    }
     this.spawnEffect(spawnX, spawnY, 18, "rgba(249, 115, 22, 0.86)", 0.16, "burst");
+  }
+
+  tryAbility() {
+    if (!this.player || this.mode !== "playing") {
+      return;
+    }
+    if (this.player.equippedAbilityId === ABILITY_IDS.grenade) {
+      this.tryGrenade();
+    } else if (this.player.equippedAbilityId === ABILITY_IDS.landmine) {
+      this.tryLandmine();
+    } else {
+      this.showToast("No ability equipped");
+    }
+  }
+
+  tryLandmine() {
+    if (
+      !this.player ||
+      !this.run ||
+      this.mode !== "playing" ||
+      this.player.equippedAbilityId !== ABILITY_IDS.landmine ||
+      this.player.landmineCooldownRemaining > 0
+    ) {
+      return;
+    }
+    const activeMines = this.landmines.filter((mine) => !mine.dead && mine.ownerId === this.player.id).length;
+    if (activeMines >= this.player.maxLandmines) {
+      this.showToast("Mine limit reached");
+      return;
+    }
+    this.landmines.push({
+      id: this.landmineId += 1,
+      ownerId: this.player.id,
+      x: this.player.x,
+      y: this.player.y,
+      radius: 12,
+      triggerRadius: this.player.landmineTriggerRadius,
+      blastRadius: this.player.landmineRadius,
+      damage: this.player.landmineDamage,
+      armTimeRemaining: this.player.landmineArmTime,
+      maxArmTime: this.player.landmineArmTime,
+      clusterFragments: this.player.landmineClusterFragments,
+      armedSoundPlayed: false,
+      dead: false,
+    });
+    this.player.landmineCooldownRemaining = this.player.landmineCooldown;
+    this.screenShake = Math.max(this.screenShake, 3);
+    this.audio.playMinePlace();
+    this.spawnEffect(this.player.x, this.player.y, 24, "rgba(245, 158, 11, 0.72)", 0.22, "ring");
+    this.spawnFloatingText(this.player.x, this.player.y - 26, "Mine armed", "#fef08a", 0.74);
   }
 
   explodeGrenade(grenade) {
@@ -3978,6 +5961,7 @@ class Game {
     }
     grenade.dead = true;
     this.screenShake = Math.max(this.screenShake, 13);
+    this.audio.playExplosion(1);
     this.spawnEffect(grenade.x, grenade.y, grenade.blastRadius, "rgba(249, 115, 22, 0.65)", 0.34, "ring");
     this.spawnEffect(grenade.x, grenade.y, grenade.blastRadius * 0.46, "rgba(254, 240, 138, 0.76)", 0.24, "burst");
     for (const enemy of this.enemies) {
@@ -3989,19 +5973,50 @@ class Game {
         this.damageEnemy(enemy, grenade.damage, "grenade");
       }
     }
-    if (this.player?.grenadeZoneDuration > 0) {
+    if (grenade.zoneDuration > 0) {
       this.damageZones.push({
         owner: "player",
+        ownerId: grenade.ownerId,
         x: grenade.x,
         y: grenade.y,
         radius: grenade.blastRadius * 0.72,
-        damage: this.player.grenadeZoneDamage,
-        life: this.player.grenadeZoneDuration,
-        maxLife: this.player.grenadeZoneDuration,
+        damage: grenade.zoneDamage,
+        life: grenade.zoneDuration,
+        maxLife: grenade.zoneDuration,
         tickInterval: 0.45,
         tickRemaining: 0.08,
       });
       this.spawnFloatingText(grenade.x, grenade.y - grenade.blastRadius * 0.45, "Burn zone", "#fb7185", 0.85);
+    }
+  }
+
+  explodeLandmine(mine) {
+    if (mine.dead) {
+      return;
+    }
+    mine.dead = true;
+    this.screenShake = Math.max(this.screenShake, 14);
+    this.audio.playMineExplosion();
+    this.spawnEffect(mine.x, mine.y, mine.blastRadius, "rgba(245, 158, 11, 0.62)", 0.34, "ring");
+    this.spawnEffect(mine.x, mine.y, mine.blastRadius * 0.42, "rgba(250, 204, 21, 0.76)", 0.24, "burst");
+    for (const enemy of this.enemies) {
+      if (enemy.dead) {
+        continue;
+      }
+      const hitRadius = mine.blastRadius + enemy.radius;
+      if (distanceSquared(mine.x, mine.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
+        this.damageEnemy(enemy, mine.damage, "landmine");
+      }
+    }
+    if (mine.clusterFragments > 0) {
+      const fragments = Math.min(8, mine.clusterFragments);
+      for (let index = 0; index < fragments; index += 1) {
+        const angle = (Math.PI * 2 * index) / fragments + this.backgroundTime;
+        this.spawnPlayerProjectile(mine.x, mine.y, angle, 520, 5, Math.max(1.2, mine.damage * 0.18), 0.62, "mine-fragment", {
+          remainingHits: 2,
+        });
+      }
+      this.spawnFloatingText(mine.x, mine.y - mine.blastRadius * 0.38, "Cluster charge", "#fde68a", 0.85);
     }
   }
 
@@ -4018,10 +6033,14 @@ class Game {
       tickInterval: 0.55,
       tickRemaining: 0.08,
     });
-    this.spawnEffect(x, y, radius, "rgba(34, 197, 94, 0.42)", 0.34, "ring");
+    this.spawnEffect(x, y, radius * 1.12, "rgba(190, 242, 100, 0.68)", 0.38, "ring");
+    this.spawnEffect(x, y, radius * 0.46, "rgba(217, 249, 157, 0.58)", 0.24, "burst");
   }
 
   spawnEnemyProjectile(owner, direction, speed, radius, damage, life, color, accent, options = {}) {
+    if (!owner.isBoss) {
+      this.audio.playEnemyShoot();
+    }
     this.enemyProjectiles.push({
       id: this.projectileId += 1,
       x: owner.x + direction.x * (owner.radius + radius + 4),
@@ -4034,6 +6053,8 @@ class Game {
       color,
       accent,
       sourceEnemyTypeId: owner.typeId,
+      kind: options.kind ?? "",
+      trailScale: options.trailScale ?? 3.4,
       homingTurnRate: options.homingTurnRate ?? 0,
       homingTimeRemaining: options.homingTimeRemaining ?? 0,
       homingTarget: options.homingTarget ?? "",
@@ -4047,7 +6068,7 @@ class Game {
     });
   }
 
-  spawnPlayerProjectile(x, y, angle, speed, radius, damage, life, source = "weapon-fragment") {
+  spawnPlayerProjectile(x, y, angle, speed, radius, damage, life, source = "weapon-fragment", options = {}) {
     this.projectiles.push({
       id: this.projectileId += 1,
       x,
@@ -4057,11 +6078,12 @@ class Game {
       radius,
       damage,
       life,
-      remainingHits: 1,
+      remainingHits: options.remainingHits ?? 1,
       hitIds: new Set(),
       color: "#ecfeff",
       accent: "#22d3ee",
       owner: "player",
+      ownerId: this.player?.id ?? "solo",
       source,
       dead: false,
     });
@@ -4092,6 +6114,7 @@ class Game {
       accent: definition.accent,
       hitFlash: 0,
       squish: 0,
+      offscreenTime: 0,
     };
     if (typeId === "spitter") {
       enemy.preferredRange = 260;
@@ -4102,12 +6125,21 @@ class Game {
       enemy.projectileDamage = 1;
       enemy.orbitDirection = Math.random() < 0.5 ? -1 : 1;
     }
+    if (typeId === "marksman") {
+      enemy.preferredRange = 360;
+      enemy.attackRange = 560;
+      enemy.attackCooldownBase = Math.max(1.45, 2.65 - (statScale - 1) * 0.32);
+      enemy.attackCooldownRemaining = randomRange(0.55, enemy.attackCooldownBase);
+      enemy.projectileSpeed = 390 + (statScale - 1) * 44;
+      enemy.projectileDamage = 1;
+      enemy.orbitDirection = Math.random() < 0.5 ? -1 : 1;
+    }
     if (typeId === "acid-spitter") {
       enemy.preferredRange = 300;
       enemy.attackRange = 460;
       enemy.attackCooldownBase = Math.max(1.55, 2.75 - (statScale - 1) * 0.32);
       enemy.attackCooldownRemaining = randomRange(0.45, enemy.attackCooldownBase);
-      enemy.projectileSpeed = 210 + (statScale - 1) * 28;
+      enemy.projectileSpeed = 360 + (statScale - 1) * 42;
       enemy.projectileDamage = 1;
       enemy.acidZoneRadius = 54;
       enemy.acidZoneDamage = 1;
@@ -4173,25 +6205,30 @@ class Game {
       hasSummoned: false,
     });
     this.setBanner(`Heavy unit ${cycleIndex + 1}.`, 2.4);
-    this.audio.playBossWarning();
+    this.audio.playBossSpawn();
   }
 
   fireBossChargeShots(boss) {
+    this.audio.playBossAttack("charge");
     const baseAngle = Math.atan2(boss.chargeDirection.y, boss.chargeDirection.x);
-    for (const offset of [-0.34, 0.34]) {
+    const shotCount = Math.min(6, 4 + Math.floor(boss.cycleIndex / 2));
+    const spread = shotCount >= 6 ? 0.84 : 0.54;
+    const centerOffset = (shotCount - 1) * 0.5;
+    for (let shotIndex = 0; shotIndex < shotCount; shotIndex += 1) {
+      const offset = (shotIndex - centerOffset) * (spread / Math.max(1, shotCount - 1));
       const angle = baseAngle + offset;
       this.spawnEnemyProjectile(
         boss,
         { x: Math.cos(angle), y: Math.sin(angle) },
-        310 + boss.cycleIndex * 10,
+        330 + boss.cycleIndex * 12,
         12,
         Math.max(1, Math.round(1 + boss.cycleIndex * 0.15)),
-        3.6,
+        4.2,
         "#fef3c7",
         "#f59e0b",
         {
-          homingTurnRate: 0.9,
-          homingTimeRemaining: 1.15,
+          homingTurnRate: 1.75 + boss.cycleIndex * 0.08,
+          homingTimeRemaining: 2.15,
           homingTarget: "player",
         },
       );
@@ -4199,6 +6236,7 @@ class Game {
   }
 
   fireBossVolley(boss) {
+    this.audio.playBossAttack("volley");
     const direction = normalizeVector(this.player.x - boss.x, this.player.y - boss.y);
     const baseAngle = Math.atan2(direction.y, direction.x);
     for (const offset of [-0.18, 0, 0.18]) {
@@ -4217,6 +6255,7 @@ class Game {
   }
 
   fireBossBurst(boss) {
+    this.audio.playBossAttack("burst");
     const shots = 16 + Math.min(10, boss.cycleIndex * 2);
     for (let shotIndex = 0; shotIndex < shots; shotIndex += 1) {
       const angle = (Math.PI * 2 * shotIndex) / shots + boss.burstShotsRemaining * 0.1;
@@ -4234,12 +6273,13 @@ class Game {
   }
 
   summonBossAdds(boss) {
+    this.audio.playBossAttack("summon");
     this.spawnEffect(boss.x, boss.y, boss.radius + 70, boss.accent, 0.3, "ring");
     for (let index = 0; index < 3; index += 1) {
       const angle = (Math.PI * 2 * index) / 3 + this.backgroundTime;
       const position = {
-        x: clamp(boss.x + Math.cos(angle) * 112, GAME_CONFIG.padding + 28, LOGICAL_WIDTH - GAME_CONFIG.padding - 28),
-        y: clamp(boss.y + Math.sin(angle) * 112, GAME_CONFIG.padding + 28, LOGICAL_HEIGHT - GAME_CONFIG.padding - 28),
+        x: boss.x + Math.cos(angle) * 112,
+        y: boss.y + Math.sin(angle) * 112,
       };
       this.spawnEnemy("sentinel", 1 + boss.cycleIndex * 0.12, position);
       this.spawnEffect(position.x, position.y, 30, "rgba(20, 184, 166, 0.72)", 0.24, "burst");
@@ -4256,23 +6296,33 @@ class Game {
     this.spawnEffect(enemy.x, enemy.y, enemy.radius * 1.2, enemy.accent, 0.3, "burst");
     this.spawnEffect(enemy.x, enemy.y, enemy.radius * 1.15, "rgba(236, 254, 255, 0.82)", 0.28, "ring");
     this.spawnFloatingText(enemy.x, enemy.y - enemy.radius, enemy.isBoss ? "BOSS DOWN" : `+${Math.round(enemy.scoreValue * SCORE_CONFIG.killUnit)}`, enemy.isBoss ? "#fef08a" : "#e0f2fe", enemy.isBoss ? 1.2 : 0.68);
-    if (enemy.lastDamageSource === "grenade" || enemy.lastDamageSource === "zone") {
+    if (["grenade", "landmine", "mine-fragment", "zone"].includes(enemy.lastDamageSource)) {
       this.spawnFloatingText(enemy.x, enemy.y + enemy.radius * 0.5, "Blast kill", "#fdba74", 0.74);
     }
     this.spawnXp(enemy.x, enemy.y, enemy.xpValue, enemy.isBoss ? 10 : 1);
+    this.maybeSpawnMedkit(enemy);
     if (enemy.isBoss) {
+      this.audio.playBossDeath();
       this.run.bossKills += 1;
       this.run.killScore += enemy.scoreValue * SCORE_CONFIG.killUnit + SCORE_CONFIG.bossBonus;
       this.setBanner("Heavy unit down.", 1.8);
       this.unlockMilestone("first-boss", "First boss defeated");
       this.addRunHighlight("Boss defeated", `+${SCORE_CONFIG.bossBonus.toLocaleString()} score`);
+      this.awardGold(this.getEnemyGoldValue(enemy), enemy.x, enemy.y + enemy.radius + 18, "gold");
     } else {
+      this.audio.playEnemyDeath();
       this.run.kills += 1;
       this.run.killScore += enemy.scoreValue * SCORE_CONFIG.killUnit;
-      this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) + 1 });
-      this.spawnFloatingText(enemy.x, enemy.y + enemy.radius + 12, "+1 gold", "#fbbf24", 0.7);
-      this.renderSongShop();
-      this.renderAdminPanel();
+      this.awardGold(this.getEnemyGoldValue(enemy), enemy.x, enemy.y + enemy.radius + 12, "gold");
+      if (this.player?.characterId === CHARACTER_IDS.katana && this.run.kills % 50 === 0) {
+        const previousHp = this.player.hp;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1);
+        const healed = this.player.hp > previousHp;
+        this.spawnFloatingText(this.player.x, this.player.y - 54, healed ? "+1 HP Lifesteal" : "Lifesteal ready", "#fb7185", 0.9);
+        if (healed) {
+          this.spawnEffect(this.player.x, this.player.y, 42, "rgba(251, 113, 133, 0.58)", 0.28, "ring");
+        }
+      }
       this.checkKillMilestones();
     }
     if (this.player?.shatterFragments > 0 && enemy.lastDamageSource !== "weapon-fragment") {
@@ -4306,6 +6356,9 @@ class Game {
     if (this.run.kills >= 250 && !this.save.progress?.grenadeUnlocked) {
       this.unlockMilestone("grenade-unlock", "Grenade quest complete");
     }
+    if (this.run.elapsed >= 300 && !this.save.progress?.landmineUnlocked) {
+      this.unlockMilestone("landmine-unlock", "Landmine quest complete");
+    }
     if ((this.save.stats?.total?.kills ?? 0) + this.run.kills >= ENGINEER_UNLOCK_KILLS && !isCharacterUnlocked(this.save.progress, this.save.stats, CHARACTER_IDS.engineer)) {
       this.unlockMilestone("engineer-unlock", "Engineer quest complete");
     }
@@ -4318,6 +6371,7 @@ class Game {
       const angle = randomRange(0, Math.PI * 2);
       const speed = randomRange(40, 140);
       this.pickups.push({
+        type: "xp",
         x,
         y,
         vx: Math.cos(angle) * speed,
@@ -4330,40 +6384,133 @@ class Game {
     }
   }
 
+  spawnMedkit(x, y) {
+    const angle = randomRange(0, Math.PI * 2);
+    const speed = randomRange(36, 108);
+    this.pickups.push({
+      type: "medkit",
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      radius: 11,
+      value: MEDKIT_PICKUP.healAmount,
+      life: MEDKIT_PICKUP.lifetime,
+      dead: false,
+    });
+  }
+
   getSpawnPoint(radius) {
     const side = Math.floor(Math.random() * 4);
+    const view = this.getActiveSpawnRect(0);
+    const visibleMinX = view.x + radius;
+    const visibleMaxX = view.x + view.width - radius;
+    const visibleMinY = view.y + radius;
+    const visibleMaxY = view.y + view.height - radius;
     if (side === 0) {
-      return { x: -radius - GAME_CONFIG.spawnPadding, y: randomRange(radius, LOGICAL_HEIGHT - radius) };
+      return {
+        x: view.x - radius - GAME_CONFIG.spawnPadding,
+        y: randomRange(Math.min(visibleMinY, visibleMaxY), Math.max(visibleMinY, visibleMaxY)),
+      };
     }
     if (side === 1) {
-      return { x: LOGICAL_WIDTH + radius + GAME_CONFIG.spawnPadding, y: randomRange(radius, LOGICAL_HEIGHT - radius) };
+      return {
+        x: view.x + view.width + radius + GAME_CONFIG.spawnPadding,
+        y: randomRange(Math.min(visibleMinY, visibleMaxY), Math.max(visibleMinY, visibleMaxY)),
+      };
     }
     if (side === 2) {
-      return { x: randomRange(radius, LOGICAL_WIDTH - radius), y: -radius - GAME_CONFIG.spawnPadding };
+      return {
+        x: randomRange(Math.min(visibleMinX, visibleMaxX), Math.max(visibleMinX, visibleMaxX)),
+        y: view.y - radius - GAME_CONFIG.spawnPadding,
+      };
     }
-    return { x: randomRange(radius, LOGICAL_WIDTH - radius), y: LOGICAL_HEIGHT + radius + GAME_CONFIG.spawnPadding };
+    return {
+      x: randomRange(Math.min(visibleMinX, visibleMaxX), Math.max(visibleMinX, visibleMaxX)),
+      y: view.y + view.height + radius + GAME_CONFIG.spawnPadding,
+    };
   }
 
   getMovementDirection() {
-    const horizontal = (this.keys.has("KeyD") ? 1 : 0) - (this.keys.has("KeyA") ? 1 : 0);
-    const vertical = (this.keys.has("KeyS") ? 1 : 0) - (this.keys.has("KeyW") ? 1 : 0);
+    const keys = this.player?.isLocal === false ? this.player.inputKeys ?? new Set() : this.keys;
+    const horizontal = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
+    const vertical = (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) - (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0);
     return normalizeVector(horizontal, vertical);
   }
 
   getAvailableUpgrades() {
+    const counts = this.player?.upgradeCounts ?? this.upgradeCounts;
     return UPGRADE_DEFS.filter(
       (upgrade) =>
-        (this.upgradeCounts[upgrade.id] ?? 0) < upgrade.cap &&
+        (counts[upgrade.id] ?? 0) < upgrade.cap &&
         (!upgrade.characters || upgrade.characters.includes(this.player?.characterId)) &&
         (!upgrade.excludeCharacters || !upgrade.excludeCharacters.includes(this.player?.characterId)) &&
-        (!upgrade.isAvailable || upgrade.isAvailable(this.player)),
+        (!upgrade.isAvailable || (this.player && upgrade.isAvailable(this.player))),
     );
+  }
+
+  showNextLevelReward() {
+    if (!this.player || !this.run || this.pendingLevelUps <= 0) {
+      return;
+    }
+    while (this.pendingHealOfferLevels.length > 0) {
+      const level = this.pendingHealOfferLevels.shift();
+      if (this.canShowHealOffer()) {
+        this.showHealOffer(level);
+        return;
+      }
+    }
+    this.showUpgradeDraft();
+  }
+
+  canShowHealOffer() {
+    return Boolean(
+      this.player &&
+      this.player.hp < this.player.maxHp &&
+      Math.max(0, this.save.wallet?.gold ?? 0) >= HEAL_OFFER_CONFIG.price,
+    );
+  }
+
+  showHealOffer(level) {
+    this.mode = "healOffer";
+    this.activeHealOfferLevel = level;
+    if (this.ui.healOfferGold) {
+      this.ui.healOfferGold.textContent = formatWholeNumber(HEAL_OFFER_CONFIG.price);
+    }
+    this.syncScreens();
+    this.announce(`Level ${level} full heal offer available.`);
+  }
+
+  acceptHealOffer() {
+    if (!this.player || !this.run || this.mode !== "healOffer" || !this.canShowHealOffer()) {
+      this.skipHealOffer();
+      return;
+    }
+    this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) - HEAL_OFFER_CONFIG.price });
+    this.player.hp = this.player.maxHp;
+    this.spawnFloatingText(this.player.x, this.player.y - 58, "Full Heal", "#86efac", 0.95);
+    this.spawnEffect(this.player.x, this.player.y, 48, "rgba(134, 239, 172, 0.64)", 0.32, "ring");
+    this.audio.playPickup();
+    this.showToast(`Full heal bought for ${HEAL_OFFER_CONFIG.price} gold`);
+    this.activeHealOfferLevel = 0;
+    this.renderSongShop();
+    this.updateHud();
+    this.showUpgradeDraft();
+  }
+
+  skipHealOffer() {
+    if (this.mode !== "healOffer") {
+      return;
+    }
+    this.activeHealOfferLevel = 0;
+    this.showUpgradeDraft();
   }
 
   showUpgradeDraft() {
     const available = this.getAvailableUpgrades();
     if (!available.length) {
       this.pendingLevelUps = 0;
+      this.pendingHealOfferLevels = [];
       return;
     }
     this.mode = "upgrade";
@@ -4374,9 +6521,111 @@ class Game {
     this.announce("Upgrade choices ready.");
   }
 
+  showCoopUpgradeDraft() {
+    if (!this.isMultiplayerHost() || this.coopUpgradeDraft) {
+      return;
+    }
+    const eligiblePlayers = this.getAlivePlayers();
+    if (!eligiblePlayers.length) {
+      return;
+    }
+    this.mode = "upgrade";
+    this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
+    this.coopUpgradeDraft = {
+      pending: new Set(eligiblePlayers.map((player) => player.id)),
+      choicesByPlayer: {},
+    };
+    for (const player of eligiblePlayers) {
+      const choices = this.withPlayer(player, () => shuffleInPlace([...this.getAvailableUpgrades()]).slice(0, 3));
+      this.coopUpgradeDraft.choicesByPlayer[player.id] = choices.map((upgrade) => upgrade.id);
+      if (player.id !== this.multiplayerSession.localPlayerId) {
+        this.multiplayerHooks.sendHostEvent?.({
+          eventType: "upgrade:offer",
+          playerId: player.id,
+          choices: choices.map((upgrade) => upgrade.id),
+        });
+      }
+    }
+    const localPlayer = this.getLocalPlayer();
+    this.player = localPlayer;
+    this.upgradeCounts = localPlayer?.upgradeCounts ?? this.upgradeCounts;
+    this.upgradeChoices = (this.coopUpgradeDraft.choicesByPlayer[localPlayer.id] ?? [])
+      .map((upgradeId) => getUpgradeById(upgradeId))
+      .filter(Boolean);
+    this.audio.playLevelUp();
+    this.buildUpgradeButtons();
+    this.syncScreens();
+    this.announce("Co-op upgrade choices ready.");
+  }
+
+  buildCoopWaitingUpgradeButtons() {
+    if (!this.ui.upgradeCards) {
+      return;
+    }
+    const waiting = document.createElement("div");
+    waiting.className = "leaderboard-empty";
+    waiting.textContent = "Waiting for teammate upgrade pick...";
+    this.ui.upgradeCards.replaceChildren(waiting);
+  }
+
+  selectCoopUpgradeForPlayer(playerId, upgradeId) {
+    if (!this.isMultiplayerHost() || !this.coopUpgradeDraft?.pending.has(playerId)) {
+      return;
+    }
+    const allowedChoices = this.coopUpgradeDraft.choicesByPlayer[playerId] ?? [];
+    if (!allowedChoices.includes(upgradeId)) {
+      return;
+    }
+    const player = this.players.find((candidate) => candidate.id === playerId);
+    const upgrade = getUpgradeById(upgradeId);
+    if (!player || !upgrade) {
+      return;
+    }
+    this.withPlayer(player, () => {
+      const counts = player.upgradeCounts ?? {};
+      const nextRank = (counts[upgradeId] ?? 0) + 1;
+      counts[upgradeId] = nextRank;
+      upgrade.apply(player, nextRank);
+      this.spawnFloatingText(player.x, player.y - 58, `${UPGRADE_ICONS[upgradeId] ?? "UP"} ${nextRank}/${upgrade.cap}`, upgrade.color, 1);
+      if (nextRank >= upgrade.cap && !this.maxedUpgradeIds.has(`${player.id}:${upgradeId}`)) {
+        this.maxedUpgradeIds.add(`${player.id}:${upgradeId}`);
+      }
+    });
+    this.coopUpgradeDraft.pending.delete(playerId);
+    if (this.coopUpgradeDraft.pending.size <= 0) {
+      this.finishCoopUpgradeDraft();
+    }
+  }
+
+  finishCoopUpgradeDraft() {
+    this.coopUpgradeDraft = null;
+    if (this.pendingLevelUps > 0) {
+      this.mode = "playing";
+      this.showCoopUpgradeDraft();
+      return;
+    }
+    this.mode = "playing";
+    this.player = this.getLocalPlayer();
+    this.upgradeCounts = this.player?.upgradeCounts ?? this.upgradeCounts;
+    this.syncScreens();
+    this.multiplayerHooks.sendHostEvent?.({ eventType: "upgrade:complete" });
+  }
+
+  showGuestUpgradeOffer(choiceIds = []) {
+    if (!this.isMultiplayerGuest()) {
+      return;
+    }
+    this.mode = "upgrade";
+    this.upgradeChoices = choiceIds.map((upgradeId) => getUpgradeById(upgradeId)).filter(Boolean);
+    this.buildUpgradeButtons();
+    this.syncScreens();
+    this.announce("Co-op upgrade choices ready.");
+  }
+
   buildUpgradeButtons() {
     const buttons = this.upgradeChoices.map((upgrade, index) => {
-      const nextRank = (this.upgradeCounts[upgrade.id] ?? 0) + 1;
+      const counts = this.player?.upgradeCounts ?? this.upgradeCounts;
+      const nextRank = (counts[upgrade.id] ?? 0) + 1;
       const currentRank = nextRank - 1;
       const isMaxRank = nextRank >= upgrade.cap;
       const effectCopy = getUpgradeEffectCopy(upgrade, nextRank);
@@ -4421,6 +6670,14 @@ class Game {
   }
 
   selectUpgrade(upgradeId) {
+    if (this.isMultiplayerGuest()) {
+      if (this.mode === "upgrade") {
+        this.multiplayerHooks.sendUpgradePick?.(upgradeId);
+        this.setBanner("Waiting for host...", 1);
+        this.showToast("Upgrade sent");
+      }
+      return;
+    }
     if (!this.player || this.mode !== "upgrade") {
       return;
     }
@@ -4428,9 +6685,11 @@ class Game {
     if (!upgrade) {
       return;
     }
-    const nextRank = (this.upgradeCounts[upgradeId] ?? 0) + 1;
-    this.upgradeCounts[upgradeId] = nextRank;
+    const counts = this.player.upgradeCounts ?? this.upgradeCounts;
+    const nextRank = (counts[upgradeId] ?? 0) + 1;
+    counts[upgradeId] = nextRank;
     upgrade.apply(this.player, nextRank);
+    this.audio.playUpgradeSelect();
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.setBanner(`${upgrade.name} unlocked!`, 1.2);
     this.spawnFloatingText(this.player.x, this.player.y - 58, `${UPGRADE_ICONS[upgradeId] ?? "⬆️"} ${nextRank}/${upgrade.cap}`, upgrade.color, 1);
@@ -4443,8 +6702,19 @@ class Game {
       }
     }
     this.announce(`${upgrade.name} selected.`);
+    if (this.isMultiplayerHost() && this.coopUpgradeDraft) {
+      this.coopUpgradeDraft.pending.delete(this.player.id);
+      if (this.coopUpgradeDraft.pending.size > 0) {
+        this.mode = "upgrade";
+        this.buildCoopWaitingUpgradeButtons();
+        this.syncScreens();
+        return;
+      }
+      this.finishCoopUpgradeDraft();
+      return;
+    }
     if (this.pendingLevelUps > 0 && this.getAvailableUpgrades().length > 0) {
-      this.showUpgradeDraft();
+      this.showNextLevelReward();
       return;
     }
     this.mode = "playing";
@@ -4541,16 +6811,15 @@ class Game {
   }
 
   buildMenuGuide() {
+    this.renderWikiTipCards(this.ui.quickRunGuide, QUICK_RUN_GUIDE);
+    this.renderWikiTipCards(this.ui.wikiStrategyGuide, STRATEGY_GUIDE);
+    this.renderWikiUnlockGuide();
+
     if (this.ui.enemyGuide) {
       const enemyRows = ENEMY_GUIDE_DEFS.map((definition) => {
         const stats = this.save.stats?.enemy?.[definition.id] ?? {};
-        const meta =
-          definition.id === BOSS_DEF.id ? `HP ${definition.maxHp} / First at 03:00` : `HP ${definition.maxHp} / Speed ${definition.speed}`;
-        return this.createGuideRow({
-          title: definition.name,
-          meta,
-          description: ENEMY_GUIDE_COPY[definition.id],
-          color: definition.color,
+        return this.createEnemyGuideCard({
+          definition,
           counters: {
             kills: stats.kills ?? 0,
             deaths: stats.deaths ?? 0,
@@ -4561,50 +6830,362 @@ class Game {
     }
 
     if (this.ui.upgradeGuide) {
-      const upgradeRows = UPGRADE_DEFS.map((upgrade) =>
-        this.createGuideRow({
-          title: upgrade.name,
-          meta: `Cap ${upgrade.cap}`,
-          description: upgrade.describe(1).replace(/^Rank 1: /, ""),
-          color: upgrade.color,
-        }),
-      );
-      this.ui.upgradeGuide.replaceChildren(...upgradeRows);
+      const categories = ["General", "Weapon", "Survival", "Ability", "Katana", "Grenade", "Landmine", "Engineer"];
+      const nodes = categories.map((category) => {
+        const upgrades = UPGRADE_DEFS.filter((upgrade) => this.getUpgradeGuideCategory(upgrade) === category);
+        if (!upgrades.length) {
+          return null;
+        }
+        const section = document.createElement("section");
+        section.className = "wiki-upgrade-category";
+        const heading = document.createElement("h5");
+        heading.textContent = category;
+        const list = document.createElement("div");
+        list.className = "guide-list compact-guide wiki-guide-list wiki-upgrade-card-list";
+        const rows = upgrades.map((upgrade) => this.createUpgradeGuideCard(upgrade));
+        list.replaceChildren(...rows);
+        section.replaceChildren(heading, list);
+        return section;
+      }).filter(Boolean);
+      this.ui.upgradeGuide.replaceChildren(...nodes);
     }
   }
 
-  createGuideRow({ title, meta, description, color, counters = null }) {
-    const row = document.createElement("div");
-    row.className = "guide-row";
+  getUpgradeGuideCategory(upgrade) {
+    if (upgrade.characters?.includes(CHARACTER_IDS.katana)) {
+      return "Katana";
+    }
+    if (upgrade.characters?.includes(CHARACTER_IDS.engineer)) {
+      return "Engineer";
+    }
+    if (upgrade.id.includes("grenade")) {
+      return "Grenade";
+    }
+    if (["blast-plating", "fast-trigger", "cluster-charge"].includes(upgrade.id)) {
+      return "Landmine";
+    }
+    if (upgrade.id === "ability-reload" || upgrade.isAvailable) {
+      return "Ability";
+    }
+    if (upgrade.excludeCharacters?.includes(CHARACTER_IDS.katana)) {
+      return "Weapon";
+    }
+    if (["heart-balloon", "bubble-guard", "overheal-shield", "skipping-shoes", "glitter-vac", "xp-surge"].includes(upgrade.id)) {
+      return "Survival";
+    }
+    return "General";
+  }
+
+  renderWikiTipCards(container, items) {
+    if (!container) {
+      return;
+    }
+    const cards = items.map((item) => {
+      const card = document.createElement("article");
+      card.className = "wiki-tip-card";
+      const label = document.createElement("span");
+      label.className = "wiki-card-label";
+      label.textContent = item.label;
+      const title = document.createElement("strong");
+      title.textContent = item.title;
+      const copy = document.createElement("p");
+      copy.textContent = item.copy;
+      card.replaceChildren(label, title, copy);
+      return card;
+    });
+    container.replaceChildren(...cards);
+  }
+
+  renderWikiUnlockGuide() {
+    if (!this.ui.wikiUnlockGuide) {
+      return;
+    }
+    const cards = this.getWikiUnlockItems().map((item) => this.createUnlockGuideCard(item));
+    this.ui.wikiUnlockGuide.replaceChildren(...cards);
+  }
+
+  getWikiUnlockItems() {
+    const progress = this.save.progress ?? {};
+    const stats = this.save.stats ?? {};
+    const bestKills = Math.max(0, stats.best?.kills ?? 0);
+    const bestTime = Math.max(0, stats.best?.time ?? 0);
+    const totalKills = Math.max(0, stats.total?.kills ?? 0);
+    const totalBosses = Math.max(0, stats.total?.bosses ?? 0);
+    const grenadeUnlocked = Boolean(progress.grenadeUnlocked || bestKills >= 250);
+    const landmineUnlocked = Boolean(progress.landmineUnlocked || bestTime >= 300);
+    const katanaUnlocked = isCharacterUnlocked(progress, stats, CHARACTER_IDS.katana);
+    const engineerUnlocked = isCharacterUnlocked(progress, stats, CHARACTER_IDS.engineer);
+    const equippedAbility = this.getEquippedAbilityId();
+    const customSongCount = this.save.music?.adminSongs?.length ?? 0;
+    return [
+      {
+        title: "Grenade",
+        status: grenadeUnlocked ? "Unlocked" : "Locked",
+        unlocked: grenadeUnlocked,
+        requirement: "250 kills in one run",
+        currentLabel: `${formatWholeNumber(Math.min(bestKills, 250))}/250 best kills`,
+        progress: bestKills / 250,
+      },
+      {
+        title: "Landmine",
+        status: landmineUnlocked ? "Unlocked" : "Locked",
+        unlocked: landmineUnlocked,
+        requirement: "Survive 05:00 in one run",
+        currentLabel: `${formatTime(Math.min(bestTime, 300))}/05:00 best time`,
+        progress: bestTime / 300,
+      },
+      {
+        title: "Katana",
+        status: katanaUnlocked ? "Unlocked" : "Locked",
+        unlocked: katanaUnlocked,
+        requirement: `${KATANA_UNLOCK_BOSSES} total boss kills`,
+        currentLabel: `${formatWholeNumber(Math.min(totalBosses, KATANA_UNLOCK_BOSSES))}/${KATANA_UNLOCK_BOSSES} bosses`,
+        progress: totalBosses / KATANA_UNLOCK_BOSSES,
+      },
+      {
+        title: "Engineer",
+        status: engineerUnlocked ? "Unlocked" : "Locked",
+        unlocked: engineerUnlocked,
+        requirement: `${ENGINEER_UNLOCK_KILLS} total kills`,
+        currentLabel: `${formatWholeNumber(Math.min(totalKills, ENGINEER_UNLOCK_KILLS))}/${formatWholeNumber(ENGINEER_UNLOCK_KILLS)} kills`,
+        progress: totalKills / ENGINEER_UNLOCK_KILLS,
+      },
+      {
+        title: "Ability slot",
+        status: equippedAbility ? "Equipped" : "Empty",
+        unlocked: Boolean(equippedAbility),
+        requirement: "Equip grenade or landmine",
+        currentLabel: equippedAbility ? `${ABILITY_LABELS[equippedAbility]} ready` : "No ability equipped",
+        progress: equippedAbility ? 1 : 0,
+      },
+      {
+        title: "Custom songs",
+        status: "Available",
+        unlocked: true,
+        requirement: "Request or add songs in the shop",
+        currentLabel: `${formatWholeNumber(customSongCount)} custom song${customSongCount === 1 ? "" : "s"}`,
+        progress: 1,
+      },
+    ];
+  }
+
+  createUnlockGuideCard(item) {
+    const card = document.createElement("article");
+    card.className = `wiki-unlock-card ${item.unlocked ? "is-unlocked" : "is-locked"}`;
+
+    const header = document.createElement("div");
+    header.className = "wiki-unlock-header";
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+    const status = document.createElement("span");
+    status.className = "wiki-status-pill";
+    status.textContent = item.status;
+    header.replaceChildren(title, status);
+
+    const requirement = document.createElement("p");
+    requirement.textContent = item.requirement;
+
+    const progress = document.createElement("div");
+    progress.className = "wiki-progress";
+    const fill = document.createElement("span");
+    fill.style.width = `${Math.round(clamp(item.progress, 0, 1) * 100)}%`;
+    progress.append(fill);
+
+    const current = document.createElement("span");
+    current.className = "wiki-progress-label";
+    current.textContent = item.currentLabel;
+
+    card.replaceChildren(header, requirement, progress, current);
+    return card;
+  }
+
+  createEnemyGuideCard({ definition, counters }) {
+    const row = document.createElement("article");
+    row.className = "guide-row enemy-guide-card";
 
     const swatch = document.createElement("span");
     swatch.className = "guide-swatch";
-    swatch.style.background = color;
+    swatch.style.background = definition.color;
     swatch.setAttribute("aria-hidden", "true");
 
     const body = document.createElement("div");
+    body.className = "guide-card-body";
     const heading = document.createElement("strong");
-    heading.textContent = title;
-    const details = document.createElement("span");
-    details.textContent = meta;
+    heading.textContent = definition.name;
+    const stats = document.createElement("div");
+    stats.className = "guide-stat-row";
+    stats.replaceChildren(
+      this.createGuideStat("HP", formatWholeNumber(definition.maxHp)),
+      this.createGuideStat("Speed", formatWholeNumber(definition.speed ?? BOSS_DEF.speed)),
+      this.createGuideStat("XP", formatWholeNumber(definition.xpValue)),
+      this.createGuideStat("Gold", formatWholeNumber(definition.goldValue ?? GOLD_CONFIG.enemyKills?.[definition.id] ?? GOLD_CONFIG.bossKill)),
+    );
     const copy = document.createElement("p");
-    copy.textContent = description;
+    copy.textContent = ENEMY_THREAT_NOTES[definition.id] ?? ENEMY_GUIDE_COPY[definition.id] ?? "Watch its movement pattern and keep space.";
 
-    const children = [heading, details, copy];
-    if (counters) {
-      const counterRow = document.createElement("div");
-      counterRow.className = "guide-counters";
-      const killCounter = document.createElement("span");
-      killCounter.textContent = `You killed ${formatWholeNumber(counters.kills ?? 0)}`;
-      const deathCounter = document.createElement("span");
-      deathCounter.textContent = `Killed you ${formatWholeNumber(counters.deaths ?? 0)}`;
-      counterRow.replaceChildren(killCounter, deathCounter);
-      children.push(counterRow);
-    }
+    const counterRow = document.createElement("div");
+    counterRow.className = "guide-counters";
+    const killCounter = document.createElement("span");
+    killCounter.textContent = `Killed ${formatWholeNumber(counters.kills ?? 0)}`;
+    const deathCounter = document.createElement("span");
+    deathCounter.textContent = `Killed you ${formatWholeNumber(counters.deaths ?? 0)}`;
+    counterRow.replaceChildren(killCounter, deathCounter);
 
-    body.replaceChildren(...children);
+    body.replaceChildren(heading, stats, copy, counterRow);
     row.replaceChildren(swatch, body);
     return row;
+  }
+
+  createUpgradeGuideCard(upgrade) {
+    const card = document.createElement("article");
+    card.className = "guide-row upgrade-guide-card";
+
+    const swatch = document.createElement("span");
+    swatch.className = "guide-swatch";
+    swatch.style.background = upgrade.color;
+    swatch.setAttribute("aria-hidden", "true");
+
+    const body = document.createElement("div");
+    body.className = "guide-card-body";
+    const header = document.createElement("div");
+    header.className = "upgrade-guide-header";
+    const title = document.createElement("strong");
+    title.textContent = upgrade.name;
+    const cap = document.createElement("span");
+    cap.className = "wiki-cap-pill";
+    cap.textContent = `Cap ${upgrade.cap}`;
+    header.replaceChildren(title, cap);
+
+    const stats = document.createElement("div");
+    stats.className = "guide-stat-row";
+    stats.replaceChildren(
+      this.createGuideStat("Group", this.getUpgradeGuideCategory(upgrade)),
+      this.createGuideStat("Rank 1", getUpgradeBoostCopy(upgrade, 1)),
+    );
+
+    const copy = document.createElement("p");
+    copy.textContent = getUpgradeEffectCopy(upgrade, 1);
+
+    body.replaceChildren(header, stats, copy);
+    card.replaceChildren(swatch, body);
+    return card;
+  }
+
+  createGuideStat(label, value) {
+    const stat = document.createElement("span");
+    stat.className = "guide-stat";
+    const labelNode = document.createElement("b");
+    labelNode.textContent = label;
+    const valueNode = document.createElement("em");
+    valueNode.textContent = value;
+    stat.replaceChildren(labelNode, valueNode);
+    return stat;
+  }
+
+  setupWikiNavigation() {
+    const panel = this.ui.wikiWindow;
+    if (!panel || panel.dataset.navReady === "true") {
+      return;
+    }
+    const buttons = Array.from(panel.querySelectorAll("[data-wiki-target]"));
+    const sections = Array.from(panel.querySelectorAll("[data-wiki-section]"));
+    if (!buttons.length || !sections.length) {
+      return;
+    }
+    panel.dataset.navReady = "true";
+    const nav = panel.querySelector(".wiki-section-nav");
+    const getNavOffset = () => (nav?.offsetHeight ?? 0) + 18;
+    const setActive = (sectionId) => {
+      for (const button of buttons) {
+        const isActive = button.dataset.wikiTarget === sectionId;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-current", isActive ? "true" : "false");
+      }
+    };
+    for (const button of buttons) {
+      button.addEventListener("click", () => {
+        const targetId = button.dataset.wikiTarget;
+        const target = targetId ? panel.querySelector(`#${targetId}`) : null;
+        if (!target) {
+          return;
+        }
+        panel.scrollTo({
+          top: Math.max(0, target.offsetTop - getNavOffset()),
+          behavior: "auto",
+        });
+        setActive(target.id);
+      });
+    }
+    let scrollFrame = 0;
+    panel.addEventListener("scroll", () => {
+      if (scrollFrame) {
+        return;
+      }
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = 0;
+        const currentTop = panel.scrollTop + getNavOffset() + 16;
+        let activeId = sections[0]?.id ?? "";
+        const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 4;
+        if (atBottom) {
+          activeId = sections.at(-1)?.id ?? activeId;
+        } else {
+          for (const section of sections) {
+            if (section.offsetTop <= currentTop) {
+              activeId = section.id;
+            }
+          }
+        }
+        setActive(activeId);
+      });
+    });
+    setActive(sections[0].id);
+  }
+
+  setupWikiWindow() {
+    const windowNode = this.ui.wikiWindow;
+    const handle = this.ui.wikiDragHandle;
+    if (!windowNode || !handle || windowNode.dataset.dragReady === "true") {
+      return;
+    }
+    if (window.getComputedStyle(windowNode).position !== "absolute") {
+      return;
+    }
+    windowNode.dataset.dragReady = "true";
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.target.closest?.("button")) {
+        return;
+      }
+      const rect = windowNode.getBoundingClientRect();
+      this.wikiDragState = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      handle.setPointerCapture(event.pointerId);
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!this.wikiDragState || this.wikiDragState.pointerId !== event.pointerId) {
+        return;
+      }
+      const parentRect = windowNode.parentElement.getBoundingClientRect();
+      const width = windowNode.offsetWidth;
+      const height = windowNode.offsetHeight;
+      const left = clamp(event.clientX - parentRect.left - this.wikiDragState.offsetX, 0, Math.max(0, parentRect.width - width));
+      const top = clamp(event.clientY - parentRect.top - this.wikiDragState.offsetY, 0, Math.max(0, parentRect.height - height));
+      windowNode.style.left = `${left}px`;
+      windowNode.style.top = `${top}px`;
+      windowNode.style.right = "auto";
+      windowNode.style.bottom = "auto";
+    });
+    const stopDragging = (event) => {
+      if (!this.wikiDragState || this.wikiDragState.pointerId !== event.pointerId) {
+        return;
+      }
+      this.wikiDragState = null;
+      handle.releasePointerCapture?.(event.pointerId);
+    };
+    handle.addEventListener("pointerup", stopDragging);
+    handle.addEventListener("pointercancel", stopDragging);
   }
 
   setMenuTab(tabId, announceChange = true) {
@@ -4627,6 +7208,9 @@ class Game {
     if (tabId === "admin") {
       this.renderAdminPanel();
     }
+    if (tabId === "guide") {
+      this.buildMenuGuide();
+    }
 
     for (const button of this.ui.menuTabButtons ?? []) {
       const isSelected = button.dataset.menuTab === tabId;
@@ -4643,6 +7227,12 @@ class Game {
     }
   }
 
+  closeWikiWindow() {
+    if (this.menuTab === "guide") {
+      this.setMenuTab("play");
+    }
+  }
+
   handleResetStatsClick() {
     if (!this.resetStatsPending) {
       this.resetStatsPending = true;
@@ -4655,34 +7245,87 @@ class Game {
     this.resetStatsPending = false;
     this.updateSavedScoreLabels();
     this.buildMenuGuide();
+    this.renderQuestMenu();
+    this.renderCharacterMenu();
     this.updateResetStatsButton();
     this.announce("Player stats reset. Sound setting preserved.");
   }
 
   toggleGrenadeEquip() {
-    if (!this.save.progress?.grenadeUnlocked) {
+    this.toggleAbilityEquip(ABILITY_IDS.grenade);
+  }
+
+  toggleAbilityEquip(abilityId) {
+    const progress = this.save.progress ?? {};
+    const unlocked =
+      abilityId === ABILITY_IDS.grenade
+        ? progress.grenadeUnlocked
+        : abilityId === ABILITY_IDS.landmine
+          ? progress.landmineUnlocked
+          : false;
+    if (!unlocked) {
+      this.showToast(`${ABILITY_LABELS[abilityId] ?? "Ability"} locked`);
       return;
     }
-    this.save = updateProgress(this.save, { grenadeEquipped: !this.save.progress.grenadeEquipped });
-    this.updateGrenadeLobby();
-    this.announce(`Grenade ${this.save.progress.grenadeEquipped ? "equipped" : "unequipped"}.`);
+    const selectedCharacterId = this.getSelectedCharacter().id;
+    const loadouts = this.getLoadouts();
+    const equippedAbilityId = this.getSelectedAccessoryIds(selectedCharacterId).includes(abilityId) ? "" : abilityId;
+    loadouts[selectedCharacterId] = { accessoryIds: equippedAbilityId ? [equippedAbilityId] : [] };
+    this.save = updateProgress(this.save, { equippedAbilityId, loadouts });
+    this.updateAbilityLobby();
+    this.renderCharacterMenu();
+    const abilityLabel = ABILITY_LABELS[abilityId] ?? "Ability";
+    this.announce(`${abilityLabel} ${equippedAbilityId === abilityId ? "equipped" : "unequipped"}.`);
+  }
+
+  updateAbilityLobby() {
+    const progress = this.save.progress ?? {};
+    const equippedAbilityId = this.getEquippedAbilityId();
+    const bestKills = Math.max(0, this.save.stats?.best?.kills ?? 0);
+    const bestTime = Math.max(0, this.save.stats?.best?.time ?? 0);
+    this.updateHeroLoadout();
+
+    if (this.ui.grenadeEquipButton && this.ui.grenadeStatus && this.ui.grenadeQuestText) {
+      const unlocked = Boolean(progress.grenadeUnlocked);
+      const equipped = equippedAbilityId === ABILITY_IDS.grenade;
+      this.ui.grenadeEquipButton.disabled = !unlocked;
+      this.ui.grenadeEquipButton.textContent = equipped ? "Unequip Grenade" : "Equip Grenade";
+      this.ui.grenadeEquipButton.setAttribute("aria-pressed", equipped ? "true" : "false");
+      this.ui.grenadeStatus.textContent = unlocked ? `Grenade ${equipped ? "equipped" : "unlocked"}` : "Grenade locked";
+      this.ui.grenadeQuestText.textContent = unlocked
+        ? "Press E during a run to throw a blast grenade. Grenade upgrades appear while equipped."
+        : `Quest: get 250 kills in a single run. Best so far: ${formatWholeNumber(Math.min(250, bestKills))}/250.`;
+    }
+
+    if (this.ui.landmineEquipButton && this.ui.landmineStatus && this.ui.landmineQuestText) {
+      const unlocked = Boolean(progress.landmineUnlocked);
+      const equipped = equippedAbilityId === ABILITY_IDS.landmine;
+      this.ui.landmineEquipButton.disabled = !unlocked;
+      this.ui.landmineEquipButton.textContent = equipped ? "Unequip Landmine" : "Equip Landmine";
+      this.ui.landmineEquipButton.setAttribute("aria-pressed", equipped ? "true" : "false");
+      this.ui.landmineStatus.textContent = unlocked ? `Landmine ${equipped ? "equipped" : "unlocked"}` : "Landmine locked";
+      this.ui.landmineQuestText.textContent = unlocked
+        ? "Press E during a run to place an armed tripmine. Landmine upgrades appear while equipped."
+        : `Quest: survive 05:00 in a single run. Best so far: ${formatTime(Math.min(300, bestTime))}/05:00.`;
+    }
+
+    if (this.ui.abilitySlotStatus) {
+      this.ui.abilitySlotStatus.textContent = equippedAbilityId ? `${ABILITY_LABELS[equippedAbilityId]} equipped` : "No ability equipped";
+    }
+  }
+
+  updateHeroLoadout() {
+    const summary = this.getLoadoutSummary();
+    if (this.ui.loadoutCharacterName) {
+      this.ui.loadoutCharacterName.textContent = summary.characterName;
+    }
+    if (this.ui.loadoutAccessoryList) {
+      this.ui.loadoutAccessoryList.textContent = summary.accessoryText;
+    }
   }
 
   updateGrenadeLobby() {
-    if (!this.ui.grenadeEquipButton || !this.ui.grenadeStatus || !this.ui.grenadeQuestText) {
-      return;
-    }
-    const progress = this.save.progress ?? {};
-    const unlocked = Boolean(progress.grenadeUnlocked);
-    const equipped = Boolean(unlocked && progress.grenadeEquipped);
-    this.ui.grenadeEquipButton.disabled = !unlocked;
-    this.ui.grenadeEquipButton.textContent = equipped ? "Unequip Grenade" : "Equip Grenade";
-    this.ui.grenadeEquipButton.setAttribute("aria-pressed", equipped ? "true" : "false");
-    this.ui.grenadeStatus.textContent = unlocked ? `Grenade ${equipped ? "equipped" : "unlocked"}` : "Grenade locked";
-    const bestKills = Math.max(0, this.save.stats?.best?.kills ?? 0);
-    this.ui.grenadeQuestText.textContent = unlocked
-      ? "Press E during a run to throw a blast grenade. Grenade upgrades appear while equipped."
-      : `Quest: get 250 kills in a single run. Best so far: ${formatWholeNumber(Math.min(250, bestKills))}/250.`;
+    this.updateAbilityLobby();
   }
 
   updateResetStatsButton() {
@@ -4702,12 +7345,19 @@ class Game {
     this.ui.titleScreen.hidden = this.mode !== "title";
     this.ui.helpScreen.hidden = this.mode !== "help";
     this.ui.pauseScreen.hidden = this.mode !== "paused";
+    if (this.ui.healOfferScreen) {
+      this.ui.healOfferScreen.hidden = this.mode !== "healOffer";
+    }
     this.ui.upgradeScreen.hidden = this.mode !== "upgrade";
     this.ui.gameOverScreen.hidden = this.mode !== "gameOver";
     this.updateAdminGamePanel();
   }
 
   updateHud() {
+    if (this.players?.length) {
+      this.player = this.getLocalPlayer();
+      this.upgradeCounts = this.player?.upgradeCounts ?? this.upgradeCounts;
+    }
     const showHud = Boolean(this.run) && this.mode !== "title";
     this.ui.hud.hidden = !showHud;
     this.updateAdminGamePanel();
@@ -4722,6 +7372,9 @@ class Game {
         this.ui.grenadeHudPanel.hidden = true;
         this.ui.grenadeFill.style.width = "100%";
         this.ui.grenadeText.textContent = "Ready";
+        if (this.ui.abilityHudLabel) {
+          this.ui.abilityHudLabel.textContent = "Ability";
+        }
       }
       this.ui.levelText.textContent = "1";
       this.ui.scoreText.textContent = "0";
@@ -4745,10 +7398,16 @@ class Game {
     this.ui.dashFill.style.width = `${clamp(dashProgress, 0, 1) * 100}%`;
     this.ui.dashText.textContent = this.player.dashCooldownRemaining <= 0 ? "Ready" : `${this.player.dashCooldownRemaining.toFixed(1)}s`;
     if (this.ui.grenadeHudPanel && this.ui.grenadeFill && this.ui.grenadeText) {
-      this.ui.grenadeHudPanel.hidden = !this.player.grenadeEquipped;
-      const grenadeProgress = this.player.grenadeCooldown <= 0 ? 1 : 1 - this.player.grenadeCooldownRemaining / this.player.grenadeCooldown;
-      this.ui.grenadeFill.style.width = `${clamp(grenadeProgress, 0, 1) * 100}%`;
-      this.ui.grenadeText.textContent = this.player.grenadeCooldownRemaining <= 0 ? "Ready" : `${this.player.grenadeCooldownRemaining.toFixed(1)}s`;
+      const abilityId = this.player.equippedAbilityId;
+      this.ui.grenadeHudPanel.hidden = !abilityId;
+      if (this.ui.abilityHudLabel) {
+        this.ui.abilityHudLabel.textContent = abilityId ? ABILITY_LABELS[abilityId] : "Ability";
+      }
+      const cooldown = abilityId === ABILITY_IDS.landmine ? this.player.landmineCooldown : this.player.grenadeCooldown;
+      const remaining = abilityId === ABILITY_IDS.landmine ? this.player.landmineCooldownRemaining : this.player.grenadeCooldownRemaining;
+      const abilityProgress = cooldown <= 0 ? 1 : 1 - remaining / cooldown;
+      this.ui.grenadeFill.style.width = `${clamp(abilityProgress, 0, 1) * 100}%`;
+      this.ui.grenadeText.textContent = remaining <= 0 ? "Ready" : `${remaining.toFixed(1)}s`;
     }
     this.ui.scoreText.textContent = Math.floor(this.run.score).toLocaleString();
     this.ui.goldText.textContent = formatWholeNumber(this.save.wallet?.gold ?? 0);
@@ -4800,9 +7459,7 @@ class Game {
     this.ui.titleHighScore.textContent = formatWholeNumber(this.save.highScore);
     this.ui.hudHighScore.textContent = formatWholeNumber(this.save.highScore);
     this.updateMenuStats();
-    this.updateGrenadeLobby();
-    this.renderQuestMenu();
-    this.renderCharacterMenu();
+    this.updateAbilityLobby();
   }
 
   updateMenuStats() {
@@ -4841,21 +7498,32 @@ class Game {
   render() {
     const context = this.context;
     context.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+    this.updateCamera();
     context.save();
     if (this.screenShake > 0) {
       context.translate(randomRange(-this.screenShake, this.screenShake), randomRange(-this.screenShake, this.screenShake));
     }
     this.renderBackground(context);
-    this.renderArena(context);
-    this.renderPickups(context);
-    this.renderProjectiles(context);
-    this.renderGrenades(context);
-    this.renderDamageZones(context);
-    this.renderTurrets(context);
-    this.renderEnemies(context);
-    this.renderPlayer(context);
-    this.renderEffects(context);
-    this.renderFloatingTexts(context);
+    if (this.player) {
+      context.save();
+      const zoom = this.getCameraZoom();
+      context.scale(zoom, zoom);
+      context.translate(-this.camera.x, -this.camera.y);
+      this.renderArena(context);
+      this.renderPickups(context);
+      this.renderProjectiles(context);
+      this.renderGrenades(context);
+      this.renderLandmines(context);
+      this.renderDamageZones(context);
+      this.renderTurrets(context);
+      this.renderEnemies(context);
+      this.renderPlayers(context);
+      this.renderEffects(context);
+      this.renderFloatingTexts(context);
+      context.restore();
+    } else {
+      this.renderPlayer(context);
+    }
     context.restore();
   }
 
@@ -4875,65 +7543,41 @@ class Game {
     context.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
     context.lineWidth = 1;
-    const offset = (this.backgroundTime * 18) % 80;
-    for (let x = -80 + offset; x < LOGICAL_WIDTH + 80; x += 80) {
-      context.strokeStyle = Math.round(x - offset) % 240 === 0 ? "rgba(34, 211, 238, 0.22)" : "rgba(125, 211, 252, 0.09)";
+    const zoom = this.getCameraZoom();
+    const view = this.getCameraRect(0);
+    const gridSize = 120;
+    const firstGridX = Math.floor(view.x / gridSize) * gridSize;
+    const lastGridX = view.x + view.width + gridSize;
+    const firstGridY = Math.floor(view.y / gridSize) * gridSize;
+    const lastGridY = view.y + view.height + gridSize;
+    for (let worldX = firstGridX; worldX <= lastGridX; worldX += gridSize) {
+      const x = Math.round((worldX - this.camera.x) * zoom) + 0.5;
+      context.strokeStyle = Math.round(worldX / gridSize) % 4 === 0 ? "rgba(34, 211, 238, 0.16)" : "rgba(125, 211, 252, 0.055)";
       context.beginPath();
-      context.moveTo(x, 90);
-      context.lineTo(x, LOGICAL_HEIGHT - 90);
+      context.moveTo(x, 0);
+      context.lineTo(x, LOGICAL_HEIGHT);
       context.stroke();
     }
-    for (let y = -80 + offset * 0.65; y < LOGICAL_HEIGHT + 80; y += 80) {
-      context.strokeStyle = Math.round(y - offset * 0.65) % 240 === 0 ? "rgba(34, 211, 238, 0.2)" : "rgba(125, 211, 252, 0.08)";
+    for (let worldY = firstGridY; worldY <= lastGridY; worldY += gridSize) {
+      const y = Math.round((worldY - this.camera.y) * zoom) + 0.5;
+      context.strokeStyle = Math.round(worldY / gridSize) % 4 === 0 ? "rgba(34, 211, 238, 0.14)" : "rgba(125, 211, 252, 0.05)";
       context.beginPath();
-      context.moveTo(90, y);
-      context.lineTo(LOGICAL_WIDTH - 90, y);
+      context.moveTo(0, y);
+      context.lineTo(LOGICAL_WIDTH, y);
       context.stroke();
     }
-
-    const scanY = (this.backgroundTime * 46) % LOGICAL_HEIGHT;
-    const scan = context.createLinearGradient(0, scanY - 44, 0, scanY + 44);
-    scan.addColorStop(0, "rgba(34, 211, 238, 0)");
-    scan.addColorStop(0.5, "rgba(34, 211, 238, 0.07)");
-    scan.addColorStop(1, "rgba(34, 211, 238, 0)");
-    context.fillStyle = scan;
-    context.fillRect(0, scanY - 44, LOGICAL_WIDTH, 88);
   }
 
   renderArena(context) {
     context.save();
-    roundRectPath(context, 36, 36, LOGICAL_WIDTH - 72, LOGICAL_HEIGHT - 72, 10);
-    context.fillStyle = "rgba(15, 23, 42, 0.28)";
-    context.fill();
-    context.shadowBlur = 22;
-    context.shadowColor = "rgba(34, 211, 238, 0.5)";
-    context.lineWidth = 4;
-    context.strokeStyle = "rgba(34, 211, 238, 0.46)";
-    context.stroke();
-    context.shadowBlur = 0;
-    context.setLineDash([14, 16]);
-    context.strokeStyle = "rgba(251, 191, 36, 0.18)";
-    context.lineWidth = 2;
-    const centerX = LOGICAL_WIDTH * 0.5;
-    const centerY = LOGICAL_HEIGHT * 0.5;
-    const dashedRays = [
-      [centerX, centerY, centerX, 58],
-      [centerX, centerY, centerX, LOGICAL_HEIGHT - 58],
-      [centerX, centerY, 58, centerY],
-      [centerX, centerY, LOGICAL_WIDTH - 58, centerY],
-    ];
-    for (const [startX, startY, endX, endY] of dashedRays) {
-      context.beginPath();
-      context.moveTo(startX, startY);
-      context.lineTo(endX, endY);
-      context.stroke();
+    if (this.player) {
+      const view = this.getCameraRect(80);
+      const glow = context.createRadialGradient(this.player.x, this.player.y, 120, this.player.x, this.player.y, 820);
+      glow.addColorStop(0, "rgba(34, 211, 238, 0)");
+      glow.addColorStop(1, "rgba(2, 6, 23, 0.38)");
+      context.fillStyle = glow;
+      context.fillRect(view.x, view.y, view.width, view.height);
     }
-    context.setLineDash([]);
-    const vignette = context.createRadialGradient(LOGICAL_WIDTH * 0.5, LOGICAL_HEIGHT * 0.5, 240, LOGICAL_WIDTH * 0.5, LOGICAL_HEIGHT * 0.5, 720);
-    vignette.addColorStop(0, "rgba(2, 6, 23, 0)");
-    vignette.addColorStop(1, "rgba(2, 6, 23, 0.5)");
-    context.fillStyle = vignette;
-    context.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     context.restore();
   }
 
@@ -4943,6 +7587,28 @@ class Game {
       context.save();
       context.translate(pickup.x, pickup.y);
       context.scale(pulse, pulse);
+      if (pickup.type === "medkit") {
+        context.shadowBlur = 18;
+        context.shadowColor = "rgba(248, 113, 113, 0.78)";
+        context.fillStyle = "rgba(127, 29, 29, 0.24)";
+        context.beginPath();
+        context.arc(0, 0, pickup.radius * 1.85, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = "#f8fafc";
+        context.strokeStyle = "#ef4444";
+        context.lineWidth = 3;
+        roundRectPath(context, -pickup.radius, -pickup.radius, pickup.radius * 2, pickup.radius * 2, 4);
+        context.fill();
+        context.stroke();
+        context.shadowBlur = 0;
+        context.fillStyle = "#dc2626";
+        roundRectPath(context, -3, -pickup.radius * 0.68, 6, pickup.radius * 1.36, 2);
+        context.fill();
+        roundRectPath(context, -pickup.radius * 0.68, -3, pickup.radius * 1.36, 6, 2);
+        context.fill();
+        context.restore();
+        continue;
+      }
       context.shadowBlur = 18;
       context.shadowColor = "rgba(52, 211, 153, 0.72)";
       context.fillStyle = "rgba(52, 211, 153, 0.22)";
@@ -4964,19 +7630,41 @@ class Game {
 
   renderProjectiles(context) {
     const drawProjectile = (projectile, glowColor) => {
+      const isAcidSpit = projectile.kind === "acid-spit";
       const speed = Math.max(1, Math.hypot(projectile.vx, projectile.vy));
-      const tailX = (projectile.vx / speed) * projectile.radius * 3.4;
-      const tailY = (projectile.vy / speed) * projectile.radius * 3.4;
+      const dirX = projectile.vx / speed;
+      const dirY = projectile.vy / speed;
+      const tailScale = isAcidSpit ? projectile.trailScale ?? 6.2 : projectile.trailScale ?? 3.4;
+      const tailX = dirX * projectile.radius * tailScale;
+      const tailY = dirY * projectile.radius * tailScale;
       context.save();
       context.lineCap = "round";
-      context.strokeStyle = glowColor;
-      context.lineWidth = projectile.radius * 1.15;
+      context.strokeStyle = isAcidSpit ? "rgba(190, 242, 100, 0.62)" : glowColor;
+      context.lineWidth = projectile.radius * (isAcidSpit ? 1.65 : 1.15);
       context.beginPath();
       context.moveTo(projectile.x - tailX, projectile.y - tailY);
       context.lineTo(projectile.x, projectile.y);
       context.stroke();
-      context.shadowBlur = 16;
-      context.shadowColor = glowColor;
+      if (isAcidSpit) {
+        const perpX = -dirY;
+        const perpY = dirX;
+        context.fillStyle = "rgba(217, 249, 157, 0.75)";
+        for (let index = 0; index < 4; index += 1) {
+          const offset = (index + 1) * projectile.radius * 1.1;
+          const side = index % 2 === 0 ? 1 : -1;
+          context.beginPath();
+          context.arc(
+            projectile.x - dirX * offset + perpX * side * projectile.radius * 0.55,
+            projectile.y - dirY * offset + perpY * side * projectile.radius * 0.55,
+            Math.max(1.4, projectile.radius * (0.28 - index * 0.035)),
+            0,
+            Math.PI * 2,
+          );
+          context.fill();
+        }
+      }
+      context.shadowBlur = isAcidSpit ? 22 : 16;
+      context.shadowColor = isAcidSpit ? "rgba(132, 204, 22, 0.9)" : glowColor;
       context.fillStyle = projectile.accent;
       context.beginPath();
       context.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
@@ -5030,19 +7718,82 @@ class Game {
     }
   }
 
+  renderLandmines(context) {
+    for (const mine of this.landmines) {
+      const armed = mine.armTimeRemaining <= 0;
+      const pulse = 1 + Math.sin(this.backgroundTime * (armed ? 14 : 8) + mine.id) * 0.06;
+      context.save();
+      context.translate(mine.x, mine.y);
+      context.scale(pulse, pulse);
+      context.shadowBlur = armed ? 18 : 10;
+      context.shadowColor = armed ? "rgba(245, 158, 11, 0.82)" : "rgba(148, 163, 184, 0.6)";
+      context.fillStyle = armed ? "#f59e0b" : "#64748b";
+      roundRectPath(context, -12, -8, 24, 16, 4);
+      context.fill();
+      context.strokeStyle = armed ? "#fef3c7" : "#cbd5e1";
+      context.lineWidth = 3;
+      context.stroke();
+      context.fillStyle = armed ? "#fef08a" : "#94a3b8";
+      context.beginPath();
+      context.arc(0, 0, 4, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+
+      context.save();
+      context.globalAlpha = armed ? 0.13 : 0.06;
+      context.strokeStyle = armed ? "#f59e0b" : "#94a3b8";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(mine.x, mine.y, mine.blastRadius, 0, Math.PI * 2);
+      context.stroke();
+      context.restore();
+    }
+  }
+
   renderDamageZones(context) {
     for (const zone of this.damageZones) {
       const progress = 1 - zone.life / zone.maxLife;
       const isEnemyZone = zone.owner === "enemy";
       context.save();
-      context.globalAlpha = 0.2 + Math.sin(this.backgroundTime * 12) * 0.04;
-      context.fillStyle = isEnemyZone ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.34)";
-      context.strokeStyle = isEnemyZone ? "rgba(187, 247, 208, 0.44)" : "rgba(254, 202, 202, 0.42)";
-      context.lineWidth = 2;
+      const pulse = 0.5 + Math.sin(this.backgroundTime * 12 + zone.x * 0.01) * 0.5;
+      const drawRadius = zone.radius * (0.96 + progress * 0.08 + pulse * 0.03);
+      context.globalAlpha = isEnemyZone ? 0.34 + pulse * 0.12 : 0.2 + Math.sin(this.backgroundTime * 12) * 0.04;
+      if (isEnemyZone) {
+        const gradient = context.createRadialGradient(zone.x, zone.y, zone.radius * 0.12, zone.x, zone.y, drawRadius);
+        gradient.addColorStop(0, "rgba(217, 249, 157, 0.62)");
+        gradient.addColorStop(0.55, "rgba(132, 204, 22, 0.42)");
+        gradient.addColorStop(1, "rgba(21, 128, 61, 0.16)");
+        context.fillStyle = gradient;
+        context.strokeStyle = "rgba(236, 252, 203, 0.84)";
+        context.lineWidth = 4;
+      } else {
+        context.fillStyle = "rgba(239, 68, 68, 0.34)";
+        context.strokeStyle = "rgba(254, 202, 202, 0.42)";
+        context.lineWidth = 2;
+      }
       context.beginPath();
-      context.arc(zone.x, zone.y, zone.radius * (0.94 + progress * 0.08), 0, Math.PI * 2);
+      context.arc(zone.x, zone.y, drawRadius, 0, Math.PI * 2);
       context.fill();
       context.stroke();
+      if (isEnemyZone) {
+        context.globalAlpha = 0.62 + pulse * 0.18;
+        context.setLineDash([9, 8]);
+        context.strokeStyle = "rgba(163, 230, 53, 0.9)";
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(zone.x, zone.y, zone.radius * (0.72 + pulse * 0.08), 0, Math.PI * 2);
+        context.stroke();
+        context.setLineDash([]);
+        context.fillStyle = "rgba(236, 252, 203, 0.76)";
+        for (let index = 0; index < 7; index += 1) {
+          const angle = index * 1.91 + zone.x * 0.003;
+          const distance = zone.radius * (0.18 + ((index * 17) % 49) / 100);
+          const bubbleRadius = 2.4 + ((index * 11) % 5) + pulse * 1.2;
+          context.beginPath();
+          context.arc(zone.x + Math.cos(angle) * distance, zone.y + Math.sin(angle) * distance, bubbleRadius, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
       context.restore();
     }
   }
@@ -5050,24 +7801,62 @@ class Game {
   renderTurrets(context) {
     for (const turret of this.turrets) {
       const lifeRatio = clamp(turret.life / turret.maxLife, 0, 1);
+      const aimAngle = turret.aimAngle ?? -Math.PI / 2;
+      const flash = clamp((turret.muzzleFlash ?? 0) / 0.12, 0, 1);
       context.save();
       context.translate(turret.x, turret.y);
-      context.shadowBlur = 18;
-      context.shadowColor = "rgba(52, 211, 153, 0.72)";
-      context.fillStyle = "rgba(6, 78, 59, 0.92)";
-      roundRectPath(context, -turret.radius, -turret.radius, turret.radius * 2, turret.radius * 2, 7);
-      context.fill();
-      context.strokeStyle = "#86efac";
-      context.lineWidth = 3;
-      context.stroke();
-      context.fillStyle = "#bbf7d0";
-      context.beginPath();
-      context.arc(0, 0, 6, 0, Math.PI * 2);
-      context.fill();
-      context.strokeStyle = "rgba(187, 247, 208, 0.35)";
+      context.shadowBlur = 22;
+      context.shadowColor = "rgba(34, 211, 238, 0.72)";
+      context.fillStyle = "rgba(34, 211, 238, 0.06)";
+      context.strokeStyle = "rgba(34, 211, 238, 0.22)";
       context.lineWidth = 2;
       context.beginPath();
-      context.arc(0, 0, turret.range * 0.18 * lifeRatio, 0, Math.PI * 2);
+      context.arc(0, 0, turret.range * 0.16 * lifeRatio, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.rotate(aimAngle);
+      context.fillStyle = "rgba(15, 23, 42, 0.94)";
+      context.strokeStyle = "rgba(251, 191, 36, 0.62)";
+      context.lineWidth = 3;
+      roundRectPath(context, -12, -7, 32, 14, 5);
+      context.fill();
+      context.stroke();
+      context.fillStyle = "#fef3c7";
+      roundRectPath(context, 16, -4, 18, 8, 3);
+      context.fill();
+      if (flash > 0) {
+        context.shadowBlur = 24 * flash;
+        context.shadowColor = "rgba(251, 191, 36, 0.95)";
+        context.fillStyle = `rgba(251, 191, 36, ${0.35 + flash * 0.45})`;
+        context.beginPath();
+        context.arc(40, 0, 8 + flash * 8, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.rotate(-aimAngle);
+      context.shadowBlur = 16;
+      context.shadowColor = "rgba(52, 211, 153, 0.72)";
+      context.fillStyle = "rgba(30, 41, 59, 0.95)";
+      context.strokeStyle = "#67e8f9";
+      context.lineWidth = 3;
+      context.beginPath();
+      context.arc(0, 0, turret.radius, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.fillStyle = "#0f172a";
+      context.strokeStyle = "rgba(251, 191, 36, 0.82)";
+      context.lineWidth = 2;
+      roundRectPath(context, -turret.radius * 0.74, 5, turret.radius * 1.48, 9, 4);
+      context.fill();
+      context.stroke();
+      context.fillStyle = "#22d3ee";
+      context.beginPath();
+      context.arc(0, 0, 6 + Math.sin(this.backgroundTime * 8 + turret.id) * 1.2, 0, Math.PI * 2);
+      context.fill();
+      context.shadowBlur = 0;
+      context.strokeStyle = "rgba(251, 191, 36, 0.78)";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(0, 0, turret.radius + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lifeRatio);
       context.stroke();
       context.restore();
     }
@@ -5108,7 +7897,7 @@ class Game {
         context.moveTo(enemy.radius * 0.42, -enemy.radius * 0.32);
         context.lineTo(-enemy.radius * 0.42, enemy.radius * 0.32);
         context.stroke();
-      } else if (enemy.typeId === "nibbler") {
+      } else if (enemy.typeId === "nibbler" || enemy.typeId === "sprinter") {
         context.rotate(Math.atan2(enemy.vy, enemy.vx));
         context.fillStyle = bodyColor;
         context.beginPath();
@@ -5122,6 +7911,15 @@ class Game {
         context.lineTo(-enemy.radius * 0.28, enemy.radius * 0.42);
         context.closePath();
         context.fill();
+        if (enemy.typeId === "sprinter") {
+          context.strokeStyle = "#fecdd3";
+          context.lineWidth = 2;
+          context.beginPath();
+          context.moveTo(-enemy.radius * 0.58, -enemy.radius * 0.46);
+          context.lineTo(-enemy.radius * 0.88, 0);
+          context.lineTo(-enemy.radius * 0.58, enemy.radius * 0.46);
+          context.stroke();
+        }
       } else if (enemy.typeId === "spitter") {
         context.fillStyle = bodyColor;
         context.beginPath();
@@ -5135,6 +7933,21 @@ class Game {
         context.beginPath();
         context.arc(0, 0, enemy.radius * 0.24, 0, Math.PI * 2);
         context.fill();
+      } else if (enemy.typeId === "marksman") {
+        context.rotate(Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x));
+        context.fillStyle = bodyColor;
+        roundRectPath(context, -enemy.radius, -enemy.radius * 0.82, enemy.radius * 2, enemy.radius * 1.64, 7);
+        context.fill();
+        context.stroke();
+        context.fillStyle = accentColor;
+        roundRectPath(context, -enemy.radius * 0.2, -enemy.radius * 0.26, enemy.radius * 1.18, enemy.radius * 0.52, 4);
+        context.fill();
+        context.strokeStyle = "#ede9fe";
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(enemy.radius * 0.4, 0);
+        context.lineTo(enemy.radius * 1.15, 0);
+        context.stroke();
       } else if (enemy.typeId === "acid-spitter") {
         context.fillStyle = bodyColor;
         context.beginPath();
@@ -5198,7 +8011,16 @@ class Game {
     }
   }
 
-  renderPlayer(context) {
+  renderPlayers(context) {
+    const players = this.players?.length ? this.players : [this.player];
+    for (const player of players) {
+      this.renderPlayer(context, player);
+    }
+  }
+
+  renderPlayer(context, player = this.player) {
+    const previousPlayer = this.player;
+    this.player = player;
     if (!this.player) {
       if (this.mode === "title") {
         context.save();
@@ -5224,6 +8046,7 @@ class Game {
         context.fill();
         context.restore();
       }
+      this.player = previousPlayer;
       return;
     }
 
@@ -5231,6 +8054,9 @@ class Game {
     const character = getCharacterById(this.player.characterId);
     context.save();
     context.translate(this.player.x, this.player.y);
+    if (this.player.downed) {
+      context.globalAlpha = 0.72;
+    }
     if (this.player.invulnerabilityRemaining > 0) {
       context.globalAlpha = 0.72 + Math.sin(this.backgroundTime * 18) * 0.14;
     }
@@ -5265,6 +8091,34 @@ class Game {
     context.arc(0, 0, this.player.radius * 0.34, 0, Math.PI * 2);
     context.fill();
     context.restore();
+    if (this.player.downed) {
+      context.save();
+      context.translate(this.player.x, this.player.y);
+      context.strokeStyle = "rgba(254, 202, 202, 0.95)";
+      context.lineWidth = 5;
+      context.beginPath();
+      context.moveTo(-12, -12);
+      context.lineTo(12, 12);
+      context.moveTo(12, -12);
+      context.lineTo(-12, 12);
+      context.stroke();
+      if (this.player.reviveProgress > 0) {
+        context.strokeStyle = "rgba(134, 239, 172, 0.92)";
+        context.lineWidth = 4;
+        context.beginPath();
+        context.arc(0, 0, this.player.radius + 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(this.player.reviveProgress / COOP_CONFIG.reviveSeconds, 0, 1));
+        context.stroke();
+      }
+      context.restore();
+    }
+    if (this.isCoopRun() && this.player.name) {
+      context.save();
+      context.font = "700 12px system-ui, sans-serif";
+      context.textAlign = "center";
+      context.fillStyle = this.player.isLocal ? "#a7f3d0" : "#bfdbfe";
+      context.fillText(this.player.name, this.player.x, this.player.y - this.player.radius - 14);
+      context.restore();
+    }
 
     for (let shieldIndex = 0; shieldIndex < this.player.shields; shieldIndex += 1) {
       const angle = this.backgroundTime * 2 + (Math.PI * 2 * shieldIndex) / Math.max(1, this.player.shields);
@@ -5279,6 +8133,7 @@ class Game {
       context.fill();
       context.restore();
     }
+    this.player = previousPlayer;
   }
 
   renderEffects(context) {
@@ -5343,8 +8198,11 @@ class Game {
 
 // src/main.js
 const LEADERBOARD_NAME_STORAGE_KEY = "arena-survival-leaderboard-name";
+const LOCAL_LEADERBOARD_STORAGE_KEY = "arena-survival-local-leaderboard";
+const SELF_TEST_MODE = new URLSearchParams(window.location.search).get("selfTest") === "1";
 const save = loadSave();
 const audio = new AudioSystem(save.settings);
+let leaderboardMode = "solo";
 
 const ui = {
   hud: document.querySelector("#hud"),
@@ -5356,10 +8214,12 @@ const ui = {
   dashFill: document.querySelector("#dash-fill"),
   dashText: document.querySelector("#dash-text"),
   grenadeHudPanel: document.querySelector("#grenade-hud-panel"),
+  abilityHudLabel: document.querySelector("#ability-hud-label"),
   grenadeFill: document.querySelector("#grenade-fill"),
   grenadeText: document.querySelector("#grenade-text"),
   levelText: document.querySelector("#level-text"),
   scoreText: document.querySelector("#score-text"),
+  goldCounter: document.querySelector("#gold-counter"),
   goldText: document.querySelector("#gold-text"),
   killText: document.querySelector("#kill-text"),
   timerText: document.querySelector("#timer-text"),
@@ -5368,6 +8228,10 @@ const ui = {
   titleScreen: document.querySelector("#title-screen"),
   helpScreen: document.querySelector("#help-screen"),
   pauseScreen: document.querySelector("#pause-screen"),
+  healOfferScreen: document.querySelector("#heal-offer-screen"),
+  healOfferGold: document.querySelector("#heal-offer-gold"),
+  healOfferAcceptButton: document.querySelector("#heal-offer-accept-button"),
+  healOfferSkipButton: document.querySelector("#heal-offer-skip-button"),
   upgradeScreen: document.querySelector("#upgrade-screen"),
   gameOverScreen: document.querySelector("#gameover-screen"),
   titleHighScore: document.querySelector("#title-high-score"),
@@ -5375,6 +8239,8 @@ const ui = {
   finalTime: document.querySelector("#final-time"),
   finalKills: document.querySelector("#final-kills"),
   finalBosses: document.querySelector("#final-bosses"),
+  deathCauseCard: document.querySelector("#death-cause-card"),
+  deathCauseText: document.querySelector("#death-cause-text"),
   runHighlights: document.querySelector("#run-highlights"),
   scoreSubmitPanel: document.querySelector("#score-submit-panel"),
   scoreSubmitStatus: document.querySelector("#score-submit-status"),
@@ -5388,6 +8254,12 @@ const ui = {
   grenadeEquipButton: document.querySelector("#grenade-equip-button"),
   grenadeStatus: document.querySelector("#grenade-status"),
   grenadeQuestText: document.querySelector("#grenade-quest-text"),
+  landmineEquipButton: document.querySelector("#landmine-equip-button"),
+  landmineStatus: document.querySelector("#landmine-status"),
+  landmineQuestText: document.querySelector("#landmine-quest-text"),
+  abilitySlotStatus: document.querySelector("#ability-slot-status"),
+  loadoutCharacterName: document.querySelector("#loadout-character-name"),
+  loadoutAccessoryList: document.querySelector("#loadout-accessory-list"),
   questList: document.querySelector("#quest-list"),
   characterList: document.querySelector("#character-list"),
   shopGold: document.querySelector("#shop-gold"),
@@ -5416,22 +8288,81 @@ const ui = {
   adminHealButton: document.querySelector("#admin-heal-button"),
   adminLevelButton: document.querySelector("#admin-level-button"),
   adminGoldRunButton: document.querySelector("#admin-gold-run-button"),
+  adminResetAbilityButton: document.querySelector("#admin-reset-ability-button"),
   adminClearEnemiesButton: document.querySelector("#admin-clear-enemies-button"),
+  adminClearProjectilesButton: document.querySelector("#admin-clear-projectiles-button"),
   adminSpawnBossButton: document.querySelector("#admin-spawn-boss-button"),
+  adminSpawnEnemyButton: document.querySelector("#admin-spawn-enemy-button"),
+  adminMenuHealButton: document.querySelector("#admin-menu-heal-button"),
+  adminMenuLevelButton: document.querySelector("#admin-menu-level-button"),
+  adminGrantXpButton: document.querySelector("#admin-grant-xp-button"),
+  adminMenuGoldButton: document.querySelector("#admin-menu-gold-button"),
+  adminResetAbilityMenuButton: document.querySelector("#admin-reset-ability-menu-button"),
+  adminMenuClearEnemiesButton: document.querySelector("#admin-menu-clear-enemies-button"),
+  adminMenuClearProjectilesButton: document.querySelector("#admin-menu-clear-projectiles-button"),
+  adminMenuSpawnBossButton: document.querySelector("#admin-menu-spawn-boss-button"),
+  adminMenuSpawnEnemyButton: document.querySelector("#admin-menu-spawn-enemy-button"),
+  adminSpawnEnemySelect: document.querySelector("#admin-spawn-enemy-select"),
+  adminAddSaveGoldButton: document.querySelector("#admin-add-save-gold-button"),
+  adminUnlockAbilitiesButton: document.querySelector("#admin-unlock-abilities-button"),
   leaderboardRefreshButton: document.querySelector("#leaderboard-refresh-button"),
   leaderboardStatus: document.querySelector("#leaderboard-status"),
   leaderboardList: document.querySelector("#leaderboard-list"),
+  leaderboardModeButtons: Array.from(document.querySelectorAll("[data-leaderboard-mode]")),
+  coopHostButton: document.querySelector("#coop-host-button"),
+  coopJoinButton: document.querySelector("#coop-join-button"),
+  coopRoomCodeInput: document.querySelector("#coop-room-code-input"),
+  coopRoomPanel: document.querySelector("#coop-room-panel"),
+  coopRoomCode: document.querySelector("#coop-room-code"),
+  coopCopyCodeButton: document.querySelector("#coop-copy-code-button"),
+  coopPlayerList: document.querySelector("#coop-player-list"),
+  coopReadyButton: document.querySelector("#coop-ready-button"),
+  coopStartButton: document.querySelector("#coop-start-button"),
+  coopLeaveButton: document.querySelector("#coop-leave-button"),
+  coopStatusText: document.querySelector("#coop-status-text"),
+  coopStatusPill: document.querySelector("#coop-status-pill"),
   menuTabButtons: Array.from(document.querySelectorAll("[data-menu-tab]")),
   menuPanels: Array.from(document.querySelectorAll("[data-menu-panel]")),
   statFields: Array.from(document.querySelectorAll("[data-stat]")),
+  quickRunGuide: document.querySelector("#quick-run-guide"),
+  wikiUnlockGuide: document.querySelector("#wiki-unlock-guide"),
+  wikiStrategyGuide: document.querySelector("#wiki-strategy-guide"),
   enemyGuide: document.querySelector("#enemy-guide"),
   upgradeGuide: document.querySelector("#upgrade-guide"),
+  wikiWindow: document.querySelector("#menu-panel-guide"),
+  wikiDragHandle: document.querySelector("#wiki-window-header"),
+  wikiCloseButton: document.querySelector("#wiki-close-button"),
   upgradeCards: document.querySelector("#upgrade-cards"),
   ariaStatus: document.querySelector("#aria-status"),
 };
 
 const canvas = document.querySelector("#game-canvas");
 const game = new Game({ canvas, ui, save, audio });
+const multiplayer = new MultiplayerClient({
+  onStatus: (message) => setCoopStatus(message, true),
+  onError: (message) => setCoopStatus(message, false),
+  onCreated: (message) => {
+    setCoopStatus(`Room ${message.roomCode} created.`, true);
+  },
+  onJoined: (message) => {
+    setCoopStatus(`Joined room ${message.roomCode}.`, true);
+  },
+  onState: (state) => renderCoopRoomState(state),
+  onPeerInput: (message) => game.applyRemoteInput(message.playerId, message.payload),
+  onUpgradePick: (message) => game.selectCoopUpgradeForPlayer(message.playerId, message.payload?.upgradeId),
+  onHostSnapshot: (message) => game.applyMultiplayerSnapshot(message.payload),
+  onHostEvent: (message) => handleHostEvent(message.payload),
+  onPeerLeft: (message) => {
+    game.handleCoopPeerLeft(message.playerId);
+    setCoopStatus("Teammate disconnected.", false);
+  },
+  onClosedRoom: (reason) => setCoopStatus(reason, false),
+  onClosed: () => renderCoopRoomState(multiplayer.state),
+});
+game.setMultiplayerHooks({
+  sendUpgradePick: (upgradeId) => multiplayer.sendUpgradePick(upgradeId),
+  sendHostEvent: (payload) => multiplayer.sendHostEvent(payload),
+});
 
 function unlockAudio() {
   audio.unlock().catch(() => {
@@ -5455,6 +8386,151 @@ function saveLeaderboardName(name) {
   }
 }
 
+function getMultiplayerDisplayName() {
+  return (ui.leaderboardNameInput?.value || loadLeaderboardName() || "Player").trim().slice(0, 20) || "Player";
+}
+
+function getMultiplayerProfile() {
+  return game.createMultiplayerProfile(getMultiplayerDisplayName());
+}
+
+function setCoopStatus(message, online = multiplayer.isConnected()) {
+  if (ui.coopStatusText) {
+    ui.coopStatusText.textContent = message;
+  }
+  if (ui.coopStatusPill) {
+    ui.coopStatusPill.textContent = online ? "Online" : "Offline";
+    ui.coopStatusPill.classList.toggle("online", Boolean(online));
+  }
+}
+
+function setCoopControlsEnabled(enabled, message = "") {
+  for (const control of [ui.coopHostButton, ui.coopJoinButton, ui.coopRoomCodeInput, ui.coopReadyButton, ui.coopStartButton]) {
+    if (control) {
+      control.disabled = !enabled;
+    }
+  }
+  if (message) {
+    setCoopStatus(message, enabled && multiplayer.isConnected());
+  }
+}
+
+function renderCoopRoomState(state) {
+  const hasRoom = Boolean(state?.roomCode);
+  if (ui.coopRoomPanel) {
+    ui.coopRoomPanel.hidden = !hasRoom;
+  }
+  if (ui.coopRoomCode) {
+    ui.coopRoomCode.textContent = state?.roomCode ?? "-----";
+  }
+  if (ui.coopPlayerList) {
+    const players = Array.isArray(state?.players) ? state.players : [];
+    const nodes = players.map((player) => {
+      const card = document.createElement("div");
+      card.className = "coop-player-card";
+      const details = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = `${player.name}${player.id === multiplayer.playerId ? " (You)" : ""}`;
+      const meta = document.createElement("span");
+      meta.className = "coop-player-meta";
+      meta.textContent = `${player.role} · ${player.character}`;
+      details.replaceChildren(name, meta);
+      const ready = document.createElement("span");
+      ready.className = `coop-ready-badge${player.ready ? " ready" : ""}`;
+      ready.textContent = player.ready ? "Ready" : "Not ready";
+      card.replaceChildren(details, ready);
+      return card;
+    });
+    ui.coopPlayerList.replaceChildren(...nodes);
+  }
+  const localPlayer = state?.players?.find((player) => player.id === multiplayer.playerId);
+  if (ui.coopReadyButton) {
+    ui.coopReadyButton.textContent = localPlayer?.ready ? "Unready" : "Ready";
+  }
+  if (ui.coopStartButton) {
+    const players = state?.players ?? [];
+    const canStart = multiplayer.role === "host" && players.length === 2 && players.every((player) => player.ready);
+    ui.coopStartButton.disabled = !canStart;
+  }
+}
+
+function handleHostEvent(payload = {}) {
+  if (payload.eventType === "run:start" && multiplayer.role === "guest") {
+    const room = payload.room;
+    game.startMultiplayerGuest({
+      roomCode: room?.roomCode,
+      localPlayerId: multiplayer.playerId,
+      players: room?.players ?? [],
+    });
+    return;
+  }
+  if (payload.eventType === "upgrade:offer" && multiplayer.role === "guest" && payload.playerId === multiplayer.playerId) {
+    game.showGuestUpgradeOffer(payload.choices ?? []);
+    return;
+  }
+  if (payload.eventType === "upgrade:complete" && game.isMultiplayerGuest()) {
+    game.mode = "playing";
+    game.syncScreens();
+  }
+}
+
+function compareLeaderboardEntries(left, right) {
+  return (
+    (Number(right.score) || 0) - (Number(left.score) || 0) ||
+    (Number(right.time) || 0) - (Number(left.time) || 0) ||
+    (Number(right.kills) || 0) - (Number(left.kills) || 0) ||
+    (Number(right.bosses) || 0) - (Number(left.bosses) || 0) ||
+    new Date(left.createdAt ?? 0).getTime() - new Date(right.createdAt ?? 0).getTime()
+  );
+}
+
+function loadLocalLeaderboardEntries(mode = leaderboardMode) {
+  try {
+    const entries = JSON.parse(window.localStorage.getItem(LOCAL_LEADERBOARD_STORAGE_KEY) ?? "[]");
+    return Array.isArray(entries) ? entries.filter((entry) => (entry.mode ?? "solo") === mode).sort(compareLeaderboardEntries).slice(0, 20) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getLocalLeaderboardEntryId(entry) {
+  return [
+    entry.name ?? "Player",
+    Math.floor(Number(entry.score) || 0),
+    Math.round((Number(entry.time) || 0) * 1000),
+    Math.floor(Number(entry.kills) || 0),
+    Math.floor(Number(entry.bosses) || 0),
+    Math.floor(Number(entry.level) || 1),
+    entry.mode ?? "solo",
+    entry.character ?? "gunner",
+  ].join("|");
+}
+
+function saveLocalLeaderboardEntry(entry) {
+  const localEntry = {
+    ...entry,
+    localId: entry.localId ?? getLocalLeaderboardEntryId(entry),
+  };
+  const entries = [
+    localEntry,
+    ...loadLocalLeaderboardEntries().filter((savedEntry) => (savedEntry.localId ?? getLocalLeaderboardEntryId(savedEntry)) !== localEntry.localId),
+  ]
+    .sort(compareLeaderboardEntries)
+    .slice(0, 100);
+  try {
+    window.localStorage.setItem(LOCAL_LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Storage-disabled browsers can still view the score for this session through the returned list.
+  }
+  return entries.slice(0, 20);
+}
+
+function renderLocalLeaderboard(status) {
+  const entries = loadLocalLeaderboardEntries(leaderboardMode);
+  game.renderLeaderboardEntries(entries);
+  game.setLeaderboardStatus(status ?? (entries.length ? "Showing local leaderboard." : "No local scores yet."));
+}
+
 function getLeaderboardStatus(result) {
   if (result?.disabled) {
     return "Online leaderboard is not configured yet.";
@@ -5465,7 +8541,7 @@ function getLeaderboardStatus(result) {
   return result?.error || "Leaderboard request failed.";
 }
 
-function initializeOnlineLeaderboardUi() {
+async function initializeOnlineLeaderboardUi() {
   const enabled = isOnlineLeaderboardEnabled();
   game.setOnlineLeaderboardEnabled(enabled);
   if (ui.leaderboardRefreshButton) {
@@ -5475,30 +8551,41 @@ function initializeOnlineLeaderboardUi() {
     ui.leaderboardNameInput.value = loadLeaderboardName();
   }
   if (!enabled) {
-    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
-    game.renderLeaderboardEntries([]);
+    renderLocalLeaderboard("Online leaderboard is not configured. Showing local scores.");
+    setCoopControlsEnabled(false, "Online co-op is not configured.");
+    return;
+  }
+  if (SELF_TEST_MODE) {
+    game.setLeaderboardStatus("Online leaderboard check skipped for self-test.");
+    return;
+  }
+  game.setLeaderboardStatus("Checking online leaderboard...");
+  const health = await checkLeaderboardHealth();
+  if (health.ok) {
+    setCoopControlsEnabled(Boolean(health.payload?.websocket), health.payload?.websocket ? "Online co-op ready." : "Co-op backend needs the WebSocket update.");
+    await refreshLeaderboard({ loadingStatus: "Loading global scores..." });
   } else {
-    game.setLeaderboardStatus("Press Refresh to load online scores.");
+    setCoopControlsEnabled(false, "Online co-op is unavailable right now.");
+    renderLocalLeaderboard(`${getLeaderboardStatus(health)} Press Refresh to retry online scores. Showing local scores.`);
   }
 }
 
-async function refreshLeaderboard() {
+async function refreshLeaderboard({ loadingStatus = "Loading leaderboard..." } = {}) {
   if (!isOnlineLeaderboardEnabled()) {
-    game.setLeaderboardStatus("Online leaderboard is not configured yet.");
-    game.renderLeaderboardEntries([]);
+    renderLocalLeaderboard("Online leaderboard is not configured. Showing local scores.");
     return;
   }
 
   if (ui.leaderboardRefreshButton) {
     ui.leaderboardRefreshButton.disabled = true;
   }
-  game.setLeaderboardStatus("Loading leaderboard...");
-  const result = await fetchLeaderboard();
+  game.setLeaderboardStatus(loadingStatus);
+  const result = await fetchLeaderboard(leaderboardMode);
   if (result.ok) {
     game.renderLeaderboardEntries(result.entries);
-    game.setLeaderboardStatus(result.entries.length ? "Top online runs loaded." : "No online scores yet.");
+    game.setLeaderboardStatus(result.entries.length ? `${leaderboardMode === "coop" ? "Co-op" : "Solo"} online scores loaded.` : "No online scores yet.");
   } else {
-    game.setLeaderboardStatus(getLeaderboardStatus(result));
+    renderLocalLeaderboard(`${getLeaderboardStatus(result)} Press Refresh to retry online scores. Showing local scores.`);
   }
   if (ui.leaderboardRefreshButton) {
     ui.leaderboardRefreshButton.disabled = !isOnlineLeaderboardEnabled();
@@ -5528,14 +8615,30 @@ async function submitCurrentScore() {
   saveLeaderboardName(name);
   game.setScoreSubmitLoading(true);
   game.setScoreSubmitStatus("Submitting score...");
-  const result = await submitScore({ name, ...runResult });
+  const isCoopScore = runResult.mode === "coop";
+  if (isCoopScore && leaderboardMode !== "coop") {
+    leaderboardMode = "coop";
+    for (const button of ui.leaderboardModeButtons ?? []) {
+      button.classList.toggle("is-active", button.dataset.leaderboardMode === leaderboardMode);
+    }
+  }
+  const submitName = isCoopScore ? runResult.name || name : name;
+  const result = await submitScore({ ...runResult, name: submitName });
   if (result.ok) {
     game.markScoreSubmitted();
-    game.setScoreSubmitStatus("Score submitted.");
+    game.setScoreSubmitStatus("Score submitted online.");
     game.renderLeaderboardEntries(result.entries);
-    game.setLeaderboardStatus("Leaderboard updated.");
+    game.setLeaderboardStatus("Global leaderboard updated.");
   } else {
-    game.setScoreSubmitStatus(getLeaderboardStatus(result));
+    const localEntries = saveLocalLeaderboardEntry({
+      name: submitName,
+      ...runResult,
+      createdAt: new Date().toISOString(),
+    });
+    game.markScoreSavedLocally();
+    game.setScoreSubmitStatus(`${getLeaderboardStatus(result)} Saved locally. Retry online when available.`);
+    game.renderLeaderboardEntries(localEntries);
+    game.setLeaderboardStatus("Showing local scores until online retry succeeds.");
   }
   game.setScoreSubmitLoading(false);
 }
@@ -5545,6 +8648,14 @@ function selectMenuTab(tabId) {
   if (tabId === "leaderboard") {
     refreshLeaderboard();
   }
+}
+
+function setLeaderboardMode(mode) {
+  leaderboardMode = mode === "coop" ? "coop" : "solo";
+  for (const button of ui.leaderboardModeButtons ?? []) {
+    button.classList.toggle("is-active", button.dataset.leaderboardMode === leaderboardMode);
+  }
+  refreshLeaderboard({ loadingStatus: `Loading ${leaderboardMode === "coop" ? "co-op" : "solo"} leaderboard...` });
 }
 
 initializeOnlineLeaderboardUi();
@@ -5575,6 +8686,9 @@ ui.menuSoundButton.addEventListener("click", () => {
 });
 ui.resetStatsButton.addEventListener("click", () => game.handleResetStatsClick());
 ui.grenadeEquipButton?.addEventListener("click", () => game.toggleGrenadeEquip());
+ui.landmineEquipButton?.addEventListener("click", () => game.toggleAbilityEquip("landmine"));
+ui.healOfferAcceptButton?.addEventListener("click", () => game.acceptHealOffer());
+ui.healOfferSkipButton?.addEventListener("click", () => game.skipHealOffer());
 ui.customSongRequestButton?.addEventListener("click", () => game.requestCustomSong());
 ui.musicVolumeInput?.addEventListener("input", () => {
   unlockAudio();
@@ -5599,18 +8713,83 @@ ui.adminPasswordInput?.addEventListener("keydown", (event) => {
   }
 });
 ui.adminGoldInput?.addEventListener("change", () => game.setAdminGold(Number(ui.adminGoldInput.value)));
+ui.adminAddSaveGoldButton?.addEventListener("click", () => game.adminGrantSaveGold(1000));
 ui.adminAddSongButton?.addEventListener("click", () => game.addAdminSongFromForm());
 ui.adminUnlockCharactersButton?.addEventListener("click", () => game.adminUnlockAllCharacters());
+ui.adminUnlockAbilitiesButton?.addEventListener("click", () => game.adminUnlockAllAbilities());
 ui.adminUnlockAllSongsButton?.addEventListener("click", () => game.adminUnlockAllSongs());
 ui.adminClearCustomSongsButton?.addEventListener("click", () => game.adminClearCustomSongs());
 ui.adminHealButton?.addEventListener("click", () => game.adminHealPlayer());
 ui.adminLevelButton?.addEventListener("click", () => game.adminForceLevelUp());
 ui.adminGoldRunButton?.addEventListener("click", () => game.adminGrantRunGold(100));
+ui.adminResetAbilityButton?.addEventListener("click", () => game.adminResetAbilityCooldown());
 ui.adminClearEnemiesButton?.addEventListener("click", () => game.adminClearEnemies());
+ui.adminClearProjectilesButton?.addEventListener("click", () => game.adminClearProjectiles());
 ui.adminSpawnBossButton?.addEventListener("click", () => game.adminSpawnBoss());
+ui.adminSpawnEnemyButton?.addEventListener("click", () => game.adminSpawnEnemy(ui.adminSpawnEnemySelect?.value || "nibbler"));
+ui.adminMenuHealButton?.addEventListener("click", () => game.adminHealPlayer());
+ui.adminMenuLevelButton?.addEventListener("click", () => game.adminForceLevelUp());
+ui.adminGrantXpButton?.addEventListener("click", () => game.adminGrantXp(120));
+ui.adminMenuGoldButton?.addEventListener("click", () => game.adminGrantRunGold(100));
+ui.adminResetAbilityMenuButton?.addEventListener("click", () => game.adminResetAbilityCooldown());
+ui.adminMenuClearEnemiesButton?.addEventListener("click", () => game.adminClearEnemies());
+ui.adminMenuClearProjectilesButton?.addEventListener("click", () => game.adminClearProjectiles());
+ui.adminMenuSpawnBossButton?.addEventListener("click", () => game.adminSpawnBoss());
+ui.adminMenuSpawnEnemyButton?.addEventListener("click", () => game.adminSpawnEnemy(ui.adminSpawnEnemySelect?.value || "nibbler"));
+ui.wikiCloseButton?.addEventListener("click", () => game.closeWikiWindow());
 ui.leaderboardRefreshButton?.addEventListener("click", () => refreshLeaderboard());
 ui.submitScoreButton?.addEventListener("click", () => submitCurrentScore());
 ui.leaderboardNameInput?.addEventListener("change", () => saveLeaderboardName((ui.leaderboardNameInput.value ?? "").trim()));
+ui.leaderboardModeButtons?.forEach((button) => {
+  button.addEventListener("click", () => setLeaderboardMode(button.dataset.leaderboardMode));
+});
+ui.coopHostButton?.addEventListener("click", () => {
+  unlockAudio();
+  multiplayer.createRoom(getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
+});
+ui.coopJoinButton?.addEventListener("click", () => {
+  unlockAudio();
+  const roomCode = (ui.coopRoomCodeInput?.value ?? "").trim().toUpperCase();
+  if (roomCode.length !== 5) {
+    setCoopStatus("Enter a 5-character room code.", false);
+    ui.coopRoomCodeInput?.focus();
+    return;
+  }
+  multiplayer.joinRoom(roomCode, getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
+});
+ui.coopReadyButton?.addEventListener("click", () => {
+  const localPlayer = multiplayer.state?.players?.find((player) => player.id === multiplayer.playerId);
+  multiplayer.setReady(!localPlayer?.ready, getMultiplayerProfile());
+});
+ui.coopStartButton?.addEventListener("click", () => {
+  if (multiplayer.role !== "host" || !multiplayer.state) {
+    return;
+  }
+  game.startRun({
+    multiplayer: {
+      role: "host",
+      roomCode: multiplayer.state.roomCode,
+      localPlayerId: multiplayer.playerId,
+      players: multiplayer.state.players,
+    },
+  });
+  multiplayer.startRun();
+});
+ui.coopLeaveButton?.addEventListener("click", () => {
+  multiplayer.leave();
+  game.returnToTitle();
+  setCoopStatus("Left co-op room.", false);
+});
+ui.coopCopyCodeButton?.addEventListener("click", () => {
+  const code = multiplayer.state?.roomCode ?? "";
+  if (!code) {
+    return;
+  }
+  navigator.clipboard?.writeText(code).then(
+    () => setCoopStatus(`Copied room ${code}.`, true),
+    () => setCoopStatus(`Room code: ${code}`, true),
+  );
+});
 
 function focusMenuTab(nextIndex) {
   const buttonCount = ui.menuTabButtons.length;
@@ -5643,18 +8822,64 @@ ui.menuTabButtons.forEach((button, index) => {
   });
 });
 
-canvas.addEventListener("pointermove", (event) => game.onPointerMove(event.clientX, event.clientY));
+function sendGuestInput() {
+  if (multiplayer.role === "guest" && multiplayer.isConnected() && game.mode !== "title") {
+    multiplayer.sendInput(game.createInputSnapshot());
+  }
+}
+
+canvas.addEventListener("pointermove", (event) => {
+  game.onPointerMove(event.clientX, event.clientY);
+  sendGuestInput();
+});
 canvas.addEventListener("pointerdown", (event) => {
   unlockAudio();
   game.onPointerMove(event.clientX, event.clientY);
   game.handleCanvasClick();
+  sendGuestInput();
 });
+canvas.addEventListener(
+  "wheel",
+  (event) => {
+    if (game.onWheel(event.deltaY, event.clientX, event.clientY) === false) {
+      event.preventDefault();
+    }
+  },
+  { passive: false },
+);
 
 window.addEventListener("keydown", (event) => {
   const isInteractiveTarget = Boolean(event.target.closest?.("button, a, input, select, textarea, [role='tab']"));
   if (
     !isInteractiveTarget &&
-    ["Space", "Escape", "KeyM", "KeyE", "KeyT", "KeyW", "KeyA", "KeyS", "KeyD", "Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(
+    [
+      "Space",
+      "Escape",
+      "KeyM",
+      "KeyE",
+      "KeyF",
+      "KeyT",
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Equal",
+      "Minus",
+      "Digit0",
+      "NumpadAdd",
+      "NumpadSubtract",
+      "Numpad0",
+      "Digit1",
+      "Digit2",
+      "Digit3",
+      "Numpad1",
+      "Numpad2",
+      "Numpad3",
+    ].includes(
       event.code,
     )
   ) {
@@ -5666,9 +8891,13 @@ window.addEventListener("keydown", (event) => {
   }
   unlockAudio();
   game.onKeyDown(event.code);
+  sendGuestInput();
 });
 
-window.addEventListener("keyup", (event) => game.onKeyUp(event.code));
+window.addEventListener("keyup", (event) => {
+  game.onKeyUp(event.code);
+  sendGuestInput();
+});
 window.addEventListener("blur", () => game.handleBlur());
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -5676,8 +8905,14 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+window.setInterval(() => {
+  sendGuestInput();
+  if (multiplayer.role === "host" && multiplayer.isConnected() && game.isMultiplayerHost() && game.mode !== "title") {
+    multiplayer.sendSnapshot(game.createMultiplayerSnapshot());
+  }
+}, 70);
+
 async function runSelfTest() {
-  unlockAudio();
   const results = {
     started: false,
     paused: false,
@@ -5698,6 +8933,11 @@ async function runSelfTest() {
     bossHomingShots: false,
     bossSummonSentinels: false,
     sentinelDashAttack: false,
+    sprinterEnemy: false,
+    marksmanProjectile: false,
+    landmineAbility: false,
+    engineerAutoTurret: false,
+    katanaLifesteal: false,
     upgradeCapRemoval: false,
     katanaUnlock: false,
     katanaMeleeAttack: false,
@@ -5708,11 +8948,39 @@ async function runSelfTest() {
     quitToTitleSavesProgress: false,
     leaderboardOfflinePanel: false,
     gameOverSubmitPanel: false,
+    musicDefaultsRemoved: false,
+    enemyGoldValues: false,
+    medkitUpgradeMaxHpOnly: false,
+    medkitPickupRules: false,
+    levelHealOffer: false,
+    inventoryLoadoutSlot: false,
+    inventoryQuestCards: false,
+    inventoryDropdownToggle: false,
+    engineerTurretBalance: false,
+    worldCamera: false,
+    zoomControls: false,
+    deathCauseCard: false,
+    acidSpitterVisualTuning: false,
+    leaderboardRetryState: false,
   };
 
   game.selectCharacter("gunner");
   game.startRun();
-  results.started = game.getDebugSnapshot().mode === "playing";
+  const startSnapshot = game.getDebugSnapshot();
+  results.started = startSnapshot.mode === "playing";
+  results.worldCamera =
+    startSnapshot.world.infinite === true &&
+    Math.abs(startSnapshot.camera.zoom - 0.72) < 0.001 &&
+    Math.abs(startSnapshot.camera.x + 1280 / (2 * startSnapshot.camera.zoom)) < 0.001 &&
+    Math.abs(startSnapshot.camera.y + 720 / (2 * startSnapshot.camera.zoom)) < 0.001;
+  game.adjustCameraZoom(-1);
+  const zoomedOutSnapshot = game.getDebugSnapshot();
+  game.adjustCameraZoom(1);
+  const zoomedInAgainSnapshot = game.getDebugSnapshot();
+  results.zoomControls =
+    zoomedOutSnapshot.camera.zoom < startSnapshot.camera.zoom &&
+    zoomedOutSnapshot.camera.x < startSnapshot.camera.x &&
+    Math.abs(zoomedInAgainSnapshot.camera.zoom - startSnapshot.camera.zoom) < 0.001;
   game.pause();
   results.paused = game.getDebugSnapshot().mode === "paused";
   game.resume();
@@ -5768,7 +9036,14 @@ async function runSelfTest() {
   const acidSpitter = game.enemies.at(-1);
   acidSpitter.attackCooldownRemaining = 0;
   game.stepManual(0.1);
-  results.acidSpitterProjectile = game.enemyProjectiles.some((projectile) => projectile.acidZoneRadius > 0);
+  const acidProjectile = game.enemyProjectiles.find((projectile) => projectile.acidZoneRadius > 0);
+  results.acidSpitterProjectile = Boolean(acidProjectile);
+  results.acidSpitterVisualTuning =
+    Boolean(acidProjectile) &&
+    acidProjectile.kind === "acid-spit" &&
+    acidProjectile.radius === 8 &&
+    acidProjectile.trailScale > 5 &&
+    Math.hypot(acidProjectile.vx, acidProjectile.vy) >= 350;
 
   game.startRun();
   game.spawnEnemy("tank", 1, { x: game.player.x + 260, y: game.player.y });
@@ -5806,7 +9081,7 @@ async function runSelfTest() {
   boss.chargeDirection = { x: -1, y: 0 };
   game.enemyProjectiles = [];
   game.fireBossChargeShots(boss);
-  results.bossHomingShots = game.enemyProjectiles.filter((projectile) => projectile.homingTarget === "player").length === 2;
+  results.bossHomingShots = game.enemyProjectiles.filter((projectile) => projectile.homingTarget === "player").length === 4;
   game.enemyProjectiles = [];
   game.summonBossAdds(boss);
   results.bossSummonSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel").length >= 3;
@@ -5820,10 +9095,182 @@ async function runSelfTest() {
   results.sentinelDashAttack = sentinel.typeId === "sentinel" && sentinel.state === "dash";
 
   game.startRun();
+  game.spawnEnemy("sprinter", 1, { x: game.player.x + 220, y: game.player.y });
+  const sprinter = game.enemies.at(-1);
+  game.stepManual(0.1);
+  results.sprinterEnemy = sprinter.typeId === "sprinter" && sprinter.speed > 190 && sprinter.vx < 0;
+
+  game.startRun();
+  game.spawnEnemy("marksman", 1, { x: game.player.x + 360, y: game.player.y });
+  const marksman = game.enemies.at(-1);
+  marksman.attackCooldownRemaining = 0;
+  game.stepManual(0.1);
+  results.marksmanProjectile = game.enemyProjectiles.some((projectile) => projectile.sourceEnemyTypeId === "marksman");
+
+  game.save.progress = { ...game.save.progress, landmineUnlocked: true, equippedAbilityId: "landmine", grenadeEquipped: false };
+  game.startRun();
+  game.tryAbility();
+  const mine = game.landmines.at(-1);
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 10, y: game.player.y });
+  game.stepManual(0.6);
+  results.landmineAbility = Boolean(mine && mine.dead && game.getDebugSnapshot().landmineCount === 0);
+
+  game.save.progress = { ...game.save.progress, engineerUnlocked: true, selectedCharacterId: "engineer" };
+  game.startRun();
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
+  game.stepManual(0.1);
+  results.engineerAutoTurret = game.getDebugSnapshot().turretCount === 1;
+
+  game.save.progress = { ...game.save.progress, engineerUnlocked: true, selectedCharacterId: "engineer" };
+  game.startRun();
+  const baseTurret = {
+    cooldown: game.player.turretDeployCooldown,
+    lifetime: game.player.turretLifetime,
+    range: game.player.turretRange,
+    fireCooldown: game.player.turretFireCooldown,
+  };
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
+  game.tryDeployTurret();
+  game.stepManual(0.2);
+  const turretShot = game.projectiles.find((projectile) => projectile.source === "turret");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("calibrated-turret");
+  results.engineerTurretBalance =
+    baseTurret.cooldown === 10 &&
+    baseTurret.lifetime === 6 &&
+    baseTurret.range === 300 &&
+    baseTurret.fireCooldown === 0.8 &&
+    Boolean(turretShot && Math.abs(turretShot.damage - 0.6) < 0.001) &&
+    Math.abs(game.player.turretDeployCooldown - 8.2) < 0.001 &&
+    game.player.turretLifetime === 8 &&
+    game.player.turretRange === 360 &&
+    game.player.turretDamageBonus === 0.5;
+
+  game.save.progress = { ...game.save.progress, katanaUnlocked: true, selectedCharacterId: "katana" };
+  game.startRun();
+  game.player.hp = Math.max(1, game.player.maxHp - 1);
+  game.run.kills = 49;
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 60, y: game.player.y });
+  const lifestealTarget = game.enemies.at(-1);
+  game.damageEnemy(lifestealTarget, lifestealTarget.hp, "self-test");
+  results.katanaLifesteal = game.player.hp === game.player.maxHp;
+
+  game.startRun();
   game.forceUpgrade("bubble-guard");
   game.forceUpgrade("bubble-guard");
   game.forceUpgrade("bubble-guard");
   results.upgradeCapRemoval = !game.getDebugSnapshot().availableUpgrades.includes("bubble-guard");
+
+  const builtInSongIds = new Set(["arcade-pulse", "neon-run", "boss-voltage"]);
+  results.musicDefaultsRemoved =
+    !game.getSongCatalog().some((song) => song.builtIn || builtInSongIds.has(song.id)) &&
+    !(game.save.music?.ownedSongIds ?? []).some((songId) => builtInSongIds.has(songId)) &&
+    !builtInSongIds.has(game.save.music?.selectedSongId ?? "");
+
+  game.startRun();
+  const expectedGoldValues = [
+    ["nibbler", 2],
+    ["sprinter", 1],
+    ["spitter", 5],
+    ["marksman", 6],
+    ["acid-spitter", 7],
+    ["bumper", 8],
+    ["tank", 15],
+    ["sentinel", 3],
+  ];
+  const enemyGoldOk = expectedGoldValues.every(([enemyId, goldValue]) => {
+    game.spawnEnemy(enemyId, 1, { x: game.player.x + 220, y: game.player.y });
+    return game.getEnemyGoldValue(game.enemies.at(-1)) === goldValue;
+  });
+  game.spawnBoss(0);
+  results.enemyGoldValues = enemyGoldOk && game.getEnemyGoldValue(game.enemies.find((enemy) => enemy.isBoss)) === 25;
+
+  game.startRun();
+  game.player.hp = 2;
+  game.forceUpgrade("heart-balloon");
+  results.medkitUpgradeMaxHpOnly = game.player.maxHp === 6 && game.player.hp === 2;
+
+  game.startRun();
+  const medkit = {
+    type: "medkit",
+    x: game.player.x,
+    y: game.player.y,
+    vx: 0,
+    vy: 0,
+    radius: 11,
+    value: 2,
+    life: 16,
+    dead: false,
+  };
+  game.pickups.push(medkit);
+  game.updatePickups(0.016);
+  const medkitIgnoredAtFullHp = !medkit.dead && game.player.hp === game.player.maxHp;
+  game.player.hp = game.player.maxHp - 2;
+  game.updatePickups(0.016);
+  results.medkitPickupRules = medkitIgnoredAtFullHp && medkit.dead && game.player.hp === game.player.maxHp;
+
+  const previousGoldForHealOffer = game.save.wallet.gold;
+  game.save.wallet.gold = 500;
+  game.startRun();
+  game.pendingLevelUps = 1;
+  game.pendingHealOfferLevels = [10];
+  game.player.hp = game.player.maxHp;
+  game.showNextLevelReward();
+  const healOfferSkipsFullHp = game.mode === "upgrade";
+  game.save.wallet.gold = 499;
+  game.startRun();
+  game.pendingLevelUps = 1;
+  game.pendingHealOfferLevels = [10];
+  game.player.hp = game.player.maxHp - 1;
+  game.showNextLevelReward();
+  const healOfferSkipsInsufficientGold = game.mode === "upgrade";
+  game.save.wallet.gold = 500;
+  game.startRun();
+  game.pendingLevelUps = 1;
+  game.pendingHealOfferLevels = [10];
+  game.player.hp = game.player.maxHp - 1;
+  game.showNextLevelReward();
+  const healOfferShowsWhenEligible = game.mode === "healOffer";
+  results.levelHealOffer = healOfferSkipsFullHp && healOfferSkipsInsufficientGold && healOfferShowsWhenEligible;
+  game.save.wallet.gold = previousGoldForHealOffer;
+
+  game.save.progress = {
+    ...game.save.progress,
+    grenadeUnlocked: true,
+    landmineUnlocked: true,
+    selectedCharacterId: "gunner",
+    equippedAbilityId: "",
+    grenadeEquipped: false,
+    loadouts: {
+      ...game.getLoadouts(),
+      gunner: { accessoryIds: [] },
+    },
+  };
+  game.toggleAbilityEquip("grenade");
+  const grenadeLoadoutEquipped = game.getEquippedAbilityId() === "grenade" && game.getSelectedAccessoryIds("gunner").join(",") === "grenade";
+  game.toggleAbilityEquip("landmine");
+  const landmineLoadoutEquipped = game.getEquippedAbilityId() === "landmine" && game.getSelectedAccessoryIds("gunner").join(",") === "landmine";
+  game.renderCharacterMenu();
+  game.renderQuestMenu();
+  results.inventoryLoadoutSlot =
+    grenadeLoadoutEquipped &&
+    landmineLoadoutEquipped &&
+    document.querySelector("#loadout-character-name")?.textContent === "Gunner" &&
+    document.querySelector("#loadout-accessory-list")?.textContent === "Landmine";
+  results.inventoryQuestCards =
+    document.querySelector("#menu-tab-characters .menu-tab-label")?.textContent?.trim() === "Inventory" &&
+    document.querySelectorAll("#character-list .inventory-section").length === 2 &&
+    document.querySelectorAll("#quest-list .quest-section").length >= 1 &&
+    document.querySelectorAll("#quest-list .quest-row .quest-badge").length >= 4 &&
+    !document.querySelector("#menu-panel-play #grenade-equip-button") &&
+    !document.querySelector("#menu-panel-play #landmine-equip-button");
+  const characterDropdown = document.querySelector('#character-list [data-inventory-section="characters"]');
+  characterDropdown?.querySelector("summary")?.click();
+  const dropdownClosedAfterClick = characterDropdown?.open === false;
+  game.updateHud();
+  results.inventoryDropdownToggle =
+    dropdownClosedAfterClick && document.querySelector('#character-list [data-inventory-section="characters"]')?.open === false;
+
   const statsBefore = {
     runs: game.save.stats.total.runs,
     kills: game.save.stats.total.kills,
@@ -5844,6 +9291,14 @@ async function runSelfTest() {
   results.gameOverSubmitPanel =
     Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton) &&
     game.getLastCompletedRunResult()?.score === 9999;
+  game.markScoreSavedLocally();
+  results.leaderboardRetryState =
+    scoreSubmitButton?.textContent === "Retry Online" &&
+    scoreSubmitButton.disabled === false &&
+    document.querySelector("#score-submit-status")?.textContent.includes("Retry online");
+  game.scoreSubmitState = "idle";
+  game.onlineScoreSubmitted = false;
+  game.updateScoreSubmitPanel();
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
   game.setMenuTab("leaderboard");
@@ -5890,6 +9345,10 @@ async function runSelfTest() {
   game.damageEnemy(guideEnemy, guideEnemy.hp, "self-test");
   game.player.hp = 1;
   game.takePlayerDamage(1, "nibbler");
+  results.deathCauseCard =
+    game.getLastCompletedRunResult()?.deathCause?.label === "Killed by Runner - Contact" &&
+    document.querySelector("#death-cause-card")?.hidden === false &&
+    document.querySelector("#death-cause-text")?.textContent === "Killed by Runner - Contact";
   results.enemyGuideStatsPersist =
     (game.save.stats.enemy?.nibbler?.kills ?? 0) >= enemyStatsBefore.kills + 1 &&
     (game.save.stats.enemy?.nibbler?.deaths ?? 0) >= enemyStatsBefore.deaths + 1;
@@ -5928,7 +9387,7 @@ async function runSelfTest() {
   output.textContent = JSON.stringify({ success, results }, null, 2);
 }
 
-if (new URLSearchParams(window.location.search).get("selfTest") === "1") {
+if (SELF_TEST_MODE) {
   runSelfTest().catch((error) => {
     document.body.dataset.selfTest = "fail";
     const output = document.querySelector("#self-test-output");

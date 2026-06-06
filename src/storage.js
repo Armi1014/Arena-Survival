@@ -7,6 +7,8 @@ const AUDIO_STORE_NAME = "song-files";
 const AUDIO_DB_VERSION = 1;
 const songAudioUrls = new Map();
 const ENEMY_STAT_IDS = [...Object.keys(ENEMY_DEFS), BOSS_DEF.id];
+const ABILITY_ACCESSORY_IDS = ["grenade", "landmine"];
+const LEGACY_BUILT_IN_SONG_IDS = new Set(["arcade-pulse", "neon-run", "boss-voltage"]);
 
 function openAudioDatabase() {
   return new Promise((resolve, reject) => {
@@ -114,16 +116,79 @@ function getEmptyStats() {
   };
 }
 
+function getEmptyLoadouts() {
+  return Object.fromEntries(Object.values(CHARACTER_IDS).map((characterId) => [characterId, { accessoryIds: [] }]));
+}
+
+function normalizeAbilityId(abilityId, grenadeUnlocked, landmineUnlocked) {
+  if (abilityId === "grenade" && grenadeUnlocked) {
+    return "grenade";
+  }
+  if (abilityId === "landmine" && landmineUnlocked) {
+    return "landmine";
+  }
+  return "";
+}
+
+function normalizeLoadouts(progress, selectedCharacterId, equippedAbilityId, grenadeUnlocked, landmineUnlocked) {
+  const loadouts = getEmptyLoadouts();
+  const sourceLoadouts = progress?.loadouts && typeof progress.loadouts === "object" ? progress.loadouts : {};
+  for (const characterId of Object.values(CHARACTER_IDS)) {
+    const rawAccessoryIds = Array.isArray(sourceLoadouts?.[characterId]?.accessoryIds)
+      ? sourceLoadouts[characterId].accessoryIds
+      : [];
+    const accessoryIds = rawAccessoryIds
+      .map((abilityId) => normalizeAbilityId(abilityId, grenadeUnlocked, landmineUnlocked))
+      .filter(Boolean)
+      .slice(0, 1);
+    loadouts[characterId] = { accessoryIds };
+  }
+  if (equippedAbilityId && !loadouts[selectedCharacterId]?.accessoryIds?.length) {
+    loadouts[selectedCharacterId] = { accessoryIds: [equippedAbilityId] };
+  }
+  return loadouts;
+}
+
+function getLoadoutAbilityId(loadouts, selectedCharacterId, grenadeUnlocked, landmineUnlocked) {
+  const accessoryIds = loadouts?.[selectedCharacterId]?.accessoryIds ?? [];
+  for (const accessoryId of accessoryIds) {
+    const normalized = normalizeAbilityId(accessoryId, grenadeUnlocked, landmineUnlocked);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return "";
+}
+
+function normalizeMusicState(music) {
+  const adminSongs = Array.isArray(music?.adminSongs) ? music.adminSongs.filter((song) => song?.id && song?.title) : [];
+  const catalogIds = new Set([...DEFAULT_SONGS.map((song) => song.id), ...adminSongs.map((song) => song.id)]);
+  const ownedSongIds = Array.isArray(music?.ownedSongIds)
+    ? music.ownedSongIds.filter((id) => typeof id === "string" && catalogIds.has(id) && !LEGACY_BUILT_IN_SONG_IDS.has(id))
+    : [];
+  const freeDefaultSongIds = DEFAULT_SONGS.filter((song) => Math.max(0, Number(song.price) || 0) === 0).map((song) => song.id);
+  const owned = Array.from(new Set([...freeDefaultSongIds, ...ownedSongIds]));
+  const selectedSongId =
+    typeof music?.selectedSongId === "string" && owned.includes(music.selectedSongId) && catalogIds.has(music.selectedSongId)
+      ? music.selectedSongId
+      : "";
+  return {
+    selectedSongId,
+    ownedSongIds: owned,
+    customRequests: Array.isArray(music?.customRequests) ? music.customRequests : [],
+    adminSongs,
+  };
+}
+
 function getEmptySave() {
-  const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
   return {
     highScore: 0,
     wallet: {
       gold: 0,
     },
     music: {
-      selectedSongId: defaultSongId,
-      ownedSongIds: [defaultSongId],
+      selectedSongId: "",
+      ownedSongIds: [],
       customRequests: [],
       adminSongs: [],
     },
@@ -131,9 +196,12 @@ function getEmptySave() {
     progress: {
       grenadeUnlocked: false,
       grenadeEquipped: false,
+      landmineUnlocked: false,
+      equippedAbilityId: "",
       katanaUnlocked: false,
       engineerUnlocked: false,
       selectedCharacterId: CHARACTER_IDS.gunner,
+      loadouts: getEmptyLoadouts(),
     },
     settings: { ...SETTINGS_DEFAULTS },
   };
@@ -191,33 +259,42 @@ export function loadSave() {
     const parsed = JSON.parse(raw);
     const stats = normalizeStats(parsed?.stats, parsed?.highScore);
     const grenadeUnlocked = Boolean(parsed?.progress?.grenadeUnlocked || stats.best.kills >= 250);
+    const landmineUnlocked = Boolean(parsed?.progress?.landmineUnlocked || stats.best.time >= 300);
+    const legacyGrenadeEquipped = Boolean(grenadeUnlocked && parsed?.progress?.grenadeEquipped);
+    const requestedAbilityId = typeof parsed?.progress?.equippedAbilityId === "string" ? parsed.progress.equippedAbilityId : "";
+    const equippedAbilityId =
+      requestedAbilityId === "grenade" && grenadeUnlocked
+        ? "grenade"
+        : requestedAbilityId === "landmine" && landmineUnlocked
+          ? "landmine"
+          : legacyGrenadeEquipped
+            ? "grenade"
+            : "";
     const katanaUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.katana);
     const engineerUnlocked = isCharacterUnlocked(parsed?.progress, stats, CHARACTER_IDS.engineer);
     const selectedCharacterId = [CHARACTER_IDS.katana, CHARACTER_IDS.engineer].includes(parsed?.progress?.selectedCharacterId) &&
       isCharacterUnlocked({ ...parsed?.progress, katanaUnlocked, engineerUnlocked }, stats, parsed.progress.selectedCharacterId)
       ? parsed.progress.selectedCharacterId
       : CHARACTER_IDS.gunner;
-    const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
-    const adminSongs = Array.isArray(parsed?.music?.adminSongs) ? parsed.music.adminSongs.filter((song) => song?.id && song?.title) : [];
-    const ownedSongIds = Array.isArray(parsed?.music?.ownedSongIds) ? parsed.music.ownedSongIds : [];
+    const loadouts = normalizeLoadouts(parsed?.progress, selectedCharacterId, equippedAbilityId, grenadeUnlocked, landmineUnlocked);
+    const loadoutAbilityId = getLoadoutAbilityId(loadouts, selectedCharacterId, grenadeUnlocked, landmineUnlocked) || equippedAbilityId;
+    const music = normalizeMusicState(parsed?.music);
     return {
       highScore: Number.isFinite(parsed?.highScore) ? parsed.highScore : 0,
       wallet: {
         gold: Math.max(0, toFiniteNumber(parsed?.wallet?.gold)),
       },
-      music: {
-        selectedSongId: parsed?.music?.selectedSongId || defaultSongId,
-        ownedSongIds: Array.from(new Set([defaultSongId, ...ownedSongIds])),
-        customRequests: Array.isArray(parsed?.music?.customRequests) ? parsed.music.customRequests : [],
-        adminSongs,
-      },
+      music,
       stats,
       progress: {
         grenadeUnlocked,
-        grenadeEquipped: Boolean(grenadeUnlocked && parsed?.progress?.grenadeEquipped),
+        grenadeEquipped: loadoutAbilityId === "grenade",
+        landmineUnlocked,
+        equippedAbilityId: loadoutAbilityId,
         katanaUnlocked,
         engineerUnlocked,
         selectedCharacterId,
+        loadouts,
       },
       settings: {
         ...SETTINGS_DEFAULTS,
@@ -243,21 +320,14 @@ export function updateWallet(save, partialWallet) {
 }
 
 export function updateMusic(save, partialMusic) {
-  const defaultSongId = DEFAULT_SONGS[0]?.id ?? "arcade-pulse";
-  const currentMusic = save.music ?? {};
+  const currentMusic = normalizeMusicState(save.music ?? {});
   const next = {
     ...save,
-    music: {
-      selectedSongId: currentMusic.selectedSongId || defaultSongId,
-      ownedSongIds: Array.from(new Set([defaultSongId, ...(currentMusic.ownedSongIds ?? [])])),
-      customRequests: currentMusic.customRequests ?? [],
-      adminSongs: currentMusic.adminSongs ?? [],
+    music: normalizeMusicState({
+      ...currentMusic,
       ...partialMusic,
-    },
+    }),
   };
-  next.music.ownedSongIds = Array.from(new Set([defaultSongId, ...(next.music.ownedSongIds ?? [])]));
-  next.music.adminSongs = Array.isArray(next.music.adminSongs) ? next.music.adminSongs : [];
-  next.music.customRequests = Array.isArray(next.music.customRequests) ? next.music.customRequests : [];
   persistSave(next);
   return next;
 }
@@ -322,7 +392,13 @@ export function recordRun(save, run) {
     progress: {
       ...(save.progress ?? {}),
       grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked || kills >= 250),
-      grenadeEquipped: Boolean((save.progress?.grenadeUnlocked || kills >= 250) && save.progress?.grenadeEquipped),
+      grenadeEquipped: Boolean(save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped),
+      landmineUnlocked: Boolean(save.progress?.landmineUnlocked || elapsed >= 300),
+      equippedAbilityId: save.progress?.equippedAbilityId === "landmine" && (save.progress?.landmineUnlocked || elapsed >= 300)
+        ? "landmine"
+        : (save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped) && (save.progress?.grenadeUnlocked || kills >= 250)
+          ? "grenade"
+          : "",
       katanaUnlocked: Boolean(save.progress?.katanaUnlocked || stats.total.bosses + bosses >= KATANA_UNLOCK_BOSSES),
       engineerUnlocked: Boolean(save.progress?.engineerUnlocked || stats.total.kills + kills >= ENGINEER_UNLOCK_KILLS),
       selectedCharacterId: isCharacterUnlocked(
@@ -343,6 +419,13 @@ export function recordRun(save, run) {
       )
         ? save.progress.selectedCharacterId
         : CHARACTER_IDS.gunner,
+      loadouts: normalizeLoadouts(
+        save.progress,
+        isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId) ? save.progress.selectedCharacterId : CHARACTER_IDS.gunner,
+        save.progress?.equippedAbilityId,
+        Boolean(save.progress?.grenadeUnlocked || kills >= 250),
+        Boolean(save.progress?.landmineUnlocked || elapsed >= 300),
+      ),
     },
     stats: {
       best: {
@@ -379,19 +462,61 @@ export function resetStats(save) {
 }
 
 export function updateProgress(save, partialProgress) {
+  const baseGrenadeUnlocked = Boolean(save.progress?.grenadeUnlocked);
+  const baseLandmineUnlocked = Boolean(save.progress?.landmineUnlocked);
+  const baseEquippedAbilityId =
+    save.progress?.equippedAbilityId === "landmine" && baseLandmineUnlocked
+      ? "landmine"
+      : (save.progress?.equippedAbilityId === "grenade" || save.progress?.grenadeEquipped) && baseGrenadeUnlocked
+        ? "grenade"
+        : "";
+  const baseSelectedCharacterId = isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId)
+    ? save.progress.selectedCharacterId
+    : CHARACTER_IDS.gunner;
+  const baseLoadouts = normalizeLoadouts(
+    save.progress,
+    baseSelectedCharacterId,
+    baseEquippedAbilityId,
+    baseGrenadeUnlocked,
+    baseLandmineUnlocked,
+  );
   const nextProgress = {
-    grenadeUnlocked: Boolean(save.progress?.grenadeUnlocked),
-    grenadeEquipped: Boolean(save.progress?.grenadeUnlocked && save.progress?.grenadeEquipped),
+    grenadeUnlocked: baseGrenadeUnlocked,
+    grenadeEquipped: baseEquippedAbilityId === "grenade",
+    landmineUnlocked: baseLandmineUnlocked,
+    equippedAbilityId: baseEquippedAbilityId,
     katanaUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.katana),
     engineerUnlocked: isCharacterUnlocked(save.progress, save.stats, CHARACTER_IDS.engineer),
-    selectedCharacterId: isCharacterUnlocked(save.progress, save.stats, save.progress?.selectedCharacterId)
-      ? save.progress.selectedCharacterId
-      : CHARACTER_IDS.gunner,
+    selectedCharacterId: baseSelectedCharacterId,
+    loadouts: baseLoadouts,
     ...partialProgress,
   };
-  nextProgress.grenadeEquipped = Boolean(nextProgress.grenadeUnlocked && nextProgress.grenadeEquipped);
+  nextProgress.loadouts = normalizeLoadouts(
+    nextProgress,
+    nextProgress.selectedCharacterId,
+    nextProgress.equippedAbilityId,
+    nextProgress.grenadeUnlocked,
+    nextProgress.landmineUnlocked,
+  );
+  nextProgress.equippedAbilityId =
+    getLoadoutAbilityId(nextProgress.loadouts, nextProgress.selectedCharacterId, nextProgress.grenadeUnlocked, nextProgress.landmineUnlocked) ||
+    normalizeAbilityId(nextProgress.equippedAbilityId, nextProgress.grenadeUnlocked, nextProgress.landmineUnlocked);
+  if (nextProgress.equippedAbilityId === "grenade" && !nextProgress.grenadeUnlocked) {
+    nextProgress.equippedAbilityId = "";
+  }
+  if (nextProgress.equippedAbilityId === "landmine" && !nextProgress.landmineUnlocked) {
+    nextProgress.equippedAbilityId = "";
+  }
+  nextProgress.grenadeEquipped = nextProgress.equippedAbilityId === "grenade";
   nextProgress.selectedCharacterId =
     isCharacterUnlocked(nextProgress, save.stats, nextProgress.selectedCharacterId) ? nextProgress.selectedCharacterId : CHARACTER_IDS.gunner;
+  nextProgress.loadouts = normalizeLoadouts(
+    nextProgress,
+    nextProgress.selectedCharacterId,
+    nextProgress.equippedAbilityId,
+    nextProgress.grenadeUnlocked,
+    nextProgress.landmineUnlocked,
+  );
   const next = {
     ...save,
     progress: nextProgress,

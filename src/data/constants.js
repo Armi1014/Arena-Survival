@@ -1,5 +1,12 @@
 export const LOGICAL_WIDTH = 1280;
 export const LOGICAL_HEIGHT = 720;
+export const CAMERA_CONFIG = {
+  defaultZoom: 0.72,
+  minZoom: 0.5,
+  maxZoom: 1.2,
+  keyboardStep: 0.1,
+  wheelSensitivity: 0.0014,
+};
 export const STORAGE_KEY = "bubble-blitz-forever-save";
 
 export const SETTINGS_DEFAULTS = {
@@ -10,29 +17,7 @@ export const SETTINGS_DEFAULTS = {
 
 export const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
 
-export const DEFAULT_SONGS = [
-  {
-    id: "arcade-pulse",
-    title: "Arcade Pulse",
-    artist: "Arena System",
-    price: 0,
-    builtIn: true,
-  },
-  {
-    id: "neon-run",
-    title: "Neon Run",
-    artist: "Arena System",
-    price: 120,
-    builtIn: true,
-  },
-  {
-    id: "boss-voltage",
-    title: "Boss Voltage",
-    artist: "Arena System",
-    price: 250,
-    builtIn: true,
-  },
-];
+export const DEFAULT_SONGS = [];
 
 export const PLAYER_BASE = {
   radius: 18,
@@ -59,12 +44,34 @@ export const PLAYER_BASE = {
   grenadeRadius: 96,
   grenadeProjectileSpeed: 890,
   grenadeFuse: 0.78,
+  landmineCooldown: 9,
+  landmineDamage: 10,
+  landmineRadius: 120,
+  landmineArmTime: 0.5,
+  landmineTriggerRadius: 34,
+  maxLandmines: 4,
 };
 
 export const SCORE_CONFIG = {
   survivalPerSecond: 12,
   killUnit: 42,
   bossBonus: 1200,
+};
+
+export const GOLD_CONFIG = {
+  normalKill: 1,
+  bossKill: 25,
+  doubleChance: 0.01,
+  enemyKills: {
+    nibbler: 2,
+    sprinter: 1,
+    spitter: 5,
+    marksman: 6,
+    "acid-spitter": 7,
+    bumper: 8,
+    tank: 15,
+    sentinel: 3,
+  },
 };
 
 export const XP_CONFIG = {
@@ -80,6 +87,8 @@ export const GAME_CONFIG = {
   bossInterval: 180,
   bossWarningLead: 8,
   maxEnemies: 90,
+  enemyRecycleMargin: 900,
+  enemyRecycleSeconds: 4,
 };
 
 export function getXpThreshold(level) {

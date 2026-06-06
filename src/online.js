@@ -1,8 +1,27 @@
 const LEADERBOARD_API_BASE_URL = "https://arena-survival-leaderboard.onrender.com";
 const PLACEHOLDER_API_BASE_URL = "";
 const REQUEST_TIMEOUT_MS = 15000;
+const API_OVERRIDE_STORAGE_KEY = "arena-survival-api-base-url";
 
 function getApiBaseUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const queryOverride = params.get("apiBase")?.trim();
+  if (queryOverride) {
+    try {
+      window.localStorage.setItem(API_OVERRIDE_STORAGE_KEY, queryOverride);
+    } catch {
+      // Storage-disabled browsers can still use the override for the current page.
+    }
+    return queryOverride.replace(/\/+$/, "");
+  }
+  try {
+    const storedOverride = window.localStorage.getItem(API_OVERRIDE_STORAGE_KEY)?.trim();
+    if (storedOverride) {
+      return storedOverride.replace(/\/+$/, "");
+    }
+  } catch {
+    // Fall back to the built-in production URL.
+  }
   return LEADERBOARD_API_BASE_URL.trim().replace(/\/+$/, "");
 }
 
@@ -56,8 +75,30 @@ export function isOnlineLeaderboardEnabled() {
   return !isPlaceholderUrl(getApiBaseUrl());
 }
 
-export async function fetchLeaderboard() {
-  return requestJson("/leaderboard");
+export function getMultiplayerWebSocketUrl() {
+  const baseUrl = getApiBaseUrl();
+  if (isPlaceholderUrl(baseUrl)) {
+    return "";
+  }
+  try {
+    const url = new URL(baseUrl);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/multiplayer";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+export async function fetchLeaderboard(mode = "solo") {
+  const safeMode = mode === "coop" ? "coop" : "solo";
+  return requestJson(`/leaderboard?mode=${encodeURIComponent(safeMode)}`);
+}
+
+export async function checkLeaderboardHealth() {
+  return requestJson("/health");
 }
 
 export async function submitScore(runResult) {

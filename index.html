@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arena Survival</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23040a16'/%3E%3Cpath d='M32 8l18 10v20L32 56 14 38V18z' fill='%2322d3ee'/%3E%3Cpath d='M32 16l10 6v12L32 44 22 34V22z' fill='%23fb7185'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=coop-multiplayer-v1" />
   </head>
   <body>
     <div class="page-shell">
@@ -54,7 +54,7 @@
               </div>
 
               <div id="grenade-hud-panel" class="panel compact-panel" hidden>
-                <span class="panel-label">Grenade</span>
+                <span id="ability-hud-label" class="panel-label">Ability</span>
                 <div class="meter">
                   <div id="grenade-fill" class="meter-fill grenade-fill"></div>
                 </div>
@@ -66,10 +66,6 @@
               <div class="panel compact-panel">
                 <span class="panel-label">Score</span>
                 <span id="score-text" class="panel-value">0</span>
-              </div>
-              <div class="panel compact-panel">
-                <span class="panel-label">Gold</span>
-                <span id="gold-text" class="panel-value">0</span>
               </div>
               <div class="panel compact-panel">
                 <span class="panel-label">Kills</span>
@@ -84,6 +80,13 @@
                 <span id="hud-high-score" class="panel-value">0</span>
               </div>
             </div>
+            <div id="gold-counter" class="gold-counter" aria-label="Gold">
+              <span class="gold-coin" aria-hidden="true">$</span>
+              <span class="gold-counter-copy">
+                <span class="panel-label">Gold</span>
+                <strong id="gold-text">0</strong>
+              </span>
+            </div>
 
             <div id="boss-banner" class="boss-banner" hidden></div>
 
@@ -92,8 +95,11 @@
               <button id="admin-heal-button" class="ghost-button" type="button">Heal</button>
               <button id="admin-level-button" class="ghost-button" type="button">Level Up</button>
               <button id="admin-gold-run-button" class="ghost-button" type="button">+100 Gold</button>
+              <button id="admin-reset-ability-button" class="ghost-button" type="button">Reset CDs</button>
               <button id="admin-clear-enemies-button" class="ghost-button" type="button">Clear Enemies</button>
+              <button id="admin-clear-projectiles-button" class="ghost-button" type="button">Clear Hazards</button>
               <button id="admin-spawn-boss-button" class="danger-button" type="button">Spawn Boss</button>
+              <button id="admin-spawn-enemy-button" class="ghost-button" type="button">Spawn Enemy</button>
             </div>
           </section>
 
@@ -144,8 +150,8 @@
                   </div>
                   <div class="hero-loadout-card" aria-label="Starting loadout">
                     <span>Loadout</span>
-                    <strong>Auto-target blaster</strong>
-                    <p class="screen-copy">Dash every 2.4s. First boss arrives at 03:00.</p>
+                    <strong id="loadout-character-name">Gunner</strong>
+                    <p id="loadout-accessory-list" class="screen-copy">No accessories equipped</p>
                   </div>
                 </div>
 
@@ -158,7 +164,7 @@
                       <span class="menu-tab-label">Quests</span>
                     </button>
                     <button id="menu-tab-characters" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-characters" aria-selected="false" data-menu-tab="characters">
-                      <span class="menu-tab-label">Characters</span>
+                      <span class="menu-tab-label">Inventory</span>
                     </button>
                     <button id="menu-tab-guide" class="menu-tab" type="button" role="tab" aria-controls="menu-panel-guide" aria-selected="false" data-menu-tab="guide">
                       <span class="menu-tab-label">Wiki</span>
@@ -201,13 +207,33 @@
                           <strong>2.4s</strong>
                         </div>
                       </div>
-                      <div class="ability-panel">
-                        <div>
-                          <span class="panel-label">Quest Ability</span>
-                          <strong id="grenade-status">Grenade locked</strong>
-                          <p id="grenade-quest-text" class="screen-copy">Quest: get 250 kills in a single run to unlock grenades.</p>
+                      <div class="coop-card" aria-label="Online co-op multiplayer">
+                        <div class="coop-card-header">
+                          <div>
+                            <p class="eyebrow">Online Co-op</p>
+                            <h4>2-player survival</h4>
+                          </div>
+                          <span id="coop-status-pill" class="coop-status-pill">Offline</span>
                         </div>
-                        <button id="grenade-equip-button" class="ghost-button" type="button" disabled>Equip Grenade</button>
+                        <div class="coop-actions">
+                          <button id="coop-host-button" class="ghost-button" type="button">Host Room</button>
+                          <input id="coop-room-code-input" class="text-input coop-code-input" type="text" maxlength="5" autocomplete="off" placeholder="Code" aria-label="Room code" />
+                          <button id="coop-join-button" class="ghost-button" type="button">Join</button>
+                        </div>
+                        <div id="coop-room-panel" class="coop-room-panel" hidden>
+                          <div class="coop-room-line">
+                            <span>Room</span>
+                            <strong id="coop-room-code">-----</strong>
+                            <button id="coop-copy-code-button" class="ghost-button tiny-button" type="button">Copy</button>
+                          </div>
+                          <div id="coop-player-list" class="coop-player-list" aria-label="Co-op players"></div>
+                          <div class="coop-actions">
+                            <button id="coop-ready-button" class="ghost-button" type="button">Ready</button>
+                            <button id="coop-start-button" class="primary-button" type="button" disabled>Start Co-op</button>
+                            <button id="coop-leave-button" class="danger-button" type="button">Leave</button>
+                          </div>
+                        </div>
+                        <p id="coop-status-text" class="screen-copy" aria-live="polite">Host a room or join with a code.</p>
                       </div>
                     </section>
 
@@ -218,9 +244,9 @@
                     </section>
 
                     <section id="menu-panel-characters" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-characters" data-menu-panel="characters" hidden>
-                      <p class="eyebrow">Characters</p>
-                      <h3>Choose your fighter.</h3>
-                      <div id="character-list" class="character-list" aria-label="Character list"></div>
+                      <p class="eyebrow">Inventory</p>
+                      <h3>Choose your fighter and accessories.</h3>
+                      <div id="character-list" class="character-list inventory-list" aria-label="Inventory loadout"></div>
                     </section>
 
                     <section id="menu-panel-stats" class="menu-panel" role="tabpanel" aria-labelledby="menu-tab-stats" data-menu-panel="stats" hidden>
@@ -287,91 +313,116 @@
                           <p class="eyebrow">Online Leaderboard</p>
                           <h3>Top Runs</h3>
                         </div>
-                        <button id="leaderboard-refresh-button" class="ghost-button" type="button">Refresh</button>
+                        <div class="leaderboard-actions">
+                          <div class="segmented-control" aria-label="Leaderboard mode">
+                            <button id="leaderboard-mode-solo" class="segment-button is-active" type="button" data-leaderboard-mode="solo">Solo</button>
+                            <button id="leaderboard-mode-coop" class="segment-button" type="button" data-leaderboard-mode="coop">Co-op</button>
+                          </div>
+                          <button id="leaderboard-refresh-button" class="ghost-button" type="button">Refresh</button>
+                        </div>
                       </div>
                       <p id="leaderboard-status" class="screen-copy" aria-live="polite">Online leaderboard is not configured yet.</p>
                       <div id="leaderboard-list" class="leaderboard-list" aria-label="Online leaderboard"></div>
                     </section>
 
-                    <section id="menu-panel-guide" class="menu-panel wiki-panel" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
-                      <div class="wiki-heading">
-                        <p class="eyebrow">Arena Survival Wiki</p>
-                        <h3>Field Manual</h3>
-                        <p class="screen-copy">Rules, unlocks, enemy notes, and upgrade references for planning stronger runs.</p>
-                      </div>
-
-                      <div class="wiki-layout">
-                        <aside class="wiki-infobox" aria-label="Game facts">
-                          <strong>Arena Survival</strong>
-                          <dl>
-                            <div>
-                              <dt>Genre</dt>
-                              <dd>Arcade survival</dd>
-                            </div>
-                            <div>
-                              <dt>First boss</dt>
-                              <dd>03:00</dd>
-                            </div>
-                            <div>
-                              <dt>Base health</dt>
-                              <dd>5</dd>
-                            </div>
-                            <div>
-                              <dt>Dash cooldown</dt>
-                              <dd>2.4s</dd>
-                            </div>
-                          </dl>
-                        </aside>
-
-                        <div class="wiki-articles">
-                          <article class="wiki-card">
-                            <h4>Run Basics</h4>
-                            <p>Weapons auto-target the closest enemy. Your job is movement: keep lanes open, collect XP when safe, and use dash to pass through pressure instead of saving it forever.</p>
-                            <ul class="wiki-bullet-list">
-                              <li>XP gems level you up and pause the fight for upgrade picks.</li>
-                              <li>Every normal enemy kill gives 1 gold for the music shop.</li>
-                              <li>Bosses add score, unlock progress, and force you to reposition.</li>
-                            </ul>
-                          </article>
-
-                          <article class="wiki-card">
-                            <h4>Unlocks</h4>
-                            <div class="wiki-table">
-                              <div><span>Grenade</span><strong>250 kills in one run</strong></div>
-                              <div><span>Katana</span><strong>3 total boss kills</strong></div>
-                              <div><span>Engineer</span><strong>1000 total kills</strong></div>
-                              <div><span>Custom songs</span><strong>Request in the shop</strong></div>
-                            </div>
-                          </article>
-
-                          <article class="wiki-card">
-                            <h4>Useful Targets</h4>
-                            <div class="wiki-table">
-                              <div><span>Best kills</span><strong data-stat="best-kills">0</strong></div>
-                              <div><span>Total bosses</span><strong data-stat="total-bosses">0</strong></div>
-                              <div><span>Best time</span><strong data-stat="best-time">00:00</strong></div>
-                            </div>
-                          </article>
+                    <section id="menu-panel-guide" class="menu-panel wiki-panel wiki-window" role="tabpanel" aria-labelledby="menu-tab-guide" data-menu-panel="guide" hidden>
+                      <div id="wiki-window-header" class="wiki-window-header">
+                        <div class="wiki-heading">
+                          <p class="eyebrow">Arena Survival Wiki</p>
+                          <h3>Field Manual</h3>
+                          <p class="screen-copy">Rules, unlocks, enemy notes, and upgrade references for planning stronger runs.</p>
                         </div>
+                        <button id="wiki-close-button" class="wiki-close-button" type="button" aria-label="Close wiki">X</button>
                       </div>
 
-                      <section class="wiki-section" aria-labelledby="wiki-strategy-title">
-                        <h4 id="wiki-strategy-title">Strategy Notes</h4>
-                        <div class="wiki-tip-grid">
-                          <div><strong>Early run</strong><span>Circle wide, collect small XP clusters, and avoid getting pinned against the arena border.</span></div>
-                          <div><strong>Level ups</strong><span>Pick damage and cooldown early, then add mobility or defensive upgrades when enemies begin to crowd.</span></div>
-                          <div><strong>Boss waves</strong><span>Watch for charge warnings, keep dash ready, and clear summoned enemies before they trap your escape path.</span></div>
+                      <nav class="wiki-section-nav" aria-label="Field manual sections">
+                        <button class="wiki-nav-button is-active" type="button" data-wiki-target="wiki-overview">Overview</button>
+                        <button class="wiki-nav-button" type="button" data-wiki-target="wiki-unlocks">Unlocks</button>
+                        <button class="wiki-nav-button" type="button" data-wiki-target="wiki-enemies">Enemies</button>
+                        <button class="wiki-nav-button" type="button" data-wiki-target="wiki-upgrades">Upgrades</button>
+                        <button class="wiki-nav-button" type="button" data-wiki-target="wiki-strategy">Strategy</button>
+                      </nav>
+
+                      <section id="wiki-overview" class="wiki-section wiki-manual-section" aria-labelledby="wiki-overview-title" data-wiki-section>
+                        <div class="wiki-section-heading">
+                          <div>
+                            <p class="eyebrow">Overview</p>
+                            <h4 id="wiki-overview-title">Quick Run Guide</h4>
+                          </div>
+                          <span class="wiki-section-chip">Start here</span>
+                        </div>
+                        <div class="wiki-overview-layout">
+                          <div id="quick-run-guide" class="wiki-tip-grid wiki-quick-grid" aria-label="Quick run guide"></div>
+                          <aside class="wiki-infobox" aria-label="Game facts">
+                            <strong>Arena Facts</strong>
+                            <dl>
+                              <div>
+                                <dt>Genre</dt>
+                                <dd>Arcade survival</dd>
+                              </div>
+                              <div>
+                                <dt>First boss</dt>
+                                <dd>03:00</dd>
+                              </div>
+                              <div>
+                                <dt>Base health</dt>
+                                <dd>5</dd>
+                              </div>
+                              <div>
+                                <dt>Ability slot</dt>
+                                <dd>Grenade or mine</dd>
+                              </div>
+                              <div>
+                                <dt>Double gold</dt>
+                                <dd>1% per kill</dd>
+                              </div>
+                            </dl>
+                          </aside>
                         </div>
                       </section>
 
-                      <section class="wiki-section" aria-labelledby="wiki-enemies-title">
-                        <h4 id="wiki-enemies-title">Enemy Codex</h4>
-                        <div id="enemy-guide" class="guide-list wiki-guide-list" aria-label="Enemy codex"></div>
+                      <section id="wiki-unlocks" class="wiki-section wiki-manual-section" aria-labelledby="wiki-unlocks-title" data-wiki-section>
+                        <div class="wiki-section-heading">
+                          <div>
+                            <p class="eyebrow">Progress</p>
+                            <h4 id="wiki-unlocks-title">Unlocks</h4>
+                          </div>
+                          <span class="wiki-section-chip">Live save</span>
+                        </div>
+                        <div id="wiki-unlock-guide" class="wiki-unlock-grid" aria-label="Progress and unlocks"></div>
                       </section>
 
-                      <section class="wiki-section" aria-labelledby="wiki-upgrades-title">
-                        <h4 id="wiki-upgrades-title">Upgrade Compendium</h4>
-                        <div id="upgrade-guide" class="guide-list compact-guide wiki-guide-list" aria-label="Upgrade compendium"></div>
+                      <section id="wiki-enemies" class="wiki-section wiki-manual-section" aria-labelledby="wiki-enemies-title" data-wiki-section>
+                        <div class="wiki-section-heading">
+                          <div>
+                            <p class="eyebrow">Codex</p>
+                            <h4 id="wiki-enemies-title">Enemies</h4>
+                          </div>
+                          <span class="wiki-section-chip">HP / Speed / Stats</span>
+                        </div>
+                        <div id="enemy-guide" class="guide-list wiki-guide-list wiki-enemy-grid" aria-label="Enemy codex"></div>
+                      </section>
+
+                      <section id="wiki-upgrades" class="wiki-section wiki-manual-section" aria-labelledby="wiki-upgrades-title" data-wiki-section>
+                        <div class="wiki-section-heading">
+                          <div>
+                            <p class="eyebrow">Compendium</p>
+                            <h4 id="wiki-upgrades-title">Upgrades</h4>
+                          </div>
+                          <span class="wiki-section-chip">Caps and effects</span>
+                        </div>
+                        <div id="upgrade-guide" class="guide-list compact-guide wiki-guide-list wiki-upgrade-grid" aria-label="Upgrade compendium"></div>
+                      </section>
+
+                      <section id="wiki-strategy" class="wiki-section wiki-manual-section" aria-labelledby="wiki-strategy-title" data-wiki-section>
+                        <div class="wiki-section-heading">
+                          <div>
+                            <p class="eyebrow">Playbook</p>
+                            <h4 id="wiki-strategy-title">Strategy Notes</h4>
+                          </div>
+                          <span class="wiki-section-chip">Practical routes</span>
+                        </div>
+                        <div id="wiki-strategy-guide" class="wiki-tip-grid wiki-strategy-grid" aria-label="Strategy notes"></div>
                       </section>
                     </section>
 
@@ -397,9 +448,10 @@
                         <li><strong>WASD</strong><span>Move</span></li>
                         <li><strong>Space</strong><span>Dash</span></li>
                         <li><strong>E</strong><span>Grenade</span></li>
-                        <li><strong>T</strong><span>Engineer turret</span></li>
+                        <li><strong>T</strong><span>Engineer turret manual place</span></li>
                         <li><strong>Escape</strong><span>Pause / Back</span></li>
                         <li><strong>M</strong><span>Mute</span></li>
+                        <li><strong>Wheel / +/-</strong><span>Zoom camera</span></li>
                         <li><strong>1-3</strong><span>Pick upgrade</span></li>
                       </ul>
                     </section>
@@ -449,7 +501,7 @@
 
                     <section id="menu-panel-admin" class="menu-panel" role="tabpanel" aria-label="Admin tools" data-menu-panel="admin" hidden>
                       <p class="eyebrow">Admin</p>
-                      <h3>Local music tools</h3>
+                      <h3>Admin Tools</h3>
                       <div class="button-row menu-panel-actions">
                         <button id="admin-back-button" class="ghost-button" type="button">Back to Settings</button>
                       </div>
@@ -463,13 +515,36 @@
                         </div>
                         <button id="admin-login-button" class="primary-button" type="button">Unlock Admin</button>
                       </div>
-                      <div id="admin-tools" class="settings-list" hidden>
+                      <div id="admin-tools" class="settings-list admin-tool-grid" hidden>
+                        <div class="admin-tool-section">
+                          <h4>Run Controls</h4>
+                          <div class="admin-song-form admin-run-actions">
+                            <button id="admin-menu-heal-button" class="ghost-button" type="button">Heal Run</button>
+                            <button id="admin-menu-level-button" class="ghost-button" type="button">Level Up</button>
+                            <button id="admin-grant-xp-button" class="ghost-button" type="button">+120 XP</button>
+                            <button id="admin-menu-gold-button" class="ghost-button" type="button">+100 Gold</button>
+                            <button id="admin-reset-ability-menu-button" class="ghost-button" type="button">Reset Cooldowns</button>
+                            <button id="admin-menu-clear-enemies-button" class="ghost-button" type="button">Clear Enemies</button>
+                            <button id="admin-menu-clear-projectiles-button" class="ghost-button" type="button">Clear Hazards</button>
+                            <button id="admin-menu-spawn-boss-button" class="danger-button" type="button">Spawn Boss</button>
+                          </div>
+                          <div class="admin-song-form admin-run-actions">
+                            <select id="admin-spawn-enemy-select" class="text-input" aria-label="Enemy type"></select>
+                            <button id="admin-menu-spawn-enemy-button" class="ghost-button" type="button">Spawn Enemy</button>
+                          </div>
+                        </div>
+
+                        <div class="admin-tool-section">
+                          <h4>Save &amp; Progress</h4>
                         <div class="settings-row">
                           <div>
                             <strong>Player Gold</strong>
                             <span>Set the local save's gold amount.</span>
                           </div>
                           <input id="admin-gold-input" class="text-input" type="number" min="0" step="1" />
+                        </div>
+                        <div class="admin-song-form admin-run-actions">
+                          <button id="admin-add-save-gold-button" class="ghost-button" type="button">+1000 Save Gold</button>
                         </div>
                         <div class="settings-row">
                           <div>
@@ -478,6 +553,17 @@
                           </div>
                           <button id="admin-unlock-characters-button" class="ghost-button" type="button">Unlock All Characters</button>
                         </div>
+                        <div class="settings-row">
+                          <div>
+                            <strong>Ability Admin</strong>
+                            <span>Unlock grenade and landmine for this browser save.</span>
+                          </div>
+                          <button id="admin-unlock-abilities-button" class="ghost-button" type="button">Unlock All Abilities</button>
+                        </div>
+                        </div>
+
+                        <div class="admin-tool-section">
+                          <h4>Music</h4>
                         <div class="settings-row">
                           <div>
                             <strong>Add Song</strong>
@@ -502,6 +588,7 @@
                           </div>
                         </div>
                         <div id="admin-song-list" class="song-list" aria-label="Admin song list"></div>
+                        </div>
                       </div>
                     </section>
                   </div>
@@ -516,8 +603,9 @@
                 <ul class="help-list">
                   <li><strong>Move:</strong> <span>WASD</span></li>
                   <li><strong>Dash:</strong> <span>Space</span></li>
-                  <li><strong>Grenade:</strong> <span>E</span></li>
-                  <li><strong>Engineer turret:</strong> <span>T</span></li>
+                  <li><strong>Ability:</strong> <span>E</span></li>
+                  <li><strong>Engineer turret:</strong> <span>T optional</span></li>
+                  <li><strong>Zoom:</strong> <span>Mouse wheel / +/-</span></li>
                   <li><strong>Upgrade:</strong> <span>1 / 2 / 3</span></li>
                   <li><strong>Pause:</strong> <span>Escape</span></li>
                 </ul>
@@ -558,6 +646,25 @@
               </div>
             </section>
 
+            <section id="heal-offer-screen" class="screen" hidden>
+              <div class="screen-card heal-offer-card">
+                <p class="eyebrow">Field Medic</p>
+                <h2>Buy a full heal?</h2>
+                <p class="screen-copy">Every 10 levels, the arena medic can restore your HP before you choose the next upgrade.</p>
+                <div class="heal-offer-price">
+                  <span class="gold-coin" aria-hidden="true">$</span>
+                  <div>
+                    <span class="panel-label">Cost</span>
+                    <strong><span id="heal-offer-gold">500</span> gold</strong>
+                  </div>
+                </div>
+                <div class="button-row">
+                  <button id="heal-offer-accept-button" class="primary-button" type="button">Buy Full Heal</button>
+                  <button id="heal-offer-skip-button" class="ghost-button" type="button">Skip</button>
+                </div>
+              </div>
+            </section>
+
             <section id="gameover-screen" class="screen" hidden>
               <div class="screen-card">
                 <p class="eyebrow">Run Over</p>
@@ -579,6 +686,10 @@
                     <span>Bosses</span>
                     <strong id="final-bosses">0</strong>
                   </div>
+                </div>
+                <div id="death-cause-card" class="death-cause-card" hidden>
+                  <span>Final Hit</span>
+                  <strong id="death-cause-text">Killed by Unknown Hazard</strong>
                 </div>
                 <div id="run-highlights" class="run-highlights" aria-label="Run highlights"></div>
                 <div id="score-submit-panel" class="score-submit-panel" hidden>
@@ -607,6 +718,6 @@
     <pre id="self-test-output" hidden></pre>
     <div id="aria-status" class="visually-hidden" aria-live="polite"></div>
 
-    <script defer src="./src/bundle.js?v=leaderboard-render-url"></script>
+    <script defer src="./src/bundle.js?v=coop-multiplayer-v1"></script>
   </body>
 </html>

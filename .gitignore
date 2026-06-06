@@ -1,6 +1,8 @@
 .playwright-mcp/
+.env.local
 node_modules/
 *.log
 *.tmp
 *.png
+server/data/
 !.gitkeep
