@@ -707,11 +707,11 @@ const SHIELD_CAPS = [1, 2, 2];
     color: "#34d399",
     accent: "#dcfce7",
     characters: [CHARACTER_IDS.engineer],
-    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +2s.`,
+    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +3s.`,
     apply: (player) => {
       player.turretDeployCooldown = Math.max(2.8, player.turretDeployCooldown * 0.82);
       player.turretDeployCooldownRemaining = Math.min(player.turretDeployCooldownRemaining, player.turretDeployCooldown);
-      player.turretLifetime += 2;
+      player.turretLifetime += 3;
     },
   },
   {
@@ -737,6 +737,18 @@ const SHIELD_CAPS = [1, 2, 2];
     apply: (player) => {
       player.turretRange += 60;
       player.turretDamageBonus += 0.5;
+    },
+  },
+  {
+    id: "overclocked-sentry",
+    name: "Overclocked Sentry",
+    cap: 4,
+    color: "#f97316",
+    accent: "#ffedd5",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret attack cooldown shrinks by 12%.`,
+    apply: (player) => {
+      player.turretFireCooldown = Math.max(0.38, player.turretFireCooldown * 0.88);
     },
   },
   {
@@ -1282,6 +1294,7 @@ class AudioSystem {
     this.currentSong = null;
     this.effectGates = new Map();
     this.specialGrenadeClipSrc = "./sounds/greande.mp3";
+    this.spatialEffect = null;
   }
 
   async unlock() {
@@ -1402,6 +1415,139 @@ class AudioSystem {
     }
     this.effectGates.set(key, now);
     return true;
+  }
+
+  getSpatialEffectSettings(source = {}, listener = {}, intensity = 1) {
+    const dx = (Number(source.x) || 0) - (Number(listener.x) || 0);
+    const dy = (Number(source.y) || 0) - (Number(listener.y) || 0);
+    const distance = Math.hypot(dx, dy);
+    return {
+      pan: Math.max(-1, Math.min(1, dx / 720)),
+      volume: Math.max(0.18, 1 - distance / 1600) * Math.max(0.15, Math.min(1.8, Number(intensity) || 1)),
+    };
+  }
+
+  withSpatialEffect(settings, callback) {
+    const previous = this.spatialEffect;
+    this.spatialEffect = settings;
+    try {
+      callback();
+    } finally {
+      this.spatialEffect = previous;
+    }
+  }
+
+  connectEffectOutput(volumeNode) {
+    if (!this.masterGain) {
+      return;
+    }
+    const spatial = this.spatialEffect;
+    if (!spatial || !this.context) {
+      volumeNode.connect(this.masterGain);
+      return;
+    }
+    const spatialGain = this.context.createGain();
+    spatialGain.gain.value = Math.max(0.001, spatial.volume ?? 1);
+    if (typeof this.context.createStereoPanner === "function") {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = Math.max(-1, Math.min(1, spatial.pan ?? 0));
+      volumeNode.connect(spatialGain);
+      spatialGain.connect(panner);
+      panner.connect(this.masterGain);
+      return;
+    }
+    volumeNode.connect(spatialGain);
+    spatialGain.connect(this.masterGain);
+  }
+
+  playEffectById(soundId, options = {}) {
+    switch (soundId) {
+      case "shoot":
+        this.playShoot();
+        break;
+      case "slash":
+        this.playSlash();
+        break;
+      case "hit":
+        this.playHit();
+        break;
+      case "enemy-death":
+        this.playEnemyDeath();
+        break;
+      case "boss-death":
+        this.playBossDeath();
+        break;
+      case "gold":
+        this.playGold(false);
+        break;
+      case "double-gold":
+        this.playGold(true);
+        break;
+      case "pickup":
+        this.playPickup();
+        break;
+      case "dash":
+        this.playDash();
+        break;
+      case "level-up":
+        this.playLevelUp();
+        break;
+      case "upgrade-select":
+        this.playUpgradeSelect();
+        break;
+      case "boss-warning":
+        this.playBossWarning();
+        break;
+      case "boss-spawn":
+        this.playBossSpawn();
+        break;
+      case "boss-attack":
+        this.playBossAttack(options.kind ?? "attack");
+        break;
+      case "enemy-shoot":
+        this.playEnemyShoot();
+        break;
+      case "player-damage":
+        this.playPlayerDamage();
+        break;
+      case "shield-block":
+        this.playShieldBlock();
+        break;
+      case "grenade-throw":
+        this.playGrenadeThrow();
+        break;
+      case "special-grenade":
+        this.playSpecialGrenadeThrowClip(options);
+        break;
+      case "explosion":
+        this.playExplosion(options.power ?? 1);
+        break;
+      case "mine-place":
+        this.playMinePlace();
+        break;
+      case "mine-armed":
+        this.playMineArmed();
+        break;
+      case "mine-explosion":
+        this.playMineExplosion();
+        break;
+      case "turret-deploy":
+        this.playTurretDeploy();
+        break;
+      case "turret-fire":
+        this.playTurretFire();
+        break;
+      case "death":
+        this.playDeath();
+        break;
+      default:
+        break;
+    }
+  }
+
+  playPositionalEffect(soundId, source = {}, listener = {}, options = {}) {
+    const spatial = this.getSpatialEffectSettings(source, listener, options.intensity ?? 1);
+    this.withSpatialEffect(spatial, () => this.playEffectById(soundId, { ...options, pan: spatial.pan, volume: spatial.volume }));
   }
 
   playShoot() {
@@ -1570,14 +1716,40 @@ class AudioSystem {
     this.playNoise({ duration: 0.05, gain: 0.02, filterFrequency: 1800, filterType: "highpass" });
   }
 
-  playSpecialGrenadeThrowClip() {
+  playSpecialGrenadeThrowClip({ pan = 0, volume = 1 } = {}) {
     if (typeof Audio === "undefined") {
       return;
     }
     const clip = new Audio(this.specialGrenadeClipSrc);
     clip.loop = false;
     clip.muted = false;
-    clip.volume = 1;
+    const safeVolume = Math.max(0, Math.min(1, volume));
+    clip.volume = safeVolume;
+    let routed = false;
+    if (this.context && typeof this.context.createStereoPanner === "function") {
+      try {
+        const source = this.context.createMediaElementSource(clip);
+        const gain = this.context.createGain();
+        const panner = this.context.createStereoPanner();
+        clip.volume = 1;
+        routed = true;
+        gain.gain.value = Math.max(0.001, Math.min(1.5, safeVolume));
+        panner.pan.value = Math.max(-1, Math.min(1, pan));
+        source.connect(gain);
+        gain.connect(panner);
+        panner.connect(this.context.destination);
+        clip.onended = () => {
+          source.disconnect();
+          gain.disconnect();
+          panner.disconnect();
+        };
+      } catch {
+        // Fall back to plain HTML audio if a browser rejects media-element routing.
+      }
+    }
+    if (!routed) {
+      clip.volume = safeVolume;
+    }
     clip.play().catch(() => {});
   }
 
@@ -1655,7 +1827,7 @@ class AudioSystem {
     volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
 
     oscillator.connect(volume);
-    volume.connect(this.masterGain);
+    this.connectEffectOutput(volume);
     oscillator.start(now);
     oscillator.stop(now + safeDuration + 0.03);
   }
@@ -1687,7 +1859,7 @@ class AudioSystem {
     volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
     source.connect(filter);
     filter.connect(volume);
-    volume.connect(this.masterGain);
+    this.connectEffectOutput(volume);
     source.start(now);
     source.stop(now + safeDuration + 0.02);
   }
@@ -2155,7 +2327,7 @@ const ENEMY_THREAT_NOTES = {
 
 const ENGINEER_TURRET = {
   deployCooldown: 10,
-  lifetime: 6,
+  lifetime: 8,
   range: 300,
   fireCooldown: 0.8,
   damageScale: 0.6,
@@ -2209,6 +2381,24 @@ const COOP_CONFIG = {
   disconnectGraceSeconds: 8,
 };
 
+const GUEST_INTERPOLATION_CONFIG = {
+  minDuration: 0.055,
+  maxDuration: 0.16,
+};
+
+const TEAMMATE_INDICATOR_CONFIG = {
+  edgePadding: 54,
+  smoothness: 14,
+};
+
+const BOSS_ARENA_CONFIG = {
+  minWidth: 1320,
+  minHeight: 760,
+  paddingX: 420,
+  paddingY: 300,
+  wallPadding: 24,
+};
+
 function createBossAttackQueue(previousPhase = "") {
   const queue = shuffleInPlace([...BOSS_ATTACK_PHASES]);
   if (previousPhase && queue[0] === previousPhase && queue.length > 1) {
@@ -2250,6 +2440,7 @@ const UPGRADE_ICONS = {
   "rapid-assembly": "🔧",
   "twin-sentries": "🛰️",
   "calibrated-turret": "📡",
+  "overclocked-sentry": "⚙️",
   "piercing-sentry": "🎯",
 };
 const UPGRADE_SHIELD_INTERVALS = [16, 12, 9];
@@ -2339,11 +2530,13 @@ function getUpgradeBoostCopy(upgrade, rank) {
     case "cluster-charge":
       return `+${rank + 3} Mine Fragments`;
     case "rapid-assembly":
-      return "-18% Turret Cooldown / +2s Lifetime";
+      return "-18% Turret Cooldown / +3s Lifetime";
     case "twin-sentries":
       return "+1 Active Turret";
     case "calibrated-turret":
       return "+60 Range / +0.5 Damage";
+    case "overclocked-sentry":
+      return "-12% Turret Fire Cooldown";
     case "piercing-sentry":
       return "+1 Turret Pierce";
     default:
@@ -2414,6 +2607,12 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.inputActions = { dash: 0, ability: 0, turret: 0 };
     this.coopUpgradeDraft = null;
     this.remoteRunRecorded = false;
+    this.remoteSnapshotPrevious = null;
+    this.remoteSnapshotNext = null;
+    this.remoteSnapshotReceivedAt = 0;
+    this.remoteSnapshotDuration = 0.07;
+    this.teammateIndicator = null;
+    this.bossArena = null;
 
     this.run = null;
     this.player = null;
@@ -2504,10 +2703,13 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
 
   step(deltaSeconds) {
     this.backgroundTime += deltaSeconds;
-    if (this.mode === "playing") {
+    const guestPresentationActive = this.isMultiplayerGuest() && this.remoteSnapshotNext;
+    if (guestPresentationActive) {
+      this.updateGuestPresentation(deltaSeconds);
+    } else if (this.mode === "playing") {
       this.updateGame(deltaSeconds);
     }
-    if (this.mode !== "playing") {
+    if (this.mode !== "playing" && !guestPresentationActive) {
       this.updateToasts(deltaSeconds);
     }
     this.render();
@@ -2574,6 +2776,59 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.player = previousPlayer;
       this.upgradeCounts = previousUpgradeCounts;
     }
+  }
+
+  getSoundListenerPlayer() {
+    return this.getLocalPlayer() ?? this.player ?? { x: 0, y: 0, id: "solo" };
+  }
+
+  emitHostSound(soundId, x, y, options = {}) {
+    if (!this.isMultiplayerHost()) {
+      return;
+    }
+    this.multiplayerHooks.sendHostEvent?.({
+      eventType: "sound",
+      soundId,
+      x,
+      y,
+      ownerId: options.ownerId ?? this.player?.id ?? "",
+      intensity: options.intensity ?? 1,
+      kind: options.kind ?? "",
+      power: options.power ?? 1,
+    });
+  }
+
+  playSoundCue(soundId, x = this.player?.x ?? 0, y = this.player?.y ?? 0, options = {}) {
+    const listener = this.getSoundListenerPlayer();
+    const ownerId = options.ownerId ?? this.player?.id ?? "";
+    const isLocalOwner = !ownerId || ownerId === listener?.id;
+    if (this.isCoopRun() && !isLocalOwner) {
+      this.audio.playPositionalEffect(soundId, { x, y }, listener, options);
+    } else {
+      this.audio.playEffectById(soundId, options);
+    }
+    this.emitHostSound(soundId, x, y, { ...options, ownerId });
+  }
+
+  playRemoteSoundCue(payload = {}) {
+    if (!payload.soundId || !this.isMultiplayerGuest()) {
+      return;
+    }
+    const listener = this.getSoundListenerPlayer();
+    const source = {
+      x: Number.isFinite(payload.x) ? payload.x : listener.x,
+      y: Number.isFinite(payload.y) ? payload.y : listener.y,
+    };
+    const options = {
+      intensity: payload.intensity ?? 1,
+      kind: payload.kind ?? "",
+      power: payload.power ?? 1,
+    };
+    if (payload.ownerId && payload.ownerId === listener?.id) {
+      this.audio.playEffectById(payload.soundId, options);
+      return;
+    }
+    this.audio.playPositionalEffect(payload.soundId, source, listener, options);
   }
 
   createCoopPlayerState(profile, index = 0) {
@@ -2738,6 +2993,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       pickups: this.pickups,
       effects: this.effects,
       floatingTexts: this.floatingTexts,
+      bossArena: this.bossArena ? { ...this.bossArena } : null,
       banner: this.banner,
     };
   }
@@ -2750,33 +3006,140 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     };
   }
 
+  normalizeMultiplayerSnapshot(snapshot) {
+    const normalizePlayer = (player) => ({
+      ...player,
+      isLocal: player.id === this.multiplayerSession?.localPlayerId,
+      inputKeys: new Set(player.inputKeys ?? []),
+      upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+    });
+    const normalizeProjectile = (projectile) => ({
+      ...projectile,
+      hitIds: new Set(projectile.hitIds ?? []),
+    });
+    return {
+      mode: snapshot.mode ?? this.mode,
+      run: snapshot.run ? { ...snapshot.run, recorded: this.run?.recorded ?? false } : this.run,
+      players: Array.isArray(snapshot.players) ? snapshot.players.map(normalizePlayer) : this.players,
+      enemies: Array.isArray(snapshot.enemies) ? snapshot.enemies.map((enemy) => ({ ...enemy })) : this.enemies,
+      projectiles: Array.isArray(snapshot.projectiles) ? snapshot.projectiles.map(normalizeProjectile) : this.projectiles,
+      enemyProjectiles: Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles.map(normalizeProjectile) : this.enemyProjectiles,
+      grenades: Array.isArray(snapshot.grenades) ? snapshot.grenades.map((grenade) => ({ ...grenade })) : this.grenades,
+      landmines: Array.isArray(snapshot.landmines) ? snapshot.landmines.map((mine) => ({ ...mine })) : this.landmines,
+      turrets: Array.isArray(snapshot.turrets) ? snapshot.turrets.map((turret) => ({ ...turret })) : this.turrets,
+      damageZones: Array.isArray(snapshot.damageZones) ? snapshot.damageZones.map((zone) => ({ ...zone })) : this.damageZones,
+      pickups: Array.isArray(snapshot.pickups) ? snapshot.pickups.map((pickup) => ({ ...pickup })) : this.pickups,
+      effects: Array.isArray(snapshot.effects) ? snapshot.effects.map((effect) => ({ ...effect })) : this.effects,
+      floatingTexts: Array.isArray(snapshot.floatingTexts) ? snapshot.floatingTexts.map((text) => ({ ...text })) : this.floatingTexts,
+      bossArena: snapshot.bossArena ? { ...snapshot.bossArena } : null,
+      banner: snapshot.banner ?? this.banner,
+    };
+  }
+
+  captureRenderableSnapshot() {
+    return {
+      players: this.players.map((player) => this.serializePlayer(player)),
+      enemies: this.enemies.map((enemy) => ({ ...enemy })),
+      projectiles: this.projectiles.map((projectile) => ({ ...projectile, hitIds: Array.from(projectile.hitIds ?? []) })),
+      enemyProjectiles: this.enemyProjectiles.map((projectile) => ({ ...projectile, hitIds: Array.from(projectile.hitIds ?? []) })),
+      grenades: this.grenades.map((grenade) => ({ ...grenade })),
+      landmines: this.landmines.map((mine) => ({ ...mine })),
+      turrets: this.turrets.map((turret) => ({ ...turret })),
+      damageZones: this.damageZones.map((zone) => ({ ...zone })),
+      pickups: this.pickups.map((pickup) => ({ ...pickup })),
+      effects: this.effects.map((effect) => ({ ...effect })),
+      floatingTexts: this.floatingTexts.map((text) => ({ ...text })),
+      bossArena: this.bossArena ? { ...this.bossArena } : null,
+    };
+  }
+
+  interpolateEntity(previous, next, ratio) {
+    if (!previous) {
+      return { ...next };
+    }
+    const output = { ...next };
+    for (const field of ["x", "y", "vx", "vy", "life", "reviveProgress", "muzzleFlash"]) {
+      if (Number.isFinite(previous[field]) && Number.isFinite(next[field])) {
+        output[field] = lerp(previous[field], next[field], ratio);
+      }
+    }
+    if (next.hitIds instanceof Set) {
+      output.hitIds = new Set(next.hitIds);
+    }
+    if (next.inputKeys instanceof Set) {
+      output.inputKeys = new Set(next.inputKeys);
+    }
+    if (next.upgradeCounts) {
+      output.upgradeCounts = { ...next.upgradeCounts };
+    }
+    return output;
+  }
+
+  interpolateEntityList(previousList = [], nextList = [], ratio = 1) {
+    const previousById = new Map(previousList.map((entity) => [entity.id, entity]));
+    return nextList.map((entity) => this.interpolateEntity(previousById.get(entity.id), entity, ratio));
+  }
+
+  applyRenderableSnapshot(snapshot, ratio = 1) {
+    const previous = this.remoteSnapshotPrevious ?? {};
+    this.players = this.interpolateEntityList(previous.players, snapshot.players, ratio).map((player) => ({
+      ...player,
+      isLocal: player.id === this.multiplayerSession?.localPlayerId,
+      inputKeys: new Set(player.inputKeys ?? []),
+      upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+    }));
+    this.player = this.getLocalPlayer();
+    this.upgradeCounts = this.player?.upgradeCounts ?? this.upgradeCounts;
+    this.enemies = this.interpolateEntityList(previous.enemies, snapshot.enemies, ratio);
+    this.projectiles = this.interpolateEntityList(previous.projectiles, snapshot.projectiles, ratio).map((projectile) => ({
+      ...projectile,
+      hitIds: new Set(projectile.hitIds ?? []),
+    }));
+    this.enemyProjectiles = this.interpolateEntityList(previous.enemyProjectiles, snapshot.enemyProjectiles, ratio).map((projectile) => ({
+      ...projectile,
+      hitIds: new Set(projectile.hitIds ?? []),
+    }));
+    this.grenades = this.interpolateEntityList(previous.grenades, snapshot.grenades, ratio);
+    this.landmines = this.interpolateEntityList(previous.landmines, snapshot.landmines, ratio);
+    this.turrets = this.interpolateEntityList(previous.turrets, snapshot.turrets, ratio);
+    this.damageZones = this.interpolateEntityList(previous.damageZones, snapshot.damageZones, ratio);
+    this.pickups = this.interpolateEntityList(previous.pickups, snapshot.pickups, ratio);
+    this.effects = this.interpolateEntityList(previous.effects, snapshot.effects, ratio);
+    this.floatingTexts = this.interpolateEntityList(previous.floatingTexts, snapshot.floatingTexts, ratio);
+    this.bossArena = snapshot.bossArena ? { ...snapshot.bossArena } : null;
+  }
+
+  updateGuestPresentation(deltaSeconds) {
+    if (this.remoteSnapshotNext) {
+      const now = performance.now() / 1000;
+      const ratio = clamp((now - this.remoteSnapshotReceivedAt) / this.remoteSnapshotDuration, 0, 1);
+      this.applyRenderableSnapshot(this.remoteSnapshotNext, ratio);
+    }
+    this.updateBanner(deltaSeconds);
+    this.updateEffects(deltaSeconds);
+    this.updateFloatingTexts(deltaSeconds);
+    this.updateToasts(deltaSeconds);
+    this.cleanupDeadEntities();
+    this.updateCamera();
+  }
+
   applyMultiplayerSnapshot(snapshot) {
     if (!snapshot || !this.isMultiplayerGuest()) {
       return;
     }
-    this.mode = snapshot.mode ?? this.mode;
-    this.run = snapshot.run ? { ...snapshot.run, recorded: this.run?.recorded ?? false } : this.run;
-    this.players = Array.isArray(snapshot.players)
-      ? snapshot.players.map((player) => ({
-          ...player,
-          isLocal: player.id === this.multiplayerSession.localPlayerId,
-          inputKeys: new Set(player.inputKeys ?? []),
-          upgradeCounts: { ...(player.upgradeCounts ?? {}) },
-        }))
-      : this.players;
-    this.player = this.getLocalPlayer();
-    this.upgradeCounts = this.player?.upgradeCounts ?? this.upgradeCounts;
-    this.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies : [];
-    this.projectiles = Array.isArray(snapshot.projectiles) ? snapshot.projectiles : [];
-    this.enemyProjectiles = Array.isArray(snapshot.enemyProjectiles) ? snapshot.enemyProjectiles : [];
-    this.grenades = Array.isArray(snapshot.grenades) ? snapshot.grenades : [];
-    this.landmines = Array.isArray(snapshot.landmines) ? snapshot.landmines : [];
-    this.turrets = Array.isArray(snapshot.turrets) ? snapshot.turrets : [];
-    this.damageZones = Array.isArray(snapshot.damageZones) ? snapshot.damageZones : [];
-    this.pickups = Array.isArray(snapshot.pickups) ? snapshot.pickups : [];
-    this.effects = Array.isArray(snapshot.effects) ? snapshot.effects : [];
-    this.floatingTexts = Array.isArray(snapshot.floatingTexts) ? snapshot.floatingTexts : [];
-    this.banner = snapshot.banner ?? this.banner;
+    const normalized = this.normalizeMultiplayerSnapshot(snapshot);
+    const now = performance.now() / 1000;
+    const previousReceivedAt = this.remoteSnapshotReceivedAt || now;
+    this.remoteSnapshotPrevious = this.captureRenderableSnapshot();
+    this.remoteSnapshotNext = normalized;
+    this.remoteSnapshotDuration = clamp(now - previousReceivedAt, GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
+    this.remoteSnapshotReceivedAt = now;
+    this.mode = normalized.mode ?? this.mode;
+    this.run = normalized.run;
+    this.banner = normalized.banner ?? this.banner;
+    if (!this.players.length) {
+      this.applyRenderableSnapshot(normalized, 1);
+    }
     if (this.mode === "gameOver" && this.run && !this.remoteRunRecorded) {
       if (this.ui.gameOverTitle) {
         this.ui.gameOverTitle.textContent = "Co-op run finished.";
@@ -2866,11 +3229,87 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     };
   }
 
+  createBossArenaFor(boss) {
+    const participants = [...this.getAlivePlayers(), boss].filter(Boolean);
+    const minX = Math.min(...participants.map((entity) => entity.x - (entity.radius ?? 0)));
+    const maxX = Math.max(...participants.map((entity) => entity.x + (entity.radius ?? 0)));
+    const minY = Math.min(...participants.map((entity) => entity.y - (entity.radius ?? 0)));
+    const maxY = Math.max(...participants.map((entity) => entity.y + (entity.radius ?? 0)));
+    const width = Math.max(BOSS_ARENA_CONFIG.minWidth, maxX - minX + BOSS_ARENA_CONFIG.paddingX * 2);
+    const height = Math.max(BOSS_ARENA_CONFIG.minHeight, maxY - minY + BOSS_ARENA_CONFIG.paddingY * 2);
+    const centerX = (minX + maxX) * 0.5;
+    const centerY = (minY + maxY) * 0.5;
+    this.bossArena = {
+      x: centerX - width * 0.5,
+      y: centerY - height * 0.5,
+      width,
+      height,
+      bossId: boss.id,
+    };
+  }
+
+  updateBossArenaState() {
+    const activeBosses = this.enemies.filter((enemy) => enemy.isBoss && !enemy.dead);
+    if (!activeBosses.length) {
+      this.bossArena = null;
+      return;
+    }
+    if (!this.bossArena) {
+      this.createBossArenaFor(activeBosses[0]);
+    }
+  }
+
+  clampEntityToBossArena(entity, radius = entity?.radius ?? 0, bounce = false) {
+    if (!this.bossArena || !entity) {
+      return;
+    }
+    const minX = this.bossArena.x + radius + BOSS_ARENA_CONFIG.wallPadding;
+    const maxX = this.bossArena.x + this.bossArena.width - radius - BOSS_ARENA_CONFIG.wallPadding;
+    const minY = this.bossArena.y + radius + BOSS_ARENA_CONFIG.wallPadding;
+    const maxY = this.bossArena.y + this.bossArena.height - radius - BOSS_ARENA_CONFIG.wallPadding;
+    const previousX = entity.x;
+    const previousY = entity.y;
+    entity.x = clamp(entity.x, minX, maxX);
+    entity.y = clamp(entity.y, minY, maxY);
+    if (bounce && entity.x !== previousX && Number.isFinite(entity.vx)) {
+      entity.vx *= -0.55;
+    }
+    if (bounce && entity.y !== previousY && Number.isFinite(entity.vy)) {
+      entity.vy *= -0.55;
+    }
+  }
+
+  clampCombatToBossArena() {
+    if (!this.bossArena) {
+      return;
+    }
+    for (const player of this.players.length ? this.players : [this.player]) {
+      this.clampEntityToBossArena(player, player?.radius ?? 0);
+    }
+    for (const enemy of this.enemies) {
+      this.clampEntityToBossArena(enemy, enemy.radius, true);
+    }
+    for (const projectile of [...this.projectiles, ...this.enemyProjectiles, ...this.grenades, ...this.landmines]) {
+      this.clampEntityToBossArena(projectile, projectile.radius ?? 0, true);
+    }
+    for (const entity of [...this.turrets, ...this.pickups, ...this.damageZones]) {
+      this.clampEntityToBossArena(entity, entity.radius ?? 0);
+    }
+  }
+
   screenToWorld(screenX, screenY) {
     const zoom = this.getCameraZoom();
     return {
       x: this.camera.x + screenX / zoom,
       y: this.camera.y + screenY / zoom,
+    };
+  }
+
+  worldToScreen(worldX, worldY) {
+    const zoom = this.getCameraZoom();
+    return {
+      x: (worldX - this.camera.x) * zoom,
+      y: (worldY - this.camera.y) * zoom,
     };
   }
 
@@ -3196,6 +3635,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.nextBossTime = GAME_CONFIG.bossInterval;
     this.warnedBossAt = null;
     this.banner = null;
+    this.bossArena = null;
+    this.remoteSnapshotPrevious = null;
+    this.remoteSnapshotNext = null;
+    this.teammateIndicator = null;
     this.updateCamera();
     this.pointer = { x: this.player.x, y: this.player.y, screenX: LOGICAL_WIDTH * 0.5, screenY: LOGICAL_HEIGHT * 0.5, inside: false };
     this.mode = "playing";
@@ -3225,6 +3668,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.remoteInputs = new Map();
     this.coopUpgradeDraft = null;
     this.remoteRunRecorded = false;
+    this.remoteSnapshotPrevious = null;
+    this.remoteSnapshotNext = null;
+    this.teammateIndicator = null;
+    this.bossArena = null;
     this.updateCamera();
     this.enemies = [];
     this.projectiles = [];
@@ -3317,6 +3764,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.floatingTexts = [];
     this.toasts = [];
     this.banner = null;
+    this.bossArena = null;
+    this.remoteSnapshotPrevious = null;
+    this.remoteSnapshotNext = null;
+    this.teammateIndicator = null;
     this.updateCamera();
     this.syncScreens();
     this.updateDeathCauseCard(null);
@@ -3403,6 +3854,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       characterId: this.player?.characterId ?? this.getSelectedCharacter().id,
       world: { infinite: true },
       camera: { ...this.camera },
+      bossArena: this.bossArena ? { ...this.bossArena } : null,
       pointer: { ...this.pointer },
       attackType: this.player?.attackType ?? this.getSelectedCharacter().attackType,
       dashCooldownRemaining: this.player?.dashCooldownRemaining ?? 0,
@@ -3419,8 +3871,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
 
   updateGame(deltaSeconds) {
     if (this.isMultiplayerGuest()) {
-      this.updateToasts(deltaSeconds);
-      this.updateCamera();
+      this.updateGuestPresentation(deltaSeconds);
       return;
     }
     if (!this.player || !this.run) {
@@ -3451,6 +3902,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.updateCamera();
     this.updateCoopRevives(deltaSeconds);
     this.updateBossSchedule();
+    this.updateBossArenaState();
     this.updateSpawning(deltaSeconds);
     this.updateEnemies(deltaSeconds);
     this.updateProjectiles(deltaSeconds);
@@ -3461,9 +3913,11 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.updateEffects(deltaSeconds);
     this.updateFloatingTexts(deltaSeconds);
     this.updateToasts(deltaSeconds);
+    this.clampCombatToBossArena();
     this.handleCollisions();
     this.updateCamera();
     this.cleanupDeadEntities();
+    this.updateBossArenaState();
     this.run.score = Math.floor(this.run.elapsed * SCORE_CONFIG.survivalPerSecond + this.run.killScore);
 
     while (this.run.xp >= this.run.xpToNext) {
@@ -3512,6 +3966,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       player.y += movement.y * player.moveSpeed * deltaSeconds;
     }
 
+    this.clampEntityToBossArena(player, player.radius);
   }
 
   updateTurrets(deltaSeconds) {
@@ -3555,7 +4010,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       );
       turret.fireCooldownRemaining = this.player.turretFireCooldown;
       this.run.shotsFired += 1;
-      this.audio.playTurretFire();
+      this.playSoundCue("turret-fire", turret.x, turret.y, { ownerId: this.player.id });
       this.spawnEffect(turret.x, turret.y, 16, "rgba(52, 211, 153, 0.75)", 0.14, "burst");
     }
     for (const turret of this.turrets) {
@@ -3609,7 +4064,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       muzzleFlash: 0,
       dead: false,
     });
-    this.audio.playTurretDeploy();
+    this.playSoundCue("turret-deploy", x, y, { ownerId: this.player.id });
     this.spawnEffect(x, y, 36, "rgba(52, 211, 153, 0.7)", 0.28, "ring");
     this.spawnFloatingText(x, y - 28, "Turret online", "#86efac", 0.8);
   }
@@ -3622,7 +4077,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     if (!activeBoss && this.run.elapsed >= this.nextBossTime - GAME_CONFIG.bossWarningLead && this.warnedBossAt !== this.nextBossTime) {
       this.warnedBossAt = this.nextBossTime;
       this.setBanner("Heavy unit incoming.", 2.2);
-      this.audio.playBossWarning();
+      this.playSoundCue("boss-warning", this.player?.x ?? 0, this.player?.y ?? 0, { ownerId: "", intensity: 1.2 });
     }
     if (!activeBoss && this.run.elapsed >= this.nextBossTime) {
       const cycleIndex = Math.max(0, Math.round(this.nextBossTime / GAME_CONFIG.bossInterval) - 1);
@@ -3722,7 +4177,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   recycleFarEnemy(enemy, deltaSeconds) {
-    if (enemy.dead || enemy.isBoss || !this.player) {
+    if (enemy.dead || enemy.isBoss || this.bossArena || !this.player) {
       return;
     }
     const view = this.getActiveSpawnRect(GAME_CONFIG.enemyRecycleMargin);
@@ -4078,7 +4533,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       mine.armTimeRemaining = Math.max(0, mine.armTimeRemaining - deltaSeconds);
       if (wasArming && mine.armTimeRemaining <= 0 && !mine.armedSoundPlayed) {
         mine.armedSoundPlayed = true;
-        this.audio.playMineArmed();
+        this.playSoundCue("mine-armed", mine.x, mine.y, { ownerId: mine.ownerId });
       }
       if (mine.armTimeRemaining > 0) {
         continue;
@@ -4149,7 +4604,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
           this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
         } else {
           this.run.xp += pickup.value * collector.xpMultiplier;
-          this.audio.playPickup();
+          this.playSoundCue("pickup", pickup.x, pickup.y, { ownerId: collector.id, intensity: 0.85 });
           this.spawnFloatingText(pickup.x, pickup.y - 10, `+${Math.ceil(pickup.value * collector.xpMultiplier)} XP`, "#86efac", 0.55);
           this.spawnEffect(pickup.x, pickup.y, 18, "rgba(15, 118, 110, 0.75)", 0.22, "burst");
         }
@@ -4169,7 +4624,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.player.shields = Math.min(this.player.maxShields, this.player.shields + this.player.overhealShieldBonus);
       this.spawnFloatingText(pickup.x, pickup.y - 30, `+${this.player.overhealShieldBonus} Shield`, "#86efac", 0.78);
     }
-    this.audio.playPickup();
+    this.playSoundCue("pickup", pickup.x, pickup.y, { ownerId: this.player.id });
     this.spawnFloatingText(pickup.x, pickup.y - 10, `+${healed} HP`, "#fecdd3", 0.78);
     this.spawnEffect(pickup.x, pickup.y, 24, "rgba(248, 113, 113, 0.78)", 0.24, "burst");
     this.updateHud();
@@ -4329,6 +4784,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
         downedPlayer.reviveProgress = 0;
         this.spawnEffect(downedPlayer.x, downedPlayer.y, 48, "rgba(134, 239, 172, 0.72)", 0.32, "ring");
         this.spawnFloatingText(downedPlayer.x, downedPlayer.y - 54, "Revived", "#86efac", 0.9);
+        this.playSoundCue("pickup", downedPlayer.x, downedPlayer.y, { ownerId: downedPlayer.id, intensity: 1.1 });
       }
     }
   }
@@ -4353,7 +4809,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     enemy.squish = 0.8;
     this.spawnEffect(enemy.x, enemy.y, enemy.radius * 0.82, "rgba(255, 255, 255, 0.78)", 0.16, "ring");
     if (this.hitSoundCooldown <= 0) {
-      this.audio.playHit();
+        this.playSoundCue("hit", enemy.x, enemy.y, { ownerId: "", intensity: 0.65 });
       this.hitSoundCooldown = 0.05;
     }
     if (enemy.hp <= 0) {
@@ -4370,14 +4826,14 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.player.invulnerabilityRemaining = 0.28;
       this.screenShake = Math.max(this.screenShake, 6);
       this.spawnEffect(this.player.x, this.player.y, 32, "rgba(37, 99, 235, 0.75)", 0.3, "ring");
-      this.audio.playShieldBlock();
+      this.playSoundCue("shield-block", this.player.x, this.player.y, { ownerId: this.player.id });
       return true;
     }
     this.player.hp = Math.max(0, this.player.hp - amount);
     this.player.invulnerabilityRemaining = 0.75;
     this.run.damageTaken += amount;
     this.screenShake = Math.max(this.screenShake, 11);
-    this.audio.playPlayerDamage();
+    this.playSoundCue("player-damage", this.player.x, this.player.y, { ownerId: this.player.id });
     if (this.player.hp <= 0) {
       const deathCause = this.createDeathCause(sourceEnemyTypeId, damageKind, amount);
       this.player.deathCause = deathCause;
@@ -4449,7 +4905,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     const amount = Math.max(0, Math.floor(baseAmount * (doubled ? 2 : 1)));
     this.save = updateWallet(this.save, { gold: (this.save.wallet?.gold ?? 0) + amount });
     this.run.goldEarned = (this.run.goldEarned ?? 0) + amount;
-    this.audio.playGold(doubled);
+    this.playSoundCue(doubled ? "double-gold" : "gold", x, y, { ownerId: "", intensity: doubled ? 1.15 : 0.95 });
     const text = doubled ? `DOUBLE GOLD +${amount}` : `+${amount} ${label}`;
     this.spawnFloatingText(x, y, text, doubled ? "#fde68a" : "#fbbf24", doubled ? 1.05 : 0.7);
     if (this.ui.goldCounter) {
@@ -4494,7 +4950,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       (this.save.stats?.total?.kills ?? 0) + this.run.kills >= ENGINEER_UNLOCK_KILLS;
     this.mode = "gameOver";
     this.syncScreens();
-    this.audio.playDeath();
+    this.playSoundCue("death", this.player?.x ?? 0, this.player?.y ?? 0, { ownerId: this.player?.id ?? "" });
     this.setBanner("Run finished.", 1.5);
     if (!this.run.recorded) {
       this.save = recordRun(this.save, this.run);
@@ -5730,7 +6186,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.player.dashCooldownRemaining = this.player.dashCooldown;
     this.player.invulnerabilityRemaining = Math.max(this.player.invulnerabilityRemaining, this.player.dashInvulnerability);
     this.screenShake = Math.max(this.screenShake, 4);
-    this.audio.playDash();
+    this.playSoundCue("dash", this.player.x, this.player.y, { ownerId: this.player.id });
     this.spawnEffect(this.player.x, this.player.y, 38, "rgba(245, 158, 11, 0.82)", 0.32, "ring");
     this.spawnEffect(this.player.x - direction.x * 18, this.player.y - direction.y * 18, 24, "rgba(34, 211, 238, 0.72)", 0.2, "burst");
     if (this.player.attackType === "melee" && this.player.dashSlashDamage > 0) {
@@ -5809,7 +6265,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     }
     this.player.fireCooldownRemaining = this.player.fireCooldown;
     this.run.shotsFired += shotCount;
-    this.audio.playShoot();
+    this.playSoundCue("shoot", this.player.x, this.player.y, { ownerId: this.player.id });
     this.spawnEffect(this.player.x, this.player.y, 18, "rgba(103, 232, 249, 0.95)", 0.14, "burst");
   }
 
@@ -5827,7 +6283,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.player.fireCooldownRemaining = this.player.fireCooldown;
       this.run.shotsFired += 1;
     }
-    this.audio.playSlash();
+    this.playSoundCue("slash", this.player.x, this.player.y, { ownerId: this.player.id });
     if (hitCount > 0 && this.player.counterInvulnerability > 0) {
       this.player.invulnerabilityRemaining = Math.max(this.player.invulnerabilityRemaining, this.player.counterInvulnerability);
     }
@@ -5916,9 +6372,9 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     });
     this.player.grenadeCooldownRemaining = this.player.grenadeCooldown;
     this.screenShake = Math.max(this.screenShake, 4);
-    this.audio.playGrenadeThrow();
+    this.playSoundCue("grenade-throw", spawnX, spawnY, { ownerId: this.player.id });
     if (Math.random() < 0.1) {
-      this.audio.playSpecialGrenadeThrowClip();
+      this.playSoundCue("special-grenade", spawnX, spawnY, { ownerId: this.player.id, intensity: 1.45 });
     }
     this.spawnEffect(spawnX, spawnY, 18, "rgba(249, 115, 22, 0.86)", 0.16, "burst");
   }
@@ -5968,7 +6424,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     });
     this.player.landmineCooldownRemaining = this.player.landmineCooldown;
     this.screenShake = Math.max(this.screenShake, 3);
-    this.audio.playMinePlace();
+    this.playSoundCue("mine-place", this.player.x, this.player.y, { ownerId: this.player.id });
     this.spawnEffect(this.player.x, this.player.y, 24, "rgba(245, 158, 11, 0.72)", 0.22, "ring");
     this.spawnFloatingText(this.player.x, this.player.y - 26, "Mine armed", "#fef08a", 0.74);
   }
@@ -5979,7 +6435,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     }
     grenade.dead = true;
     this.screenShake = Math.max(this.screenShake, 13);
-    this.audio.playExplosion(1);
+    this.playSoundCue("explosion", grenade.x, grenade.y, { ownerId: grenade.ownerId, power: 1, intensity: 1.15 });
     this.spawnEffect(grenade.x, grenade.y, grenade.blastRadius, "rgba(249, 115, 22, 0.65)", 0.34, "ring");
     this.spawnEffect(grenade.x, grenade.y, grenade.blastRadius * 0.46, "rgba(254, 240, 138, 0.76)", 0.24, "burst");
     for (const enemy of this.enemies) {
@@ -6014,7 +6470,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     }
     mine.dead = true;
     this.screenShake = Math.max(this.screenShake, 14);
-    this.audio.playMineExplosion();
+    this.playSoundCue("mine-explosion", mine.x, mine.y, { ownerId: mine.ownerId, intensity: 1.15 });
     this.spawnEffect(mine.x, mine.y, mine.blastRadius, "rgba(245, 158, 11, 0.62)", 0.34, "ring");
     this.spawnEffect(mine.x, mine.y, mine.blastRadius * 0.42, "rgba(250, 204, 21, 0.76)", 0.24, "burst");
     for (const enemy of this.enemies) {
@@ -6057,7 +6513,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
 
   spawnEnemyProjectile(owner, direction, speed, radius, damage, life, color, accent, options = {}) {
     if (!owner.isBoss) {
-      this.audio.playEnemyShoot();
+      this.playSoundCue("enemy-shoot", owner.x, owner.y, { ownerId: "", intensity: 0.8 });
     }
     this.enemyProjectiles.push({
       id: this.projectileId += 1,
@@ -6107,7 +6563,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     });
   }
 
-  spawnEnemy(typeId, statScale, position = null) {
+  spawnEnemy(typeId, statScale, position = null, options = {}) {
     const definition = ENEMY_DEFS[typeId];
     if (!definition) {
       return;
@@ -6133,6 +6589,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       hitFlash: 0,
       squish: 0,
       offscreenTime: 0,
+      noDrops: Boolean(options.noDrops),
     };
     if (typeId === "spitter") {
       enemy.preferredRange = 260;
@@ -6190,7 +6647,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   spawnBoss(cycleIndex) {
     const scale = getBossScale(cycleIndex);
     const position = this.getSpawnPoint(BOSS_DEF.radius + 12);
-    this.enemies.push({
+    const boss = {
       id: this.enemyId += 1,
       typeId: BOSS_DEF.id,
       isBoss: true,
@@ -6221,13 +6678,15 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       volleyShotsRemaining: 0,
       volleyTimer: 0,
       hasSummoned: false,
-    });
+    };
+    this.enemies.push(boss);
+    this.createBossArenaFor(boss);
     this.setBanner(`Heavy unit ${cycleIndex + 1}.`, 2.4);
-    this.audio.playBossSpawn();
+    this.playSoundCue("boss-spawn", boss.x, boss.y, { ownerId: "", intensity: 1.25 });
   }
 
   fireBossChargeShots(boss) {
-    this.audio.playBossAttack("charge");
+    this.playSoundCue("boss-attack", boss.x, boss.y, { ownerId: "", kind: "charge", intensity: 1.1 });
     const baseAngle = Math.atan2(boss.chargeDirection.y, boss.chargeDirection.x);
     const shotCount = Math.min(6, 4 + Math.floor(boss.cycleIndex / 2));
     const spread = shotCount >= 6 ? 0.84 : 0.54;
@@ -6254,7 +6713,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   fireBossVolley(boss) {
-    this.audio.playBossAttack("volley");
+    this.playSoundCue("boss-attack", boss.x, boss.y, { ownerId: "", kind: "volley", intensity: 1.05 });
     const direction = normalizeVector(this.player.x - boss.x, this.player.y - boss.y);
     const baseAngle = Math.atan2(direction.y, direction.x);
     for (const offset of [-0.18, 0, 0.18]) {
@@ -6273,7 +6732,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   fireBossBurst(boss) {
-    this.audio.playBossAttack("burst");
+    this.playSoundCue("boss-attack", boss.x, boss.y, { ownerId: "", kind: "burst", intensity: 1.12 });
     const shots = 16 + Math.min(10, boss.cycleIndex * 2);
     for (let shotIndex = 0; shotIndex < shots; shotIndex += 1) {
       const angle = (Math.PI * 2 * shotIndex) / shots + boss.burstShotsRemaining * 0.1;
@@ -6291,7 +6750,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   summonBossAdds(boss) {
-    this.audio.playBossAttack("summon");
+    this.playSoundCue("boss-attack", boss.x, boss.y, { ownerId: "", kind: "summon", intensity: 1.1 });
     this.spawnEffect(boss.x, boss.y, boss.radius + 70, boss.accent, 0.3, "ring");
     for (let index = 0; index < 3; index += 1) {
       const angle = (Math.PI * 2 * index) / 3 + this.backgroundTime;
@@ -6299,7 +6758,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
         x: boss.x + Math.cos(angle) * 112,
         y: boss.y + Math.sin(angle) * 112,
       };
-      this.spawnEnemy("sentinel", 1 + boss.cycleIndex * 0.12, position);
+      this.spawnEnemy("sentinel", 1 + boss.cycleIndex * 0.12, position, { noDrops: true });
       this.spawnEffect(position.x, position.y, 30, "rgba(20, 184, 166, 0.72)", 0.24, "burst");
     }
     this.spawnFloatingText(boss.x, boss.y - boss.radius - 20, "Sentinels deployed", "#5eead4", 0.9);
@@ -6310,17 +6769,22 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       return;
     }
     enemy.dead = true;
+    const noRewards = Boolean(enemy.noDrops);
     this.recordEnemyKill(enemy.typeId);
     this.spawnEffect(enemy.x, enemy.y, enemy.radius * 1.2, enemy.accent, 0.3, "burst");
     this.spawnEffect(enemy.x, enemy.y, enemy.radius * 1.15, "rgba(236, 254, 255, 0.82)", 0.28, "ring");
-    this.spawnFloatingText(enemy.x, enemy.y - enemy.radius, enemy.isBoss ? "BOSS DOWN" : `+${Math.round(enemy.scoreValue * SCORE_CONFIG.killUnit)}`, enemy.isBoss ? "#fef08a" : "#e0f2fe", enemy.isBoss ? 1.2 : 0.68);
-    if (["grenade", "landmine", "mine-fragment", "zone"].includes(enemy.lastDamageSource)) {
+    if (!noRewards) {
+      this.spawnFloatingText(enemy.x, enemy.y - enemy.radius, enemy.isBoss ? "BOSS DOWN" : `+${Math.round(enemy.scoreValue * SCORE_CONFIG.killUnit)}`, enemy.isBoss ? "#fef08a" : "#e0f2fe", enemy.isBoss ? 1.2 : 0.68);
+    }
+    if (!noRewards && ["grenade", "landmine", "mine-fragment", "zone"].includes(enemy.lastDamageSource)) {
       this.spawnFloatingText(enemy.x, enemy.y + enemy.radius * 0.5, "Blast kill", "#fdba74", 0.74);
     }
-    this.spawnXp(enemy.x, enemy.y, enemy.xpValue, enemy.isBoss ? 10 : 1);
-    this.maybeSpawnMedkit(enemy);
+    if (!noRewards) {
+      this.spawnXp(enemy.x, enemy.y, enemy.xpValue, enemy.isBoss ? 10 : 1);
+      this.maybeSpawnMedkit(enemy);
+    }
     if (enemy.isBoss) {
-      this.audio.playBossDeath();
+      this.playSoundCue("boss-death", enemy.x, enemy.y, { ownerId: "", intensity: 1.2 });
       this.run.bossKills += 1;
       this.run.killScore += enemy.scoreValue * SCORE_CONFIG.killUnit + SCORE_CONFIG.bossBonus;
       this.setBanner("Heavy unit down.", 1.8);
@@ -6328,7 +6792,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.addRunHighlight("Boss defeated", `+${SCORE_CONFIG.bossBonus.toLocaleString()} score`);
       this.awardGold(this.getEnemyGoldValue(enemy), enemy.x, enemy.y + enemy.radius + 18, "gold");
     } else {
-      this.audio.playEnemyDeath();
+      this.playSoundCue("enemy-death", enemy.x, enemy.y, { ownerId: "", intensity: noRewards ? 0.75 : 1 });
+      if (noRewards) {
+        return;
+      }
       this.run.kills += 1;
       this.run.killScore += enemy.scoreValue * SCORE_CONFIG.killUnit;
       this.awardGold(this.getEnemyGoldValue(enemy), enemy.x, enemy.y + enemy.radius + 12, "gold");
@@ -6414,6 +6881,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       radius: 11,
       value: MEDKIT_PICKUP.healAmount,
       life: MEDKIT_PICKUP.lifetime,
+      maxLife: MEDKIT_PICKUP.lifetime,
       dead: false,
     });
   }
@@ -6508,7 +6976,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.player.hp = this.player.maxHp;
     this.spawnFloatingText(this.player.x, this.player.y - 58, "Full Heal", "#86efac", 0.95);
     this.spawnEffect(this.player.x, this.player.y, 48, "rgba(134, 239, 172, 0.64)", 0.32, "ring");
-    this.audio.playPickup();
+    this.playSoundCue("pickup", this.player.x, this.player.y, { ownerId: this.player.id });
     this.showToast(`Full heal bought for ${HEAL_OFFER_CONFIG.price} gold`);
     this.activeHealOfferLevel = 0;
     this.renderSongShop();
@@ -6533,7 +7001,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     }
     this.mode = "upgrade";
     this.upgradeChoices = shuffleInPlace([...available]).slice(0, Math.min(3, available.length));
-    this.audio.playLevelUp();
+    this.playSoundCue("level-up", this.player?.x ?? 0, this.player?.y ?? 0, { ownerId: this.player?.id ?? "" });
     this.buildUpgradeButtons();
     this.syncScreens();
     this.announce("Upgrade choices ready.");
@@ -6570,7 +7038,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.upgradeChoices = (this.coopUpgradeDraft.choicesByPlayer[localPlayer.id] ?? [])
       .map((upgradeId) => getUpgradeById(upgradeId))
       .filter(Boolean);
-    this.audio.playLevelUp();
+    this.playSoundCue("level-up", localPlayer?.x ?? 0, localPlayer?.y ?? 0, { ownerId: localPlayer?.id ?? "" });
     this.buildUpgradeButtons();
     this.syncScreens();
     this.announce("Co-op upgrade choices ready.");
@@ -6707,7 +7175,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     const nextRank = (counts[upgradeId] ?? 0) + 1;
     counts[upgradeId] = nextRank;
     upgrade.apply(this.player, nextRank);
-    this.audio.playUpgradeSelect();
+    this.playSoundCue("upgrade-select", this.player.x, this.player.y, { ownerId: this.player.id });
     this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
     this.setBanner(`${upgrade.name} unlocked!`, 1.2);
     this.spawnFloatingText(this.player.x, this.player.y - 58, `${UPGRADE_ICONS[upgradeId] ?? "⬆️"} ${nextRank}/${upgrade.cap}`, upgrade.color, 1);
@@ -7539,9 +8007,86 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       this.renderEffects(context);
       this.renderFloatingTexts(context);
       context.restore();
+      this.renderTeammateIndicator(context);
     } else {
       this.renderPlayer(context);
     }
+    context.restore();
+  }
+
+  renderTeammateIndicator(context) {
+    if (!this.isCoopRun() || !this.player) {
+      this.teammateIndicator = null;
+      return;
+    }
+    const localPlayer = this.getLocalPlayer();
+    const teammate = (this.players ?? []).find((player) => player && player.id !== localPlayer?.id && !player.dead);
+    if (!localPlayer || !teammate) {
+      this.teammateIndicator = null;
+      return;
+    }
+    const screen = this.worldToScreen(teammate.x, teammate.y);
+    const padding = TEAMMATE_INDICATOR_CONFIG.edgePadding;
+    const visible =
+      screen.x >= padding &&
+      screen.x <= LOGICAL_WIDTH - padding &&
+      screen.y >= padding &&
+      screen.y <= LOGICAL_HEIGHT - padding;
+    if (visible) {
+      this.teammateIndicator = null;
+      return;
+    }
+
+    const centerX = LOGICAL_WIDTH * 0.5;
+    const centerY = LOGICAL_HEIGHT * 0.5;
+    const dx = screen.x - centerX;
+    const dy = screen.y - centerY;
+    const scale = Math.min(
+      (LOGICAL_WIDTH * 0.5 - padding) / Math.max(1, Math.abs(dx)),
+      (LOGICAL_HEIGHT * 0.5 - padding) / Math.max(1, Math.abs(dy)),
+    );
+    const targetX = centerX + dx * scale;
+    const targetY = centerY + dy * scale;
+    const targetAngle = Math.atan2(dy, dx);
+    const amount = 1 - Math.exp(-TEAMMATE_INDICATOR_CONFIG.smoothness / 60);
+    const previous = this.teammateIndicator ?? { x: targetX, y: targetY, angle: targetAngle };
+    const angleDelta = Math.atan2(Math.sin(targetAngle - previous.angle), Math.cos(targetAngle - previous.angle));
+    const indicator = {
+      x: lerp(previous.x, targetX, amount),
+      y: lerp(previous.y, targetY, amount),
+      angle: previous.angle + angleDelta * amount,
+    };
+    this.teammateIndicator = indicator;
+
+    const downed = Boolean(teammate.downed);
+    const distance = Math.round(Math.hypot(teammate.x - localPlayer.x, teammate.y - localPlayer.y));
+    context.save();
+    context.translate(indicator.x, indicator.y);
+    context.shadowBlur = downed ? 26 : 20;
+    context.shadowColor = downed ? "rgba(248, 113, 113, 0.96)" : "rgba(96, 165, 250, 0.86)";
+    context.fillStyle = downed ? "rgba(127, 29, 29, 0.86)" : "rgba(15, 23, 42, 0.86)";
+    context.strokeStyle = downed ? "#fecaca" : "#bfdbfe";
+    context.lineWidth = 3;
+    roundRectPath(context, -54, -24, 108, 48, 8);
+    context.fill();
+    context.stroke();
+    context.rotate(indicator.angle);
+    context.fillStyle = downed ? "#f87171" : "#60a5fa";
+    context.beginPath();
+    context.moveTo(24, 0);
+    context.lineTo(3, -12);
+    context.lineTo(3, 12);
+    context.closePath();
+    context.fill();
+    context.rotate(-indicator.angle);
+    context.shadowBlur = 0;
+    context.font = "800 11px system-ui, sans-serif";
+    context.textAlign = "center";
+    context.fillStyle = downed ? "#fee2e2" : "#dbeafe";
+    context.fillText(downed ? "REVIVE" : (teammate.name || "ALLY").slice(0, 10).toUpperCase(), 0, -4);
+    context.font = "700 10px system-ui, sans-serif";
+    context.fillStyle = downed ? "#fecaca" : "#93c5fd";
+    context.fillText(`${distance}px`, 0, 12);
     context.restore();
   }
 
@@ -7596,6 +8141,23 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       context.fillStyle = glow;
       context.fillRect(view.x, view.y, view.width, view.height);
     }
+    if (this.bossArena) {
+      const { x, y, width, height } = this.bossArena;
+      const pulse = 0.65 + Math.sin(this.backgroundTime * 5) * 0.15;
+      context.fillStyle = "rgba(15, 23, 42, 0.16)";
+      context.fillRect(x, y, width, height);
+      context.shadowBlur = 24;
+      context.shadowColor = "rgba(251, 191, 36, 0.72)";
+      context.strokeStyle = `rgba(251, 191, 36, ${0.58 + pulse * 0.2})`;
+      context.lineWidth = 8;
+      context.strokeRect(x, y, width, height);
+      context.shadowBlur = 0;
+      context.setLineDash([18, 12]);
+      context.strokeStyle = "rgba(34, 211, 238, 0.44)";
+      context.lineWidth = 3;
+      context.strokeRect(x + 16, y + 16, width - 32, height - 32);
+      context.setLineDash([]);
+    }
     context.restore();
   }
 
@@ -7606,9 +8168,13 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       context.translate(pickup.x, pickup.y);
       context.scale(pulse, pulse);
       if (pickup.type === "medkit") {
-        context.shadowBlur = 18;
-        context.shadowColor = "rgba(248, 113, 113, 0.78)";
-        context.fillStyle = "rgba(127, 29, 29, 0.24)";
+        const despawnRatio = clamp((3 - pickup.life) / 3, 0, 1);
+        const flash = despawnRatio > 0 ? 0.45 + Math.sin(this.backgroundTime * 26) * 0.28 + despawnRatio * 0.25 : 1;
+        const crossAlpha = despawnRatio > 0 ? 0.35 + Math.max(0, Math.sin(this.backgroundTime * 32)) * 0.65 : 1;
+        context.globalAlpha = clamp(flash, 0.28, 1);
+        context.shadowBlur = 18 + despawnRatio * 18;
+        context.shadowColor = despawnRatio > 0 ? "rgba(254, 202, 202, 0.95)" : "rgba(248, 113, 113, 0.78)";
+        context.fillStyle = despawnRatio > 0 ? "rgba(248, 113, 113, 0.32)" : "rgba(127, 29, 29, 0.24)";
         context.beginPath();
         context.arc(0, 0, pickup.radius * 1.85, 0, Math.PI * 2);
         context.fill();
@@ -7619,7 +8185,8 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
         context.fill();
         context.stroke();
         context.shadowBlur = 0;
-        context.fillStyle = "#dc2626";
+        context.globalAlpha = clamp(crossAlpha, 0.22, 1);
+        context.fillStyle = despawnRatio > 0 ? "#ef4444" : "#dc2626";
         roundRectPath(context, -3, -pickup.radius * 0.68, 6, pickup.radius * 1.36, 2);
         context.fill();
         roundRectPath(context, -pickup.radius * 0.68, -3, pickup.radius * 1.36, 6, 2);
@@ -8473,6 +9040,10 @@ function renderCoopRoomState(state) {
 }
 
 function handleHostEvent(payload = {}) {
+  if (payload.eventType === "sound") {
+    game.playRemoteSoundCue(payload);
+    return;
+  }
   if (payload.eventType === "run:start" && multiplayer.role === "guest") {
     const room = payload.room;
     game.startMultiplayerGuest({
@@ -9091,6 +9662,12 @@ async function runSelfTest() {
   game.startRun();
   game.spawnBoss(0);
   const boss = game.enemies.find((enemy) => enemy.isBoss);
+  const bossArena = game.getDebugSnapshot().bossArena;
+  if (bossArena) {
+    game.player.x = bossArena.x - 200;
+    game.clampCombatToBossArena();
+  }
+  results.bossArenaClamp = Boolean(bossArena) && game.player.x >= bossArena.x;
   const bossAttackProbe = Array.from({ length: 8 }, () => game.getNextBossAttackPhase(boss));
   const bossPhases = ["charge", "volley", "burst", "summon"];
   results.bossRandomAttackBag =
@@ -9102,7 +9679,19 @@ async function runSelfTest() {
   results.bossHomingShots = game.enemyProjectiles.filter((projectile) => projectile.homingTarget === "player").length === 4;
   game.enemyProjectiles = [];
   game.summonBossAdds(boss);
-  results.bossSummonSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel").length >= 3;
+  const bossSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel");
+  results.bossSummonSentinels = bossSentinels.length >= 3 && bossSentinels.every((enemy) => enemy.noDrops);
+  const rewardProbe = bossSentinels[0];
+  const rewardProbeState = { kills: game.run.kills, pickups: game.pickups.length, gold: game.run.goldEarned, xp: game.run.xp };
+  if (rewardProbe) {
+    game.damageEnemy(rewardProbe, rewardProbe.hp, "self-test");
+  }
+  results.bossMinionDropsNothing =
+    Boolean(rewardProbe?.dead) &&
+    game.run.kills === rewardProbeState.kills &&
+    game.pickups.length === rewardProbeState.pickups &&
+    game.run.goldEarned === rewardProbeState.gold &&
+    game.run.xp === rewardProbeState.xp;
 
   game.startRun();
   game.spawnEnemy("sentinel", 1, { x: game.player.x + 260, y: game.player.y });
@@ -9153,16 +9742,32 @@ async function runSelfTest() {
   const turretShot = game.projectiles.find((projectile) => projectile.source === "turret");
   game.forceUpgrade("rapid-assembly");
   game.forceUpgrade("calibrated-turret");
+  game.forceUpgrade("overclocked-sentry");
   results.engineerTurretBalance =
     baseTurret.cooldown === 10 &&
-    baseTurret.lifetime === 6 &&
+    baseTurret.lifetime === 8 &&
     baseTurret.range === 300 &&
     baseTurret.fireCooldown === 0.8 &&
     Boolean(turretShot && Math.abs(turretShot.damage - 0.6) < 0.001) &&
     Math.abs(game.player.turretDeployCooldown - 8.2) < 0.001 &&
-    game.player.turretLifetime === 8 &&
+    game.player.turretLifetime === 11 &&
     game.player.turretRange === 360 &&
-    game.player.turretDamageBonus === 0.5;
+    game.player.turretDamageBonus === 0.5 &&
+    Math.abs(game.player.turretFireCooldown - 0.704) < 0.001;
+
+  game.save.progress = { ...game.save.progress, engineerUnlocked: true, selectedCharacterId: "engineer" };
+  game.startRun();
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
+  game.forceUpgrade("twin-sentries");
+  game.forceUpgrade("twin-sentries");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.stepManual(0.1);
+  game.stepManual(game.player.turretDeployCooldown + 0.1);
+  game.stepManual(game.player.turretDeployCooldown + 0.1);
+  results.engineerThreeTurrets = game.getDebugSnapshot().turretCount === 3;
 
   game.save.progress = { ...game.save.progress, katanaUnlocked: true, selectedCharacterId: "katana" };
   game.startRun();

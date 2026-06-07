@@ -359,11 +359,11 @@ export const UPGRADE_DEFS = [
     color: "#34d399",
     accent: "#dcfce7",
     characters: [CHARACTER_IDS.engineer],
-    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +2s.`,
+    describe: (rank) => `Rank ${rank}: turret cooldown shrinks by 18% and lifetime +3s.`,
     apply: (player) => {
       player.turretDeployCooldown = Math.max(2.8, player.turretDeployCooldown * 0.82);
       player.turretDeployCooldownRemaining = Math.min(player.turretDeployCooldownRemaining, player.turretDeployCooldown);
-      player.turretLifetime += 2;
+      player.turretLifetime += 3;
     },
   },
   {
@@ -389,6 +389,18 @@ export const UPGRADE_DEFS = [
     apply: (player) => {
       player.turretRange += 60;
       player.turretDamageBonus += 0.5;
+    },
+  },
+  {
+    id: "overclocked-sentry",
+    name: "Overclocked Sentry",
+    cap: 4,
+    color: "#f97316",
+    accent: "#ffedd5",
+    characters: [CHARACTER_IDS.engineer],
+    describe: (rank) => `Rank ${rank}: turret attack cooldown shrinks by 12%.`,
+    apply: (player) => {
+      player.turretFireCooldown = Math.max(0.38, player.turretFireCooldown * 0.88);
     },
   },
   {

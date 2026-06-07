@@ -11,6 +11,7 @@ export class AudioSystem {
     this.currentSong = null;
     this.effectGates = new Map();
     this.specialGrenadeClipSrc = "./sounds/greande.mp3";
+    this.spatialEffect = null;
   }
 
   async unlock() {
@@ -131,6 +132,139 @@ export class AudioSystem {
     }
     this.effectGates.set(key, now);
     return true;
+  }
+
+  getSpatialEffectSettings(source = {}, listener = {}, intensity = 1) {
+    const dx = (Number(source.x) || 0) - (Number(listener.x) || 0);
+    const dy = (Number(source.y) || 0) - (Number(listener.y) || 0);
+    const distance = Math.hypot(dx, dy);
+    return {
+      pan: Math.max(-1, Math.min(1, dx / 720)),
+      volume: Math.max(0.18, 1 - distance / 1600) * Math.max(0.15, Math.min(1.8, Number(intensity) || 1)),
+    };
+  }
+
+  withSpatialEffect(settings, callback) {
+    const previous = this.spatialEffect;
+    this.spatialEffect = settings;
+    try {
+      callback();
+    } finally {
+      this.spatialEffect = previous;
+    }
+  }
+
+  connectEffectOutput(volumeNode) {
+    if (!this.masterGain) {
+      return;
+    }
+    const spatial = this.spatialEffect;
+    if (!spatial || !this.context) {
+      volumeNode.connect(this.masterGain);
+      return;
+    }
+    const spatialGain = this.context.createGain();
+    spatialGain.gain.value = Math.max(0.001, spatial.volume ?? 1);
+    if (typeof this.context.createStereoPanner === "function") {
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = Math.max(-1, Math.min(1, spatial.pan ?? 0));
+      volumeNode.connect(spatialGain);
+      spatialGain.connect(panner);
+      panner.connect(this.masterGain);
+      return;
+    }
+    volumeNode.connect(spatialGain);
+    spatialGain.connect(this.masterGain);
+  }
+
+  playEffectById(soundId, options = {}) {
+    switch (soundId) {
+      case "shoot":
+        this.playShoot();
+        break;
+      case "slash":
+        this.playSlash();
+        break;
+      case "hit":
+        this.playHit();
+        break;
+      case "enemy-death":
+        this.playEnemyDeath();
+        break;
+      case "boss-death":
+        this.playBossDeath();
+        break;
+      case "gold":
+        this.playGold(false);
+        break;
+      case "double-gold":
+        this.playGold(true);
+        break;
+      case "pickup":
+        this.playPickup();
+        break;
+      case "dash":
+        this.playDash();
+        break;
+      case "level-up":
+        this.playLevelUp();
+        break;
+      case "upgrade-select":
+        this.playUpgradeSelect();
+        break;
+      case "boss-warning":
+        this.playBossWarning();
+        break;
+      case "boss-spawn":
+        this.playBossSpawn();
+        break;
+      case "boss-attack":
+        this.playBossAttack(options.kind ?? "attack");
+        break;
+      case "enemy-shoot":
+        this.playEnemyShoot();
+        break;
+      case "player-damage":
+        this.playPlayerDamage();
+        break;
+      case "shield-block":
+        this.playShieldBlock();
+        break;
+      case "grenade-throw":
+        this.playGrenadeThrow();
+        break;
+      case "special-grenade":
+        this.playSpecialGrenadeThrowClip(options);
+        break;
+      case "explosion":
+        this.playExplosion(options.power ?? 1);
+        break;
+      case "mine-place":
+        this.playMinePlace();
+        break;
+      case "mine-armed":
+        this.playMineArmed();
+        break;
+      case "mine-explosion":
+        this.playMineExplosion();
+        break;
+      case "turret-deploy":
+        this.playTurretDeploy();
+        break;
+      case "turret-fire":
+        this.playTurretFire();
+        break;
+      case "death":
+        this.playDeath();
+        break;
+      default:
+        break;
+    }
+  }
+
+  playPositionalEffect(soundId, source = {}, listener = {}, options = {}) {
+    const spatial = this.getSpatialEffectSettings(source, listener, options.intensity ?? 1);
+    this.withSpatialEffect(spatial, () => this.playEffectById(soundId, { ...options, pan: spatial.pan, volume: spatial.volume }));
   }
 
   playShoot() {
@@ -299,14 +433,40 @@ export class AudioSystem {
     this.playNoise({ duration: 0.05, gain: 0.02, filterFrequency: 1800, filterType: "highpass" });
   }
 
-  playSpecialGrenadeThrowClip() {
+  playSpecialGrenadeThrowClip({ pan = 0, volume = 1 } = {}) {
     if (typeof Audio === "undefined") {
       return;
     }
     const clip = new Audio(this.specialGrenadeClipSrc);
     clip.loop = false;
     clip.muted = false;
-    clip.volume = 1;
+    const safeVolume = Math.max(0, Math.min(1, volume));
+    clip.volume = safeVolume;
+    let routed = false;
+    if (this.context && typeof this.context.createStereoPanner === "function") {
+      try {
+        const source = this.context.createMediaElementSource(clip);
+        const gain = this.context.createGain();
+        const panner = this.context.createStereoPanner();
+        clip.volume = 1;
+        routed = true;
+        gain.gain.value = Math.max(0.001, Math.min(1.5, safeVolume));
+        panner.pan.value = Math.max(-1, Math.min(1, pan));
+        source.connect(gain);
+        gain.connect(panner);
+        panner.connect(this.context.destination);
+        clip.onended = () => {
+          source.disconnect();
+          gain.disconnect();
+          panner.disconnect();
+        };
+      } catch {
+        // Fall back to plain HTML audio if a browser rejects media-element routing.
+      }
+    }
+    if (!routed) {
+      clip.volume = safeVolume;
+    }
     clip.play().catch(() => {});
   }
 
@@ -384,7 +544,7 @@ export class AudioSystem {
     volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
 
     oscillator.connect(volume);
-    volume.connect(this.masterGain);
+    this.connectEffectOutput(volume);
     oscillator.start(now);
     oscillator.stop(now + safeDuration + 0.03);
   }
@@ -416,7 +576,7 @@ export class AudioSystem {
     volume.gain.exponentialRampToValueAtTime(0.0001, now + safeDuration);
     source.connect(filter);
     filter.connect(volume);
-    volume.connect(this.masterGain);
+    this.connectEffectOutput(volume);
     source.start(now);
     source.stop(now + safeDuration + 0.02);
   }

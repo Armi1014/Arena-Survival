@@ -262,6 +262,10 @@ function renderCoopRoomState(state) {
 }
 
 function handleHostEvent(payload = {}) {
+  if (payload.eventType === "sound") {
+    game.playRemoteSoundCue(payload);
+    return;
+  }
   if (payload.eventType === "run:start" && multiplayer.role === "guest") {
     const room = payload.room;
     game.startMultiplayerGuest({
@@ -880,6 +884,12 @@ async function runSelfTest() {
   game.startRun();
   game.spawnBoss(0);
   const boss = game.enemies.find((enemy) => enemy.isBoss);
+  const bossArena = game.getDebugSnapshot().bossArena;
+  if (bossArena) {
+    game.player.x = bossArena.x - 200;
+    game.clampCombatToBossArena();
+  }
+  results.bossArenaClamp = Boolean(bossArena) && game.player.x >= bossArena.x;
   const bossAttackProbe = Array.from({ length: 8 }, () => game.getNextBossAttackPhase(boss));
   const bossPhases = ["charge", "volley", "burst", "summon"];
   results.bossRandomAttackBag =
@@ -891,7 +901,19 @@ async function runSelfTest() {
   results.bossHomingShots = game.enemyProjectiles.filter((projectile) => projectile.homingTarget === "player").length === 4;
   game.enemyProjectiles = [];
   game.summonBossAdds(boss);
-  results.bossSummonSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel").length >= 3;
+  const bossSentinels = game.enemies.filter((enemy) => enemy.typeId === "sentinel");
+  results.bossSummonSentinels = bossSentinels.length >= 3 && bossSentinels.every((enemy) => enemy.noDrops);
+  const rewardProbe = bossSentinels[0];
+  const rewardProbeState = { kills: game.run.kills, pickups: game.pickups.length, gold: game.run.goldEarned, xp: game.run.xp };
+  if (rewardProbe) {
+    game.damageEnemy(rewardProbe, rewardProbe.hp, "self-test");
+  }
+  results.bossMinionDropsNothing =
+    Boolean(rewardProbe?.dead) &&
+    game.run.kills === rewardProbeState.kills &&
+    game.pickups.length === rewardProbeState.pickups &&
+    game.run.goldEarned === rewardProbeState.gold &&
+    game.run.xp === rewardProbeState.xp;
 
   game.startRun();
   game.spawnEnemy("sentinel", 1, { x: game.player.x + 260, y: game.player.y });
@@ -942,16 +964,32 @@ async function runSelfTest() {
   const turretShot = game.projectiles.find((projectile) => projectile.source === "turret");
   game.forceUpgrade("rapid-assembly");
   game.forceUpgrade("calibrated-turret");
+  game.forceUpgrade("overclocked-sentry");
   results.engineerTurretBalance =
     baseTurret.cooldown === 10 &&
-    baseTurret.lifetime === 6 &&
+    baseTurret.lifetime === 8 &&
     baseTurret.range === 300 &&
     baseTurret.fireCooldown === 0.8 &&
     Boolean(turretShot && Math.abs(turretShot.damage - 0.6) < 0.001) &&
     Math.abs(game.player.turretDeployCooldown - 8.2) < 0.001 &&
-    game.player.turretLifetime === 8 &&
+    game.player.turretLifetime === 11 &&
     game.player.turretRange === 360 &&
-    game.player.turretDamageBonus === 0.5;
+    game.player.turretDamageBonus === 0.5 &&
+    Math.abs(game.player.turretFireCooldown - 0.704) < 0.001;
+
+  game.save.progress = { ...game.save.progress, engineerUnlocked: true, selectedCharacterId: "engineer" };
+  game.startRun();
+  game.spawnEnemy("nibbler", 1, { x: game.player.x + 170, y: game.player.y });
+  game.forceUpgrade("twin-sentries");
+  game.forceUpgrade("twin-sentries");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.forceUpgrade("rapid-assembly");
+  game.stepManual(0.1);
+  game.stepManual(game.player.turretDeployCooldown + 0.1);
+  game.stepManual(game.player.turretDeployCooldown + 0.1);
+  results.engineerThreeTurrets = game.getDebugSnapshot().turretCount === 3;
 
   game.save.progress = { ...game.save.progress, katanaUnlocked: true, selectedCharacterId: "katana" };
   game.startRun();
