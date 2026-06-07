@@ -152,7 +152,7 @@ set +a
 Recent successful deploy:
 
 ```text
-html5 | upload #17825049 | build #1711788 | version 2026-06-07-coop-polish-boss-arena-v1
+html5 | upload #17825049 | build #1711790 | version 2026-06-07-coop-polish-boss-arena-v2
 ```
 
 ## Current Gameplay Notes
