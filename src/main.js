@@ -256,7 +256,7 @@ function renderCoopRoomState(state) {
   }
   if (ui.coopStartButton) {
     const players = state?.players ?? [];
-    const canStart = multiplayer.role === "host" && players.length === 2 && players.every((player) => player.ready);
+    const canStart = multiplayer.role === "host" && players.length >= 2 && players.length <= 4 && players.every((player) => player.ready);
     ui.coopStartButton.disabled = !canStart;
   }
 }
@@ -721,7 +721,7 @@ window.setInterval(() => {
   if (multiplayer.role === "host" && multiplayer.isConnected() && game.isMultiplayerHost() && game.mode !== "title") {
     multiplayer.sendSnapshot(game.createMultiplayerSnapshot());
   }
-}, 70);
+}, 90);
 
 async function runSelfTest() {
   const results = {

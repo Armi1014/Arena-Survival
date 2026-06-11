@@ -1,4 +1,4 @@
-// src/data/constants.js
+﻿// src/data/constants.js
 const LOGICAL_WIDTH = 1280;
 const LOGICAL_HEIGHT = 720;
 const CAMERA_CONFIG = {
@@ -13,7 +13,9 @@ const SETTINGS_DEFAULTS = {
   muted: false,
   musicVolume: 0.45,
   adminModeEnabled: false,
-};const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";const DEFAULT_SONGS = [];
+};
+const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+const DEFAULT_SONGS = [];
 const PLAYER_BASE = {
   radius: 18,
   maxHp: 5,
@@ -45,11 +47,13 @@ const PLAYER_BASE = {
   landmineArmTime: 0.5,
   landmineTriggerRadius: 34,
   maxLandmines: 4,
-};const SCORE_CONFIG = {
+};
+const SCORE_CONFIG = {
   survivalPerSecond: 12,
   killUnit: 42,
   bossBonus: 1200,
-};const GOLD_CONFIG = {
+};
+const GOLD_CONFIG = {
   normalKill: 1,
   bossKill: 25,
   doubleChance: 0.01,
@@ -67,7 +71,8 @@ const PLAYER_BASE = {
 const XP_CONFIG = {
   base: 38,
   growth: 22,
-};const GAME_CONFIG = {
+};
+const GAME_CONFIG = {
   maxDeltaSeconds: 1 / 30,
   padding: 28,
   spawnPadding: 70,
@@ -80,22 +85,27 @@ const XP_CONFIG = {
 };
 function getXpThreshold(level) {
   return XP_CONFIG.base + (level - 1) * XP_CONFIG.growth;
-}function clamp(value, min, max) {
+}
+function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}function lerp(start, end, amount) {
+}
+function lerp(start, end, amount) {
   return start + (end - start) * amount;
-}function formatTime(totalSeconds) {
+}
+function formatTime(totalSeconds) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safeSeconds / 60)
     .toString()
     .padStart(2, "0");
   const seconds = (safeSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
-}function distanceSquared(ax, ay, bx, by) {
+}
+function distanceSquared(ax, ay, bx, by) {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
-}function randomRange(min, max) {
+}
+function randomRange(min, max) {
   return min + Math.random() * (max - min);
 }
 
@@ -104,9 +114,12 @@ const CHARACTER_IDS = {
   gunner: "gunner",
   katana: "katana",
   engineer: "engineer",
-};const KATANA_UNLOCK_BOSSES = 3;const ENGINEER_UNLOCK_KILLS = 1000;
+};
+const KATANA_UNLOCK_BOSSES = 3;
+const ENGINEER_UNLOCK_KILLS = 1000;
 
-/** @type {Record<string, import("../types.js").CharacterDef>} */const CHARACTER_DEFS = {
+/** @type {Record<string, import("../types.js").CharacterDef>} */
+const CHARACTER_DEFS = {
   [CHARACTER_IDS.gunner]: {
     id: CHARACTER_IDS.gunner,
     name: "Gunner",
@@ -145,9 +158,11 @@ const CHARACTER_IDS = {
     color: "#34d399",
     accent: "#f59e0b",
   },
-};function getCharacterById(characterId) {
+};
+function getCharacterById(characterId) {
   return CHARACTER_DEFS[characterId] ?? CHARACTER_DEFS[CHARACTER_IDS.gunner];
-}function isCharacterUnlocked(progress, stats, characterId) {
+}
+function isCharacterUnlocked(progress, stats, characterId) {
   if (characterId === CHARACTER_IDS.gunner) {
     return true;
   }
@@ -171,7 +186,8 @@ const DIFFICULTY_TABLE = [
   { minute: 6, spawnBudgetPerSecond: 3.45, statScale: 1.52, weights: { nibbler: 1.24, sprinter: 0.92, spitter: 1.44, marksman: 0.84, "acid-spitter": 0.94, bumper: 1.05, tank: 0.34 } },
   { minute: 7, spawnBudgetPerSecond: 3.7, statScale: 1.62, weights: { nibbler: 1.16, sprinter: 0.98, spitter: 1.56, marksman: 0.94, "acid-spitter": 1.06, bumper: 1.14, tank: 0.44 } },
   { minute: 8, spawnBudgetPerSecond: 3.95, statScale: 1.72, weights: { nibbler: 1.08, sprinter: 1.04, spitter: 1.7, marksman: 1.02, "acid-spitter": 1.18, bumper: 1.24, tank: 0.54 } },
-];function getDifficultySnapshot(elapsedSeconds) {
+];
+function getDifficultySnapshot(elapsedSeconds) {
   const minute = Math.floor(elapsedSeconds / 60);
   const lastEntry = DIFFICULTY_TABLE[DIFFICULTY_TABLE.length - 1];
   let entry = DIFFICULTY_TABLE[0];
@@ -203,7 +219,8 @@ const DIFFICULTY_TABLE = [
       tank: lastEntry.weights.tank + overflowMinutes * 0.04,
     },
   };
-}function getBossScale(cycleIndex) {
+}
+function getBossScale(cycleIndex) {
   return {
     hpMultiplier: 1.35 ** cycleIndex,
     damageMultiplier: 1.15 ** cycleIndex,
@@ -211,7 +228,8 @@ const DIFFICULTY_TABLE = [
 }
 
 // src/data/enemies.js
-/** @type {Record<string, import("../types.js").EnemyDef>} */const ENEMY_DEFS = {
+/** @type {Record<string, import("../types.js").EnemyDef>} */
+const ENEMY_DEFS = {
   nibbler: {
     id: "nibbler",
     name: "Runner",
@@ -334,7 +352,8 @@ const DIFFICULTY_TABLE = [
   },
 };
 
-/** @type {import("../types.js").BossDef} */const BOSS_DEF = {
+/** @type {import("../types.js").BossDef} */
+const BOSS_DEF = {
   id: "heavy-unit",
   name: "Heavy Unit",
   radius: 54,
@@ -352,7 +371,8 @@ const DIFFICULTY_TABLE = [
 const SHIELD_INTERVALS = [16, 12, 9];
 const SHIELD_CAPS = [1, 2, 2];
 
-/** @type {import("../types.js").UpgradeDef[]} */const UPGRADE_DEFS = [
+/** @type {import("../types.js").UpgradeDef[]} */
+const UPGRADE_DEFS = [
   {
     id: "rapid-pop",
     name: "Rapid Fire",
@@ -763,7 +783,8 @@ const SHIELD_CAPS = [1, 2, 2];
       player.turretPierce += 1;
     },
   },
-];function getUpgradeById(upgradeId) {
+];
+function getUpgradeById(upgradeId) {
   return UPGRADE_DEFS.find((upgrade) => upgrade.id === upgradeId) ?? null;
 }
 
@@ -820,16 +841,19 @@ async function withAudioStore(mode, action) {
       database.close();
     });
   });
-}async function saveSongAudio(songId, file) {
+}
+async function saveSongAudio(songId, file) {
   await withAudioStore("readwrite", (store) => store.put(file, songId));
-}async function deleteSongAudio(songId) {
+}
+async function deleteSongAudio(songId) {
   const currentUrl = songAudioUrls.get(songId);
   if (currentUrl) {
     URL.revokeObjectURL(currentUrl);
     songAudioUrls.delete(songId);
   }
   await withAudioStore("readwrite", (store) => store.delete(songId));
-}async function hydrateAdminSongAudio(adminSongs) {
+}
+async function hydrateAdminSongAudio(adminSongs) {
   if (!Array.isArray(adminSongs) || !adminSongs.length || !window.indexedDB) {
     return adminSongs;
   }
@@ -1007,7 +1031,8 @@ function normalizeStats(stats, highScore = 0) {
     },
     enemy: normalizeEnemyStats(stats?.enemy),
   };
-}function loadSave() {
+}
+function loadSave() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -1062,7 +1087,8 @@ function normalizeStats(stats, highScore = 0) {
   } catch {
     return getEmptySave();
   }
-}function updateWallet(save, partialWallet) {
+}
+function updateWallet(save, partialWallet) {
   const next = {
     ...save,
     wallet: {
@@ -1073,7 +1099,8 @@ function normalizeStats(stats, highScore = 0) {
   next.wallet.gold = Math.max(0, Math.floor(toFiniteNumber(next.wallet.gold)));
   persistSave(next);
   return next;
-}function updateMusic(save, partialMusic) {
+}
+function updateMusic(save, partialMusic) {
   const currentMusic = normalizeMusicState(save.music ?? {});
   const next = {
     ...save,
@@ -1101,7 +1128,8 @@ function persistSave(save) {
     },
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storedSave));
-}function updateHighScore(save, score) {
+}
+function updateHighScore(save, score) {
   const nextHighScore = Math.floor(score);
   if (nextHighScore <= save.highScore) {
     return save;
@@ -1120,7 +1148,8 @@ function persistSave(save) {
   };
   persistSave(next);
   return next;
-}function recordRun(save, run) {
+}
+function recordRun(save, run) {
   const stats = normalizeStats(save.stats, save.highScore);
   const score = Math.floor(run.score);
   const elapsed = Math.max(0, run.elapsed);
@@ -1198,7 +1227,8 @@ function persistSave(save) {
   };
   persistSave(next);
   return next;
-}function resetStats(save) {
+}
+function resetStats(save) {
   const next = {
     ...save,
     highScore: 0,
@@ -1206,7 +1236,8 @@ function persistSave(save) {
   };
   persistSave(next);
   return next;
-}function updateProgress(save, partialProgress) {
+}
+function updateProgress(save, partialProgress) {
   const baseGrenadeUnlocked = Boolean(save.progress?.grenadeUnlocked);
   const baseLandmineUnlocked = Boolean(save.progress?.landmineUnlocked);
   const baseEquippedAbilityId =
@@ -1268,7 +1299,8 @@ function persistSave(save) {
   };
   persistSave(next);
   return next;
-}function updateSettings(save, partialSettings) {
+}
+function updateSettings(save, partialSettings) {
   const next = {
     ...save,
     settings: {
@@ -1955,7 +1987,8 @@ async function requestJson(path, options = {}) {
   } finally {
     window.clearTimeout(timeoutId);
   }
-}function isOnlineLeaderboardEnabled() {
+}
+function isOnlineLeaderboardEnabled() {
   return !isPlaceholderUrl(getApiBaseUrl());
 }
 function getMultiplayerWebSocketUrl() {
@@ -2375,10 +2408,16 @@ const MEDKIT_PICKUP = {
 };
 
 const COOP_CONFIG = {
+  maxPlayers: 4,
   reviveRadius: 74,
   reviveSeconds: 3,
   reviveHp: 2,
   disconnectGraceSeconds: 8,
+  spawnMultiplierPerExtraPlayer: 0.38,
+  enemyCapPerExtraPlayer: 0.34,
+  enemyHpPerExtraPlayer: 0.24,
+  enemyDamagePerExtraPlayer: 0.08,
+  bossHpPerExtraPlayer: 0.3,
 };
 
 const GUEST_INTERPOLATION_CONFIG = {
@@ -2568,7 +2607,8 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     }
   }
   return candidates[candidates.length - 1].id;
-}class Game {
+}
+class Game {
   constructor({ canvas, ui, save, audio }) {
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
@@ -2637,6 +2677,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
+    this.pickupId = 0;
     this.grenadeId = 0;
     this.landmineId = 0;
     this.turretId = 0;
@@ -2750,6 +2791,24 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
 
   getAlivePlayers() {
     return (this.players?.length ? this.players : [this.player]).filter((player) => player && !player.dead && !player.downed);
+  }
+
+  getCoopPlayerCount() {
+    if (!this.isCoopRun()) {
+      return 1;
+    }
+    return clamp(this.players?.length || 1, 1, COOP_CONFIG.maxPlayers);
+  }
+
+  getCoopEnemyScale() {
+    const extraPlayers = Math.max(0, this.getCoopPlayerCount() - 1);
+    return {
+      spawnMultiplier: 1 + extraPlayers * COOP_CONFIG.spawnMultiplierPerExtraPlayer,
+      maxEnemies: Math.round(GAME_CONFIG.maxEnemies * (1 + extraPlayers * COOP_CONFIG.enemyCapPerExtraPlayer)),
+      enemyHp: 1 + extraPlayers * COOP_CONFIG.enemyHpPerExtraPlayer,
+      enemyDamage: 1 + extraPlayers * COOP_CONFIG.enemyDamagePerExtraPlayer,
+      bossHp: 1 + extraPlayers * COOP_CONFIG.bossHpPerExtraPlayer,
+    };
   }
 
   getClosestAlivePlayer(x, y) {
@@ -2990,9 +3049,9 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       landmines: this.landmines,
       turrets: this.turrets,
       damageZones: this.damageZones,
-      pickups: this.pickups,
-      effects: this.effects,
-      floatingTexts: this.floatingTexts,
+      pickups: this.pickups.filter((pickup) => !pickup.dead).map((pickup) => this.serializePickup(pickup)),
+      effects: [],
+      floatingTexts: [],
       bossArena: this.bossArena ? { ...this.bossArena } : null,
       banner: this.banner,
     };
@@ -3003,6 +3062,23 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       ...player,
       inputKeys: Array.from(player.inputKeys ?? []),
       upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+    };
+  }
+
+  serializePickup(pickup) {
+    return {
+      id: pickup.id ?? null,
+      type: pickup.type,
+      x: pickup.x,
+      y: pickup.y,
+      vx: pickup.vx,
+      vy: pickup.vy,
+      radius: pickup.radius,
+      value: pickup.value,
+      life: pickup.life,
+      maxLife: pickup.maxLife,
+      collectorId: pickup.collectorId ?? "",
+      dead: Boolean(pickup.dead),
     };
   }
 
@@ -3028,7 +3104,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       landmines: Array.isArray(snapshot.landmines) ? snapshot.landmines.map((mine) => ({ ...mine })) : this.landmines,
       turrets: Array.isArray(snapshot.turrets) ? snapshot.turrets.map((turret) => ({ ...turret })) : this.turrets,
       damageZones: Array.isArray(snapshot.damageZones) ? snapshot.damageZones.map((zone) => ({ ...zone })) : this.damageZones,
-      pickups: Array.isArray(snapshot.pickups) ? snapshot.pickups.map((pickup) => ({ ...pickup })) : this.pickups,
+      pickups: Array.isArray(snapshot.pickups) ? snapshot.pickups.map((pickup, index) => ({ ...pickup, id: pickup.id ?? `pickup-${index}` })) : this.pickups,
       effects: Array.isArray(snapshot.effects) ? snapshot.effects.map((effect) => ({ ...effect })) : this.effects,
       floatingTexts: Array.isArray(snapshot.floatingTexts) ? snapshot.floatingTexts.map((text) => ({ ...text })) : this.floatingTexts,
       bossArena: snapshot.bossArena ? { ...snapshot.bossArena } : null,
@@ -3046,9 +3122,9 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       landmines: this.landmines.map((mine) => ({ ...mine })),
       turrets: this.turrets.map((turret) => ({ ...turret })),
       damageZones: this.damageZones.map((zone) => ({ ...zone })),
-      pickups: this.pickups.map((pickup) => ({ ...pickup })),
-      effects: this.effects.map((effect) => ({ ...effect })),
-      floatingTexts: this.floatingTexts.map((text) => ({ ...text })),
+      pickups: this.pickups.filter((pickup) => !pickup.dead).map((pickup) => this.serializePickup(pickup)),
+      effects: [],
+      floatingTexts: [],
       bossArena: this.bossArena ? { ...this.bossArena } : null,
     };
   }
@@ -3076,8 +3152,9 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   interpolateEntityList(previousList = [], nextList = [], ratio = 1) {
-    const previousById = new Map(previousList.map((entity) => [entity.id, entity]));
-    return nextList.map((entity) => this.interpolateEntity(previousById.get(entity.id), entity, ratio));
+    const getKey = (entity, index) => entity?.id ?? `${entity?.type ?? "entity"}-${index}`;
+    const previousById = new Map(previousList.map((entity, index) => [getKey(entity, index), entity]));
+    return nextList.map((entity, index) => this.interpolateEntity(previousById.get(getKey(entity, index)), entity, ratio));
   }
 
   applyRenderableSnapshot(snapshot, ratio = 1) {
@@ -3132,7 +3209,8 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     const previousReceivedAt = this.remoteSnapshotReceivedAt || now;
     this.remoteSnapshotPrevious = this.captureRenderableSnapshot();
     this.remoteSnapshotNext = normalized;
-    this.remoteSnapshotDuration = clamp(now - previousReceivedAt, GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
+    const measuredDuration = clamp(now - previousReceivedAt, GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
+    this.remoteSnapshotDuration = clamp(lerp(this.remoteSnapshotDuration || measuredDuration, measuredDuration, 0.35), GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
     this.remoteSnapshotReceivedAt = now;
     this.mode = normalized.mode ?? this.mode;
     this.run = normalized.run;
@@ -3626,6 +3704,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
+    this.pickupId = 0;
     this.grenadeId = 0;
     this.landmineId = 0;
     this.turretId = 0;
@@ -3763,6 +3842,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.effects = [];
     this.floatingTexts = [];
     this.toasts = [];
+    this.pickupId = 0;
     this.banner = null;
     this.bossArena = null;
     this.remoteSnapshotPrevious = null;
@@ -4088,7 +4168,8 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
   }
 
   updateSpawning(deltaSeconds) {
-    if (!this.run || this.enemies.length >= GAME_CONFIG.maxEnemies) {
+    const coopScale = this.getCoopEnemyScale();
+    if (!this.run || this.enemies.length >= coopScale.maxEnemies) {
       return;
     }
     const activeBoss = this.enemies.some((enemy) => enemy.isBoss && !enemy.dead);
@@ -4096,14 +4177,14 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       return;
     }
     const difficulty = getDifficultySnapshot(this.run.elapsed);
-    this.spawnBudget += difficulty.spawnBudgetPerSecond * deltaSeconds;
+    this.spawnBudget += difficulty.spawnBudgetPerSecond * coopScale.spawnMultiplier * deltaSeconds;
 
     const candidates = getWeightedEnemyCandidates(difficulty.weights);
     if (!candidates.length) {
       return;
     }
     const minimumCost = Math.min(...candidates.map((definition) => definition.cost));
-    while (this.spawnBudget >= minimumCost && this.enemies.length < GAME_CONFIG.maxEnemies) {
+    while (this.spawnBudget >= minimumCost && this.enemies.length < coopScale.maxEnemies) {
       let definition = ENEMY_DEFS[this.spawnTargetType];
       if (!definition || (difficulty.weights[definition.id] ?? 0) <= 0) {
         const nonRunnerCandidates = candidates.filter((candidate) => candidate.id !== "nibbler");
@@ -4566,18 +4647,24 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
         continue;
       }
       const isMedkit = pickup.type === "medkit";
-      let collector = null;
+      let collector = candidates.find((player) => player.id === pickup.collectorId) ?? null;
+      if (collector && isMedkit && collector.hp >= collector.maxHp) {
+        collector = null;
+      }
       let closestDistance = Infinity;
-      for (const player of candidates) {
-        if (isMedkit && player.hp >= player.maxHp) {
-          continue;
-        }
-        const distance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          collector = player;
+      if (!collector) {
+        for (const player of candidates) {
+          if (isMedkit && player.hp >= player.maxHp) {
+            continue;
+          }
+          const distance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            collector = player;
+          }
         }
       }
+      pickup.collectorId = collector?.id ?? "";
       if (!collector) {
         pickup.vx *= 0.92;
         pickup.vy *= 0.92;
@@ -4588,17 +4675,36 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       const toPlayerX = collector.x - pickup.x;
       const toPlayerY = collector.y - pickup.y;
       const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
+      const collectRadius = pickup.radius + collector.radius + 3;
+      if (distance <= collectRadius) {
+        pickup.dead = true;
+        if (isMedkit) {
+          this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
+        } else {
+          this.run.xp += pickup.value * collector.xpMultiplier;
+          this.playSoundCue("pickup", pickup.x, pickup.y, { ownerId: collector.id, intensity: 0.85 });
+          this.spawnFloatingText(pickup.x, pickup.y - 10, `+${Math.ceil(pickup.value * collector.xpMultiplier)} XP`, "#86efac", 0.55);
+          this.spawnEffect(pickup.x, pickup.y, 18, "rgba(15, 118, 110, 0.75)", 0.22, "burst");
+        }
+        continue;
+      }
       if (distance < collector.magnetRadius || distance < 36) {
         const pull = 1 - clamp(distance / collector.magnetRadius, 0, 1);
         const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
-        pickup.vx += direction.x * (420 + pull * 540) * deltaSeconds;
-        pickup.vy += direction.y * (420 + pull * 540) * deltaSeconds;
+        pickup.vx += direction.x * (360 + pull * 420) * deltaSeconds;
+        pickup.vy += direction.y * (360 + pull * 420) * deltaSeconds;
       }
-      pickup.vx *= 0.92;
-      pickup.vy *= 0.92;
+      const maxPickupSpeed = isMedkit ? 500 : 620;
+      const pickupSpeed = Math.hypot(pickup.vx, pickup.vy);
+      if (pickupSpeed > maxPickupSpeed) {
+        pickup.vx = (pickup.vx / pickupSpeed) * maxPickupSpeed;
+        pickup.vy = (pickup.vy / pickupSpeed) * maxPickupSpeed;
+      }
+      pickup.vx *= 0.88;
+      pickup.vy *= 0.88;
       pickup.x += pickup.vx * deltaSeconds;
       pickup.y += pickup.vy * deltaSeconds;
-      if (distanceSquared(pickup.x, pickup.y, collector.x, collector.y) <= (pickup.radius + collector.radius + 2) ** 2) {
+      if (distanceSquared(pickup.x, pickup.y, collector.x, collector.y) <= collectRadius ** 2) {
         pickup.dead = true;
         if (isMedkit) {
           this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
@@ -6568,6 +6674,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     if (!definition) {
       return;
     }
+    const coopScale = options.noCoopScale ? { enemyHp: 1, enemyDamage: 1 } : this.getCoopEnemyScale();
     const spawnPoint = position ?? this.getSpawnPoint(definition.radius);
     const enemy = {
       id: this.enemyId += 1,
@@ -6578,10 +6685,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       vx: 0,
       vy: 0,
       radius: definition.radius,
-      hp: Math.round(definition.maxHp * statScale),
-      maxHp: Math.round(definition.maxHp * statScale),
+      hp: Math.round(definition.maxHp * statScale * coopScale.enemyHp),
+      maxHp: Math.round(definition.maxHp * statScale * coopScale.enemyHp),
       speed: definition.speed * (1 + (statScale - 1) * 0.38),
-      contactDamage: Math.max(1, Math.round(definition.contactDamage * (0.9 + (statScale - 1) * 0.5))),
+      contactDamage: Math.max(1, Math.round(definition.contactDamage * (0.9 + (statScale - 1) * 0.5) * coopScale.enemyDamage)),
       xpValue: definition.xpValue,
       scoreValue: definition.scoreValue,
       color: definition.color,
@@ -6646,6 +6753,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
 
   spawnBoss(cycleIndex) {
     const scale = getBossScale(cycleIndex);
+    const coopScale = this.getCoopEnemyScale();
     const position = this.getSpawnPoint(BOSS_DEF.radius + 12);
     const boss = {
       id: this.enemyId += 1,
@@ -6656,10 +6764,10 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       vx: 0,
       vy: 0,
       radius: BOSS_DEF.radius,
-      hp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier),
-      maxHp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier),
+      hp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier * coopScale.bossHp),
+      maxHp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier * coopScale.bossHp),
       speed: BOSS_DEF.speed + cycleIndex * 6,
-      contactDamage: Math.max(1, Math.round(BOSS_DEF.contactDamage * scale.damageMultiplier)),
+      contactDamage: Math.max(1, Math.round(BOSS_DEF.contactDamage * scale.damageMultiplier * coopScale.enemyDamage)),
       xpValue: BOSS_DEF.xpValue,
       scoreValue: BOSS_DEF.scoreValue,
       color: BOSS_DEF.color,
@@ -6856,6 +6964,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       const angle = randomRange(0, Math.PI * 2);
       const speed = randomRange(40, 140);
       this.pickups.push({
+        id: this.pickupId += 1,
         type: "xp",
         x,
         y,
@@ -6873,6 +6982,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     const angle = randomRange(0, Math.PI * 2);
     const speed = randomRange(36, 108);
     this.pickups.push({
+      id: this.pickupId += 1,
       type: "medkit",
       x,
       y,
@@ -9034,7 +9144,7 @@ function renderCoopRoomState(state) {
   }
   if (ui.coopStartButton) {
     const players = state?.players ?? [];
-    const canStart = multiplayer.role === "host" && players.length === 2 && players.every((player) => player.ready);
+    const canStart = multiplayer.role === "host" && players.length >= 2 && players.length <= 4 && players.every((player) => player.ready);
     ui.coopStartButton.disabled = !canStart;
   }
 }
@@ -9499,7 +9609,7 @@ window.setInterval(() => {
   if (multiplayer.role === "host" && multiplayer.isConnected() && game.isMultiplayerHost() && game.mode !== "title") {
     multiplayer.sendSnapshot(game.createMultiplayerSnapshot());
   }
-}, 70);
+}, 90);
 
 async function runSelfTest() {
   const results = {
@@ -10023,3 +10133,4 @@ if (SELF_TEST_MODE) {
 
 window.__bubbleBlitz = game;
 window.__bubbleBlitzSelfTest = runSelfTest;
+

@@ -15,6 +15,7 @@ const validLeaderboardModes = new Set(["solo", "coop"]);
 const dataDirectory = process.env.LEADERBOARD_DATA_DIR || path.join(__dirname, "data");
 const dataFile = path.join(dataDirectory, "leaderboard.json");
 const roomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const maxCoopPlayers = 4;
 const maxRoomAgeMs = 1000 * 60 * 60 * 2;
 const staleSocketMs = 1000 * 35;
 
@@ -148,8 +149,8 @@ function validateScorePayload(body) {
   }
 
   const players = mode === "coop" ? normalizePlayers(body.players, name, character) : undefined;
-  if (mode === "coop" && (!players || players.length < 1 || players.length > 2)) {
-    return { error: "coop scores must include one or two players." };
+  if (mode === "coop" && (!players || players.length < 1 || players.length > maxCoopPlayers)) {
+    return { error: `coop scores must include one to ${maxCoopPlayers} players.` };
   }
 
   return {
@@ -350,7 +351,7 @@ wss.on("connection", (ws) => {
         sendJson(ws, { type: "room:error", payload: { error: "Room not found." } });
         return;
       }
-      if (room.players.size >= 2) {
+      if (room.players.size >= maxCoopPlayers) {
         sendJson(ws, { type: "room:error", payload: { error: "Room is full." } });
         return;
       }
@@ -390,6 +391,10 @@ wss.on("connection", (ws) => {
     if (message.type === "run:start") {
       if (sender.id !== room.hostId) {
         sendJson(ws, { type: "room:error", payload: { error: "Only the host can start the run." } });
+        return;
+      }
+      if (room.players.size < 2 || room.players.size > maxCoopPlayers || !Array.from(room.players.values()).every((player) => player.ready)) {
+        sendJson(ws, { type: "room:error", payload: { error: `Co-op needs 2 to ${maxCoopPlayers} ready players.` } });
         return;
       }
       room.status = "running";

@@ -203,10 +203,16 @@ const MEDKIT_PICKUP = {
 };
 
 const COOP_CONFIG = {
+  maxPlayers: 4,
   reviveRadius: 74,
   reviveSeconds: 3,
   reviveHp: 2,
   disconnectGraceSeconds: 8,
+  spawnMultiplierPerExtraPlayer: 0.38,
+  enemyCapPerExtraPlayer: 0.34,
+  enemyHpPerExtraPlayer: 0.24,
+  enemyDamagePerExtraPlayer: 0.08,
+  bossHpPerExtraPlayer: 0.3,
 };
 
 const GUEST_INTERPOLATION_CONFIG = {
@@ -467,6 +473,7 @@ export class Game {
     this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
+    this.pickupId = 0;
     this.grenadeId = 0;
     this.landmineId = 0;
     this.turretId = 0;
@@ -580,6 +587,24 @@ export class Game {
 
   getAlivePlayers() {
     return (this.players?.length ? this.players : [this.player]).filter((player) => player && !player.dead && !player.downed);
+  }
+
+  getCoopPlayerCount() {
+    if (!this.isCoopRun()) {
+      return 1;
+    }
+    return clamp(this.players?.length || 1, 1, COOP_CONFIG.maxPlayers);
+  }
+
+  getCoopEnemyScale() {
+    const extraPlayers = Math.max(0, this.getCoopPlayerCount() - 1);
+    return {
+      spawnMultiplier: 1 + extraPlayers * COOP_CONFIG.spawnMultiplierPerExtraPlayer,
+      maxEnemies: Math.round(GAME_CONFIG.maxEnemies * (1 + extraPlayers * COOP_CONFIG.enemyCapPerExtraPlayer)),
+      enemyHp: 1 + extraPlayers * COOP_CONFIG.enemyHpPerExtraPlayer,
+      enemyDamage: 1 + extraPlayers * COOP_CONFIG.enemyDamagePerExtraPlayer,
+      bossHp: 1 + extraPlayers * COOP_CONFIG.bossHpPerExtraPlayer,
+    };
   }
 
   getClosestAlivePlayer(x, y) {
@@ -820,9 +845,9 @@ export class Game {
       landmines: this.landmines,
       turrets: this.turrets,
       damageZones: this.damageZones,
-      pickups: this.pickups,
-      effects: this.effects,
-      floatingTexts: this.floatingTexts,
+      pickups: this.pickups.filter((pickup) => !pickup.dead).map((pickup) => this.serializePickup(pickup)),
+      effects: [],
+      floatingTexts: [],
       bossArena: this.bossArena ? { ...this.bossArena } : null,
       banner: this.banner,
     };
@@ -833,6 +858,23 @@ export class Game {
       ...player,
       inputKeys: Array.from(player.inputKeys ?? []),
       upgradeCounts: { ...(player.upgradeCounts ?? {}) },
+    };
+  }
+
+  serializePickup(pickup) {
+    return {
+      id: pickup.id ?? null,
+      type: pickup.type,
+      x: pickup.x,
+      y: pickup.y,
+      vx: pickup.vx,
+      vy: pickup.vy,
+      radius: pickup.radius,
+      value: pickup.value,
+      life: pickup.life,
+      maxLife: pickup.maxLife,
+      collectorId: pickup.collectorId ?? "",
+      dead: Boolean(pickup.dead),
     };
   }
 
@@ -858,7 +900,7 @@ export class Game {
       landmines: Array.isArray(snapshot.landmines) ? snapshot.landmines.map((mine) => ({ ...mine })) : this.landmines,
       turrets: Array.isArray(snapshot.turrets) ? snapshot.turrets.map((turret) => ({ ...turret })) : this.turrets,
       damageZones: Array.isArray(snapshot.damageZones) ? snapshot.damageZones.map((zone) => ({ ...zone })) : this.damageZones,
-      pickups: Array.isArray(snapshot.pickups) ? snapshot.pickups.map((pickup) => ({ ...pickup })) : this.pickups,
+      pickups: Array.isArray(snapshot.pickups) ? snapshot.pickups.map((pickup, index) => ({ ...pickup, id: pickup.id ?? `pickup-${index}` })) : this.pickups,
       effects: Array.isArray(snapshot.effects) ? snapshot.effects.map((effect) => ({ ...effect })) : this.effects,
       floatingTexts: Array.isArray(snapshot.floatingTexts) ? snapshot.floatingTexts.map((text) => ({ ...text })) : this.floatingTexts,
       bossArena: snapshot.bossArena ? { ...snapshot.bossArena } : null,
@@ -876,9 +918,9 @@ export class Game {
       landmines: this.landmines.map((mine) => ({ ...mine })),
       turrets: this.turrets.map((turret) => ({ ...turret })),
       damageZones: this.damageZones.map((zone) => ({ ...zone })),
-      pickups: this.pickups.map((pickup) => ({ ...pickup })),
-      effects: this.effects.map((effect) => ({ ...effect })),
-      floatingTexts: this.floatingTexts.map((text) => ({ ...text })),
+      pickups: this.pickups.filter((pickup) => !pickup.dead).map((pickup) => this.serializePickup(pickup)),
+      effects: [],
+      floatingTexts: [],
       bossArena: this.bossArena ? { ...this.bossArena } : null,
     };
   }
@@ -906,8 +948,9 @@ export class Game {
   }
 
   interpolateEntityList(previousList = [], nextList = [], ratio = 1) {
-    const previousById = new Map(previousList.map((entity) => [entity.id, entity]));
-    return nextList.map((entity) => this.interpolateEntity(previousById.get(entity.id), entity, ratio));
+    const getKey = (entity, index) => entity?.id ?? `${entity?.type ?? "entity"}-${index}`;
+    const previousById = new Map(previousList.map((entity, index) => [getKey(entity, index), entity]));
+    return nextList.map((entity, index) => this.interpolateEntity(previousById.get(getKey(entity, index)), entity, ratio));
   }
 
   applyRenderableSnapshot(snapshot, ratio = 1) {
@@ -962,7 +1005,8 @@ export class Game {
     const previousReceivedAt = this.remoteSnapshotReceivedAt || now;
     this.remoteSnapshotPrevious = this.captureRenderableSnapshot();
     this.remoteSnapshotNext = normalized;
-    this.remoteSnapshotDuration = clamp(now - previousReceivedAt, GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
+    const measuredDuration = clamp(now - previousReceivedAt, GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
+    this.remoteSnapshotDuration = clamp(lerp(this.remoteSnapshotDuration || measuredDuration, measuredDuration, 0.35), GUEST_INTERPOLATION_CONFIG.minDuration, GUEST_INTERPOLATION_CONFIG.maxDuration);
     this.remoteSnapshotReceivedAt = now;
     this.mode = normalized.mode ?? this.mode;
     this.run = normalized.run;
@@ -1456,6 +1500,7 @@ export class Game {
     this.spawnVarietyPity = 0;
     this.enemyId = 0;
     this.projectileId = 0;
+    this.pickupId = 0;
     this.grenadeId = 0;
     this.landmineId = 0;
     this.turretId = 0;
@@ -1593,6 +1638,7 @@ export class Game {
     this.effects = [];
     this.floatingTexts = [];
     this.toasts = [];
+    this.pickupId = 0;
     this.banner = null;
     this.bossArena = null;
     this.remoteSnapshotPrevious = null;
@@ -1918,7 +1964,8 @@ export class Game {
   }
 
   updateSpawning(deltaSeconds) {
-    if (!this.run || this.enemies.length >= GAME_CONFIG.maxEnemies) {
+    const coopScale = this.getCoopEnemyScale();
+    if (!this.run || this.enemies.length >= coopScale.maxEnemies) {
       return;
     }
     const activeBoss = this.enemies.some((enemy) => enemy.isBoss && !enemy.dead);
@@ -1926,14 +1973,14 @@ export class Game {
       return;
     }
     const difficulty = getDifficultySnapshot(this.run.elapsed);
-    this.spawnBudget += difficulty.spawnBudgetPerSecond * deltaSeconds;
+    this.spawnBudget += difficulty.spawnBudgetPerSecond * coopScale.spawnMultiplier * deltaSeconds;
 
     const candidates = getWeightedEnemyCandidates(difficulty.weights);
     if (!candidates.length) {
       return;
     }
     const minimumCost = Math.min(...candidates.map((definition) => definition.cost));
-    while (this.spawnBudget >= minimumCost && this.enemies.length < GAME_CONFIG.maxEnemies) {
+    while (this.spawnBudget >= minimumCost && this.enemies.length < coopScale.maxEnemies) {
       let definition = ENEMY_DEFS[this.spawnTargetType];
       if (!definition || (difficulty.weights[definition.id] ?? 0) <= 0) {
         const nonRunnerCandidates = candidates.filter((candidate) => candidate.id !== "nibbler");
@@ -2396,18 +2443,24 @@ export class Game {
         continue;
       }
       const isMedkit = pickup.type === "medkit";
-      let collector = null;
+      let collector = candidates.find((player) => player.id === pickup.collectorId) ?? null;
+      if (collector && isMedkit && collector.hp >= collector.maxHp) {
+        collector = null;
+      }
       let closestDistance = Infinity;
-      for (const player of candidates) {
-        if (isMedkit && player.hp >= player.maxHp) {
-          continue;
-        }
-        const distance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          collector = player;
+      if (!collector) {
+        for (const player of candidates) {
+          if (isMedkit && player.hp >= player.maxHp) {
+            continue;
+          }
+          const distance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            collector = player;
+          }
         }
       }
+      pickup.collectorId = collector?.id ?? "";
       if (!collector) {
         pickup.vx *= 0.92;
         pickup.vy *= 0.92;
@@ -2418,17 +2471,36 @@ export class Game {
       const toPlayerX = collector.x - pickup.x;
       const toPlayerY = collector.y - pickup.y;
       const distance = Math.max(1, Math.hypot(toPlayerX, toPlayerY));
+      const collectRadius = pickup.radius + collector.radius + 3;
+      if (distance <= collectRadius) {
+        pickup.dead = true;
+        if (isMedkit) {
+          this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
+        } else {
+          this.run.xp += pickup.value * collector.xpMultiplier;
+          this.playSoundCue("pickup", pickup.x, pickup.y, { ownerId: collector.id, intensity: 0.85 });
+          this.spawnFloatingText(pickup.x, pickup.y - 10, `+${Math.ceil(pickup.value * collector.xpMultiplier)} XP`, "#86efac", 0.55);
+          this.spawnEffect(pickup.x, pickup.y, 18, "rgba(15, 118, 110, 0.75)", 0.22, "burst");
+        }
+        continue;
+      }
       if (distance < collector.magnetRadius || distance < 36) {
         const pull = 1 - clamp(distance / collector.magnetRadius, 0, 1);
         const direction = { x: toPlayerX / distance, y: toPlayerY / distance };
-        pickup.vx += direction.x * (420 + pull * 540) * deltaSeconds;
-        pickup.vy += direction.y * (420 + pull * 540) * deltaSeconds;
+        pickup.vx += direction.x * (360 + pull * 420) * deltaSeconds;
+        pickup.vy += direction.y * (360 + pull * 420) * deltaSeconds;
       }
-      pickup.vx *= 0.92;
-      pickup.vy *= 0.92;
+      const maxPickupSpeed = isMedkit ? 500 : 620;
+      const pickupSpeed = Math.hypot(pickup.vx, pickup.vy);
+      if (pickupSpeed > maxPickupSpeed) {
+        pickup.vx = (pickup.vx / pickupSpeed) * maxPickupSpeed;
+        pickup.vy = (pickup.vy / pickupSpeed) * maxPickupSpeed;
+      }
+      pickup.vx *= 0.88;
+      pickup.vy *= 0.88;
       pickup.x += pickup.vx * deltaSeconds;
       pickup.y += pickup.vy * deltaSeconds;
-      if (distanceSquared(pickup.x, pickup.y, collector.x, collector.y) <= (pickup.radius + collector.radius + 2) ** 2) {
+      if (distanceSquared(pickup.x, pickup.y, collector.x, collector.y) <= collectRadius ** 2) {
         pickup.dead = true;
         if (isMedkit) {
           this.withPlayer(collector, () => this.collectMedkitPickup(pickup));
@@ -4398,6 +4470,7 @@ export class Game {
     if (!definition) {
       return;
     }
+    const coopScale = options.noCoopScale ? { enemyHp: 1, enemyDamage: 1 } : this.getCoopEnemyScale();
     const spawnPoint = position ?? this.getSpawnPoint(definition.radius);
     const enemy = {
       id: this.enemyId += 1,
@@ -4408,10 +4481,10 @@ export class Game {
       vx: 0,
       vy: 0,
       radius: definition.radius,
-      hp: Math.round(definition.maxHp * statScale),
-      maxHp: Math.round(definition.maxHp * statScale),
+      hp: Math.round(definition.maxHp * statScale * coopScale.enemyHp),
+      maxHp: Math.round(definition.maxHp * statScale * coopScale.enemyHp),
       speed: definition.speed * (1 + (statScale - 1) * 0.38),
-      contactDamage: Math.max(1, Math.round(definition.contactDamage * (0.9 + (statScale - 1) * 0.5))),
+      contactDamage: Math.max(1, Math.round(definition.contactDamage * (0.9 + (statScale - 1) * 0.5) * coopScale.enemyDamage)),
       xpValue: definition.xpValue,
       scoreValue: definition.scoreValue,
       color: definition.color,
@@ -4476,6 +4549,7 @@ export class Game {
 
   spawnBoss(cycleIndex) {
     const scale = getBossScale(cycleIndex);
+    const coopScale = this.getCoopEnemyScale();
     const position = this.getSpawnPoint(BOSS_DEF.radius + 12);
     const boss = {
       id: this.enemyId += 1,
@@ -4486,10 +4560,10 @@ export class Game {
       vx: 0,
       vy: 0,
       radius: BOSS_DEF.radius,
-      hp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier),
-      maxHp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier),
+      hp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier * coopScale.bossHp),
+      maxHp: Math.round(BOSS_DEF.maxHp * scale.hpMultiplier * coopScale.bossHp),
       speed: BOSS_DEF.speed + cycleIndex * 6,
-      contactDamage: Math.max(1, Math.round(BOSS_DEF.contactDamage * scale.damageMultiplier)),
+      contactDamage: Math.max(1, Math.round(BOSS_DEF.contactDamage * scale.damageMultiplier * coopScale.enemyDamage)),
       xpValue: BOSS_DEF.xpValue,
       scoreValue: BOSS_DEF.scoreValue,
       color: BOSS_DEF.color,
@@ -4686,6 +4760,7 @@ export class Game {
       const angle = randomRange(0, Math.PI * 2);
       const speed = randomRange(40, 140);
       this.pickups.push({
+        id: this.pickupId += 1,
         type: "xp",
         x,
         y,
@@ -4703,6 +4778,7 @@ export class Game {
     const angle = randomRange(0, Math.PI * 2);
     const speed = randomRange(36, 108);
     this.pickups.push({
+      id: this.pickupId += 1,
       type: "medkit",
       x,
       y,
