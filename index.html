@@ -211,7 +211,7 @@
                         <div class="coop-card-header">
                           <div>
                             <p class="eyebrow">Online Co-op</p>
-                            <h4>2-player survival</h4>
+                            <h4>2-4 player survival</h4>
                           </div>
                           <span id="coop-status-pill" class="coop-status-pill">Offline</span>
                         </div>
@@ -695,12 +695,11 @@
                 <div id="score-submit-panel" class="score-submit-panel" hidden>
                   <div>
                     <span class="panel-label">Online Leaderboard</span>
-                    <strong>Submit this run</strong>
-                    <p id="score-submit-status" class="screen-copy" aria-live="polite">Enter a name to submit this score.</p>
+                    <strong>Automatic run upload</strong>
+                    <p id="score-submit-status" class="screen-copy" aria-live="polite">This run uploads automatically.</p>
                   </div>
                   <div class="score-submit-controls">
                     <input id="leaderboard-name-input" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Display name" />
-                    <button id="submit-score-button" class="primary-button" type="button">Submit Score</button>
                   </div>
                 </div>
                 <div class="button-column">
@@ -715,9 +714,35 @@
       </main>
     </div>
 
+    <section id="player-name-modal" class="global-modal" hidden>
+      <div class="global-modal-card">
+        <p class="eyebrow">Player Profile</p>
+        <h2>Choose your name</h2>
+        <p class="screen-copy">Your runs upload automatically, so set the name that should appear on the leaderboard.</p>
+        <div class="modal-form-row">
+          <input id="player-name-input" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Display name" />
+          <button id="player-name-save-button" class="primary-button" type="button">Save Name</button>
+        </div>
+        <p id="player-name-status" class="screen-copy" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="profile-modal" class="global-modal" hidden>
+      <div class="global-modal-card profile-card">
+        <div class="profile-card-header">
+          <div>
+            <p class="eyebrow">Player Profile</p>
+            <h2 id="profile-modal-title">Player</h2>
+          </div>
+          <button id="profile-modal-close-button" class="ghost-button tiny-button" type="button">Close</button>
+        </div>
+        <div id="profile-modal-body" class="profile-modal-body"></div>
+      </div>
+    </section>
+
     <pre id="self-test-output" hidden></pre>
     <div id="aria-status" class="visually-hidden" aria-live="polite"></div>
 
-    <script defer src="./src/bundle.js?v=coop-four-player-v1"></script>
+    <script defer src="./src/bundle.js?v=coop-four-player-profiles-v1"></script>
   </body>
 </html>

@@ -215,6 +215,13 @@ const COOP_CONFIG = {
   bossHpPerExtraPlayer: 0.3,
 };
 
+const COOP_SPAWN_OFFSETS = [
+  { x: -42, y: -32 },
+  { x: 42, y: -32 },
+  { x: -42, y: 38 },
+  { x: 42, y: 38 },
+];
+
 const GUEST_INTERPOLATION_CONFIG = {
   minDuration: 0.055,
   maxDuration: 0.16,
@@ -699,8 +706,8 @@ export class Game {
       id: profile?.id || `player-${index + 1}`,
       name: profile?.name || (index === 0 ? "Host" : "Guest"),
       isLocal: Boolean(profile?.isLocal),
-      x: index === 0 ? -34 : 34,
-      y: 0,
+      x: COOP_SPAWN_OFFSETS[index % COOP_SPAWN_OFFSETS.length].x,
+      y: COOP_SPAWN_OFFSETS[index % COOP_SPAWN_OFFSETS.length].y,
       radius: PLAYER_BASE.radius,
       hp: PLAYER_BASE.maxHp,
       maxHp: PLAYER_BASE.maxHp,
@@ -928,6 +935,15 @@ export class Game {
   interpolateEntity(previous, next, ratio) {
     if (!previous) {
       return { ...next };
+    }
+    if (previous.type && next.type && previous.type !== next.type) {
+      return { ...next };
+    }
+    if ((next.type === "xp" || next.type === "medkit") && Number.isFinite(previous.x) && Number.isFinite(previous.y) && Number.isFinite(next.x) && Number.isFinite(next.y)) {
+      const maxPickupSnapDistance = next.type === "xp" ? 260 : 180;
+      if (distanceSquared(previous.x, previous.y, next.x, next.y) > maxPickupSnapDistance ** 2) {
+        return { ...next };
+      }
     }
     const output = { ...next };
     for (const field of ["x", "y", "vx", "vy", "life", "reviveProgress", "muzzleFlash"]) {
@@ -3936,23 +3952,21 @@ export class Game {
 
     const submittedOnline = this.scoreSubmitState === "submitted-online" || this.onlineScoreSubmitted;
     const retryAvailable = this.scoreSubmitState === "saved-local-retry";
-    const canSubmit = !submittedOnline;
     if (this.ui.leaderboardNameInput) {
-      this.ui.leaderboardNameInput.disabled = !canSubmit;
+      this.ui.leaderboardNameInput.disabled = submittedOnline;
     }
     if (this.ui.submitScoreButton) {
-      this.ui.submitScoreButton.disabled = !canSubmit;
-      this.ui.submitScoreButton.textContent = submittedOnline ? "Submitted" : retryAvailable ? "Retry Online" : "Submit Score";
+      this.ui.submitScoreButton.hidden = true;
     }
     if (this.ui.scoreSubmitStatus) {
       if (submittedOnline) {
-        this.ui.scoreSubmitStatus.textContent = "Score submitted online.";
+        this.ui.scoreSubmitStatus.textContent = "Run uploaded automatically.";
       } else if (retryAvailable) {
-        this.ui.scoreSubmitStatus.textContent = "Saved locally. Retry online when available.";
+        this.ui.scoreSubmitStatus.textContent = "Saved locally. Automatic online retry will run when available.";
       } else {
         this.ui.scoreSubmitStatus.textContent = this.onlineLeaderboardEnabled
-          ? "Enter a name to submit this run online."
-          : "Online leaderboard is not configured. Submit saves locally.";
+          ? "Run will upload automatically."
+          : "Online leaderboard is not configured. Run is saved locally.";
       }
     }
   }
@@ -3964,19 +3978,11 @@ export class Game {
   }
 
   setScoreSubmitLoading(loading) {
-    const canSubmit = Boolean(this.lastCompletedRunResult && this.scoreSubmitState !== "submitted-online" && !this.onlineScoreSubmitted);
     if (this.ui.leaderboardNameInput) {
-      this.ui.leaderboardNameInput.disabled = loading || !canSubmit;
+      this.ui.leaderboardNameInput.disabled = Boolean(loading || this.onlineScoreSubmitted);
     }
     if (this.ui.submitScoreButton) {
-      this.ui.submitScoreButton.disabled = loading || !canSubmit;
-      this.ui.submitScoreButton.textContent = loading
-        ? "Submitting..."
-        : this.scoreSubmitState === "submitted-online" || this.onlineScoreSubmitted
-          ? "Submitted"
-          : this.scoreSubmitState === "saved-local-retry"
-            ? "Retry Online"
-            : "Submit Score";
+      this.ui.submitScoreButton.hidden = true;
     }
   }
 
@@ -4051,8 +4057,27 @@ export class Game {
       row.className = "leaderboard-row";
       const rank = document.createElement("strong");
       rank.textContent = `#${index + 1}`;
-      const name = document.createElement("strong");
-      name.textContent = String(entry.name ?? "Player").slice(0, 40);
+      const name = document.createElement("span");
+      name.className = "leaderboard-name-list";
+      const profileNames = Array.isArray(entry.players) && entry.players.length
+        ? entry.players.map((player) => String(player.name || "Player").slice(0, 20))
+        : [String(entry.name ?? "Player").slice(0, 40)];
+      for (const [nameIndex, profileName] of profileNames.entries()) {
+        if (nameIndex > 0) {
+          name.append(document.createTextNode(" + "));
+        }
+        const nameButton = document.createElement("button");
+        nameButton.className = "leaderboard-name-button";
+        nameButton.type = "button";
+        nameButton.textContent = profileName;
+        nameButton.addEventListener("click", () => {
+          this.ui.leaderboardList.dispatchEvent(new CustomEvent("profile:open", {
+            bubbles: true,
+            detail: { name: profileName },
+          }));
+        });
+        name.append(nameButton);
+      }
       const score = document.createElement("span");
       score.textContent = formatWholeNumber(Math.max(0, Number(entry.score) || 0));
       const time = document.createElement("span");
@@ -4956,7 +4981,7 @@ export class Game {
     }
     const waiting = document.createElement("div");
     waiting.className = "leaderboard-empty";
-    waiting.textContent = "Waiting for teammate upgrade pick...";
+    waiting.textContent = "Waiting for other players to pick upgrades...";
     this.ui.upgradeCards.replaceChildren(waiting);
   }
 
@@ -5926,22 +5951,36 @@ export class Game {
       return;
     }
     const localPlayer = this.getLocalPlayer();
-    const teammate = (this.players ?? []).find((player) => player && player.id !== localPlayer?.id && !player.dead);
-    if (!localPlayer || !teammate) {
+    if (!localPlayer) {
       this.teammateIndicator = null;
       return;
     }
-    const screen = this.worldToScreen(teammate.x, teammate.y);
     const padding = TEAMMATE_INDICATOR_CONFIG.edgePadding;
-    const visible =
-      screen.x >= padding &&
-      screen.x <= LOGICAL_WIDTH - padding &&
-      screen.y >= padding &&
-      screen.y <= LOGICAL_HEIGHT - padding;
-    if (visible) {
+    const candidates = (this.players ?? [])
+      .filter((player) => player && player.id !== localPlayer.id && !player.dead)
+      .map((player) => {
+        const screen = this.worldToScreen(player.x, player.y);
+        const visible =
+          screen.x >= padding &&
+          screen.x <= LOGICAL_WIDTH - padding &&
+          screen.y >= padding &&
+          screen.y <= LOGICAL_HEIGHT - padding;
+        return {
+          player,
+          screen,
+          visible,
+          distance: Math.hypot(player.x - localPlayer.x, player.y - localPlayer.y),
+        };
+      })
+      .filter((candidate) => !candidate.visible)
+      .sort((left, right) => Number(Boolean(right.player.downed)) - Number(Boolean(left.player.downed)) || left.distance - right.distance);
+    const target = candidates[0];
+    if (!target) {
       this.teammateIndicator = null;
       return;
     }
+    const teammate = target.player;
+    const screen = target.screen;
 
     const centerX = LOGICAL_WIDTH * 0.5;
     const centerY = LOGICAL_HEIGHT * 0.5;
@@ -5955,9 +5994,10 @@ export class Game {
     const targetY = centerY + dy * scale;
     const targetAngle = Math.atan2(dy, dx);
     const amount = 1 - Math.exp(-TEAMMATE_INDICATOR_CONFIG.smoothness / 60);
-    const previous = this.teammateIndicator ?? { x: targetX, y: targetY, angle: targetAngle };
+    const previous = this.teammateIndicator?.targetId === teammate.id ? this.teammateIndicator : { x: targetX, y: targetY, angle: targetAngle };
     const angleDelta = Math.atan2(Math.sin(targetAngle - previous.angle), Math.cos(targetAngle - previous.angle));
     const indicator = {
+      targetId: teammate.id,
       x: lerp(previous.x, targetX, amount),
       y: lerp(previous.y, targetY, amount),
       angle: previous.angle + angleDelta * amount,

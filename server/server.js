@@ -20,6 +20,7 @@ const maxRoomAgeMs = 1000 * 60 * 60 * 2;
 const staleSocketMs = 1000 * 35;
 
 let leaderboardEntries = [];
+let playerProfiles = new Map();
 const rooms = new Map();
 
 app.use(cors());
@@ -57,7 +58,77 @@ function normalizePlayers(players, fallbackName, fallbackCharacter) {
       name: player.name.trim().slice(0, 20) || "Player",
       character: validCharacters.has(player.character) ? player.character : "gunner",
     }))
-    .slice(0, 2);
+    .slice(0, maxCoopPlayers);
+}
+
+function normalizeProfileName(name) {
+  return String(name || "Player").trim().slice(0, 20) || "Player";
+}
+
+function getProfileKey(name) {
+  return normalizeProfileName(name).toLowerCase();
+}
+
+function createEmptyProfile(name) {
+  return {
+    name: normalizeProfileName(name),
+    totalRuns: 0,
+    totalScore: 0,
+    bestScore: 0,
+    bestTime: 0,
+    totalTime: 0,
+    totalKills: 0,
+    totalBosses: 0,
+    highestLevel: 1,
+    characters: {},
+    modes: { solo: 0, coop: 0 },
+    recentRuns: [],
+    lastSeenAt: "",
+  };
+}
+
+function updateProfileFromEntry(profileName, character, entry) {
+  const key = getProfileKey(profileName);
+  const profile = playerProfiles.get(key) || createEmptyProfile(profileName);
+  profile.name = normalizeProfileName(profileName);
+  profile.totalRuns += 1;
+  profile.totalScore += entry.score;
+  profile.bestScore = Math.max(profile.bestScore, entry.score);
+  profile.bestTime = Math.max(profile.bestTime, entry.time);
+  profile.totalTime += entry.time;
+  profile.totalKills += entry.kills;
+  profile.totalBosses += entry.bosses;
+  profile.highestLevel = Math.max(profile.highestLevel, entry.level);
+  profile.characters[character] = (profile.characters[character] || 0) + 1;
+  profile.modes[entry.mode] = (profile.modes[entry.mode] || 0) + 1;
+  profile.lastSeenAt = entry.createdAt;
+  profile.recentRuns = [
+    {
+      mode: entry.mode,
+      score: entry.score,
+      time: entry.time,
+      kills: entry.kills,
+      bosses: entry.bosses,
+      level: entry.level,
+      character,
+      createdAt: entry.createdAt,
+    },
+    ...profile.recentRuns,
+  ].slice(0, 10);
+  playerProfiles.set(key, profile);
+}
+
+function rebuildProfilesFromEntries() {
+  playerProfiles = new Map();
+  for (const entry of leaderboardEntries) {
+    if (entry.mode === "coop" && Array.isArray(entry.players) && entry.players.length) {
+      for (const player of entry.players) {
+        updateProfileFromEntry(player.name, player.character, entry);
+      }
+    } else {
+      updateProfileFromEntry(entry.name, entry.character, entry);
+    }
+  }
 }
 
 function normalizeStoredEntries(entries) {
@@ -95,16 +166,21 @@ function loadLeaderboard() {
     }
     const parsed = JSON.parse(fs.readFileSync(dataFile, "utf8"));
     leaderboardEntries = normalizeStoredEntries(parsed.entries);
+    rebuildProfilesFromEntries();
   } catch (error) {
     console.warn(`Could not load leaderboard data: ${error.message}`);
     leaderboardEntries = [];
+    playerProfiles = new Map();
   }
 }
 
 function saveLeaderboard() {
   try {
     fs.mkdirSync(dataDirectory, { recursive: true });
-    fs.writeFileSync(dataFile, JSON.stringify({ entries: leaderboardEntries }, null, 2));
+    fs.writeFileSync(dataFile, JSON.stringify({
+      entries: leaderboardEntries,
+      profiles: Object.fromEntries(playerProfiles),
+    }, null, 2));
   } catch (error) {
     console.warn(`Could not save leaderboard data: ${error.message}`);
   }
@@ -277,6 +353,11 @@ app.get("/leaderboard", (request, response) => {
   response.json({ mode, entries: getTopEntries(maxReturnedEntries, mode) });
 });
 
+app.get("/profiles/:name", (request, response) => {
+  const profile = playerProfiles.get(getProfileKey(request.params.name));
+  response.json({ ok: true, profile: profile || null });
+});
+
 app.post("/leaderboard/submit", (request, response) => {
   const validated = validateScorePayload(request.body);
   if (validated.error) {
@@ -289,6 +370,13 @@ app.post("/leaderboard/submit", (request, response) => {
     ...getTopEntries(maxStoredEntries, "solo"),
     ...getTopEntries(maxStoredEntries, "coop"),
   ].slice(0, maxStoredEntries * 2);
+  if (validated.entry.mode === "coop" && Array.isArray(validated.entry.players)) {
+    for (const player of validated.entry.players) {
+      updateProfileFromEntry(player.name, player.character, validated.entry);
+    }
+  } else {
+    updateProfileFromEntry(validated.entry.name, validated.entry.character, validated.entry);
+  }
   saveLeaderboard();
   response.status(201).json({
     ok: true,
@@ -349,6 +437,10 @@ wss.on("connection", (ws) => {
       const room = rooms.get(code);
       if (!room) {
         sendJson(ws, { type: "room:error", payload: { error: "Room not found." } });
+        return;
+      }
+      if (room.status !== "lobby") {
+        sendJson(ws, { type: "room:error", payload: { error: "Run already started." } });
         return;
       }
       if (room.players.size >= maxCoopPlayers) {

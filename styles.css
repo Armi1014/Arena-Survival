@@ -791,6 +791,12 @@ body {
   background: rgba(20, 83, 45, 0.36);
 }
 
+.coop-status-pill.loading {
+  border-color: rgba(251, 191, 36, 0.56);
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.34);
+}
+
 .coop-actions {
   display: grid;
   grid-template-columns: auto minmax(84px, 1fr) auto;
@@ -1530,6 +1536,32 @@ body {
   color: var(--ink);
 }
 
+.leaderboard-name-list {
+  min-width: 0;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-name-button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(34, 211, 238, 0.42);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.leaderboard-name-button:hover {
+  color: #67e8f9;
+}
+
 .leaderboard-empty {
   padding: 16px;
   border-radius: var(--radius-sm);
@@ -2077,7 +2109,7 @@ button:disabled {
 
 .score-submit-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.42fr);
   gap: 14px;
   align-items: end;
   padding: 14px;
@@ -2101,9 +2133,84 @@ button:disabled {
 
 .score-submit-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: center;
+}
+
+.global-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.global-modal[hidden] {
+  display: none !important;
+}
+
+.global-modal-card {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.global-modal-card h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.modal-form-row,
+.profile-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-card {
+  width: min(680px, 100%);
+}
+
+.profile-modal-body {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profile-stat {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+}
+
+.profile-stat span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.profile-stat strong {
+  color: var(--ink);
+  font-size: 1.08rem;
 }
 
 .screen-copy {

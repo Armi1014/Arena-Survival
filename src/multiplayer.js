@@ -1,6 +1,12 @@
 import { getMultiplayerWebSocketUrl } from "./online.js";
 
 const RECONNECTABLE_CLOSE_CODES = new Set([1006, 1011, 1012, 1013]);
+const CONNECT_TIMEOUT_MS = 9000;
+const CONNECT_RETRY_DELAYS_MS = [0, 1500, 3000, 5000, 8000];
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 export class MultiplayerClient {
   constructor(handlers = {}) {
@@ -18,7 +24,7 @@ export class MultiplayerClient {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
-  connect() {
+  async connect() {
     const url = getMultiplayerWebSocketUrl();
     if (!url) {
       this.handlers.onError?.("Online multiplayer is not configured.");
@@ -26,19 +32,70 @@ export class MultiplayerClient {
     }
     this.close();
     this.manualClose = false;
+    let lastError = null;
+    for (let attempt = 0; attempt < CONNECT_RETRY_DELAYS_MS.length; attempt += 1) {
+      const waitMs = CONNECT_RETRY_DELAYS_MS[attempt];
+      if (waitMs > 0) {
+        this.handlers.onStatus?.(`Waking online co-op... retry ${attempt + 1}/${CONNECT_RETRY_DELAYS_MS.length}`);
+        await delay(waitMs);
+      } else {
+        this.handlers.onStatus?.("Connecting to online co-op...");
+      }
+      try {
+        await this.openSocket(url);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (this.manualClose) {
+          throw error;
+        }
+      }
+    }
+    this.handlers.onError?.("Online co-op is still waking up. Try again in a few seconds.");
+    throw lastError ?? new Error("Could not connect to multiplayer server.");
+  }
+
+  openSocket(url) {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(url);
+      let opened = false;
+      let settled = false;
+      const timeoutId = window.setTimeout(() => {
+        if (opened || settled) {
+          return;
+        }
+        settled = true;
+        try {
+          socket.close();
+        } catch {
+          // Ignore a socket that failed while Render was waking.
+        }
+        reject(new Error("Multiplayer connection timed out."));
+      }, CONNECT_TIMEOUT_MS);
+
       this.socket = socket;
       socket.addEventListener("open", () => {
+        opened = true;
+        settled = true;
+        window.clearTimeout(timeoutId);
         this.handlers.onStatus?.("Connected to multiplayer server.");
         resolve();
       }, { once: true });
       socket.addEventListener("error", () => {
-        this.handlers.onError?.("Could not connect to multiplayer server.");
-        reject(new Error("Could not connect to multiplayer server."));
+        if (!opened && !settled) {
+          settled = true;
+          window.clearTimeout(timeoutId);
+          reject(new Error("Could not connect to multiplayer server."));
+        }
       }, { once: true });
       socket.addEventListener("message", (event) => this.handleMessage(event.data));
       socket.addEventListener("close", (event) => {
+        window.clearTimeout(timeoutId);
+        if (!opened && !settled) {
+          settled = true;
+          reject(new Error("Multiplayer connection closed before it opened."));
+          return;
+        }
         const wasManual = this.manualClose;
         this.socket = null;
         if (!wasManual && RECONNECTABLE_CLOSE_CODES.has(event.code)) {

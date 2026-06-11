@@ -57,16 +57,17 @@ async function requestJson(path, options = {}) {
     return { ok: false, disabled: true, entries: [] };
   }
 
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        ...(options.headers ?? {}),
+        ...(fetchOptions.headers ?? {}),
       },
     });
     const payload = await response.json().catch(() => ({}));
@@ -116,7 +117,7 @@ export async function fetchLeaderboard(mode = "solo") {
 }
 
 export async function checkLeaderboardHealth() {
-  return requestJson("/health");
+  return requestJson("/health", { timeoutMs: 6000 });
 }
 
 export async function submitScore(runResult) {
@@ -124,4 +125,8 @@ export async function submitScore(runResult) {
     method: "POST",
     body: JSON.stringify(runResult),
   });
+}
+
+export async function fetchPlayerProfile(name) {
+  return requestJson(`/profiles/${encodeURIComponent(String(name || "").trim())}`);
 }

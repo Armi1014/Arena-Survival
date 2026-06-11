@@ -1,15 +1,31 @@
 import { AudioSystem } from "./audio.js";
 import { Game } from "./game.js";
 import { MultiplayerClient } from "./multiplayer.js";
-import { checkLeaderboardHealth, fetchLeaderboard, isOnlineLeaderboardEnabled, submitScore } from "./online.js";
+import { checkLeaderboardHealth, fetchLeaderboard, fetchPlayerProfile, isOnlineLeaderboardEnabled, submitScore } from "./online.js";
 import { loadSave } from "./storage.js";
 
 const LEADERBOARD_NAME_STORAGE_KEY = "arena-survival-leaderboard-name";
 const LOCAL_LEADERBOARD_STORAGE_KEY = "arena-survival-local-leaderboard";
 const SELF_TEST_MODE = new URLSearchParams(window.location.search).get("selfTest") === "1";
+const MIN_COOP_PLAYERS = 2;
+const MAX_COOP_PLAYERS = 4;
+const ONLINE_WAKE_MAX_MS = 90000;
+const ONLINE_WAKE_RETRY_MS = 2500;
+const GUEST_INPUT_MIN_MS = 34;
+const GUEST_INPUT_HEARTBEAT_MS = 240;
+const HOST_SNAPSHOT_MS = 100;
+const AUTO_SUBMIT_RETRY_MS = 15000;
+const DEFAULT_PLAYER_NAMES = new Set(["", "player", "host", "guest"]);
 const save = loadSave();
 const audio = new AudioSystem(save.settings);
 let leaderboardMode = "solo";
+let onlineFeaturesReady = false;
+let onlineWebSocketReady = false;
+let onlineWakePromise = null;
+let lastGuestInputJson = "";
+let lastGuestInputSentAt = 0;
+let lastAutoSubmitRunKey = "";
+let lastAutoSubmitAttemptAt = 0;
 
 const ui = {
   hud: document.querySelector("#hud"),
@@ -53,6 +69,14 @@ const ui = {
   scoreSubmitStatus: document.querySelector("#score-submit-status"),
   leaderboardNameInput: document.querySelector("#leaderboard-name-input"),
   submitScoreButton: document.querySelector("#submit-score-button"),
+  playerNameModal: document.querySelector("#player-name-modal"),
+  playerNameInput: document.querySelector("#player-name-input"),
+  playerNameSaveButton: document.querySelector("#player-name-save-button"),
+  playerNameStatus: document.querySelector("#player-name-status"),
+  profileModal: document.querySelector("#profile-modal"),
+  profileModalTitle: document.querySelector("#profile-modal-title"),
+  profileModalBody: document.querySelector("#profile-modal-body"),
+  profileModalCloseButton: document.querySelector("#profile-modal-close-button"),
   gameOverTitle: document.querySelector("#gameover-title"),
   soundButton: document.querySelector("#sound-button"),
   menuSoundButton: document.querySelector("#menu-sound-button"),
@@ -193,8 +217,64 @@ function saveLeaderboardName(name) {
   }
 }
 
+function isDefaultPlayerName(name) {
+  return DEFAULT_PLAYER_NAMES.has(String(name || "").trim().toLowerCase());
+}
+
+function normalizePlayerName(name) {
+  return String(name || "").trim().slice(0, 20);
+}
+
+function setSavedPlayerName(name) {
+  const safeName = normalizePlayerName(name);
+  if (!safeName || isDefaultPlayerName(safeName)) {
+    return false;
+  }
+  saveLeaderboardName(safeName);
+  if (ui.leaderboardNameInput) {
+    ui.leaderboardNameInput.value = safeName;
+  }
+  return true;
+}
+
+function showPlayerNamePrompt(force = false) {
+  if (!ui.playerNameModal || SELF_TEST_MODE) {
+    return;
+  }
+  const currentName = normalizePlayerName(loadLeaderboardName());
+  if (!force && !isDefaultPlayerName(currentName)) {
+    return;
+  }
+  if (ui.playerNameInput) {
+    ui.playerNameInput.value = isDefaultPlayerName(currentName) ? "" : currentName;
+  }
+  if (ui.playerNameStatus) {
+    ui.playerNameStatus.textContent = "Names appear on automatic leaderboard uploads.";
+  }
+  ui.playerNameModal.hidden = false;
+  window.setTimeout(() => ui.playerNameInput?.focus(), 0);
+}
+
+function saveNameFromPrompt() {
+  const safeName = normalizePlayerName(ui.playerNameInput?.value ?? "");
+  if (!setSavedPlayerName(safeName)) {
+    if (ui.playerNameStatus) {
+      ui.playerNameStatus.textContent = "Enter a real name first.";
+    }
+    ui.playerNameInput?.focus();
+    return false;
+  }
+  if (ui.playerNameStatus) {
+    ui.playerNameStatus.textContent = "Name saved.";
+  }
+  if (ui.playerNameModal) {
+    ui.playerNameModal.hidden = true;
+  }
+  return true;
+}
+
 function getMultiplayerDisplayName() {
-  return (ui.leaderboardNameInput?.value || loadLeaderboardName() || "Player").trim().slice(0, 20) || "Player";
+  return normalizePlayerName(ui.leaderboardNameInput?.value || loadLeaderboardName()) || "Player";
 }
 
 function getMultiplayerProfile() {
@@ -202,23 +282,25 @@ function getMultiplayerProfile() {
 }
 
 function setCoopStatus(message, online = multiplayer.isConnected()) {
+  const state = typeof online === "string" ? online : online ? "online" : "offline";
   if (ui.coopStatusText) {
     ui.coopStatusText.textContent = message;
   }
   if (ui.coopStatusPill) {
-    ui.coopStatusPill.textContent = online ? "Online" : "Offline";
-    ui.coopStatusPill.classList.toggle("online", Boolean(online));
+    ui.coopStatusPill.textContent = state === "online" ? "Online" : state === "loading" ? "Waking" : "Offline";
+    ui.coopStatusPill.classList.toggle("online", state === "online");
+    ui.coopStatusPill.classList.toggle("loading", state === "loading");
   }
 }
 
-function setCoopControlsEnabled(enabled, message = "") {
+function setCoopControlsEnabled(enabled, message = "", status = enabled && multiplayer.isConnected() ? "online" : "offline") {
   for (const control of [ui.coopHostButton, ui.coopJoinButton, ui.coopRoomCodeInput, ui.coopReadyButton, ui.coopStartButton]) {
     if (control) {
       control.disabled = !enabled;
     }
   }
   if (message) {
-    setCoopStatus(message, enabled && multiplayer.isConnected());
+    setCoopStatus(message, status);
   }
 }
 
@@ -256,7 +338,7 @@ function renderCoopRoomState(state) {
   }
   if (ui.coopStartButton) {
     const players = state?.players ?? [];
-    const canStart = multiplayer.role === "host" && players.length >= 2 && players.length <= 4 && players.every((player) => player.ready);
+    const canStart = multiplayer.role === "host" && players.length >= MIN_COOP_PLAYERS && players.length <= MAX_COOP_PLAYERS && players.every((player) => player.ready);
     ui.coopStartButton.disabled = !canStart;
   }
 }
@@ -342,6 +424,72 @@ function renderLocalLeaderboard(status) {
   game.setLeaderboardStatus(status ?? (entries.length ? "Showing local leaderboard." : "No local scores yet."));
 }
 
+function createProfileStat(label, value) {
+  const node = document.createElement("div");
+  node.className = "profile-stat";
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label;
+  const valueNode = document.createElement("strong");
+  valueNode.textContent = value;
+  node.replaceChildren(labelNode, valueNode);
+  return node;
+}
+
+async function openPlayerProfile(name) {
+  const safeName = normalizePlayerName(name);
+  if (!safeName || !ui.profileModal || !ui.profileModalBody || !ui.profileModalTitle) {
+    return;
+  }
+  ui.profileModal.hidden = false;
+  ui.profileModalTitle.textContent = safeName;
+  ui.profileModalBody.replaceChildren(createProfileStat("Status", "Loading..."));
+  const result = await fetchPlayerProfile(safeName);
+  const profile = result?.payload?.profile;
+  if (!result.ok || !profile) {
+    ui.profileModalBody.replaceChildren(createProfileStat("Profile", "No online stats yet"));
+    return;
+  }
+
+  const statGrid = document.createElement("div");
+  statGrid.className = "profile-stat-grid";
+  statGrid.replaceChildren(
+    createProfileStat("Runs", formatNumber(profile.totalRuns)),
+    createProfileStat("Best score", formatNumber(profile.bestScore)),
+    createProfileStat("Best time", formatProfileTime(profile.bestTime)),
+    createProfileStat("Kills", formatNumber(profile.totalKills)),
+    createProfileStat("Bosses", formatNumber(profile.totalBosses)),
+    createProfileStat("Highest level", formatNumber(profile.highestLevel)),
+  );
+
+  const characterSummary = document.createElement("div");
+  characterSummary.className = "leaderboard-empty";
+  const characters = Object.entries(profile.characters ?? {})
+    .sort((left, right) => right[1] - left[1])
+    .map(([character, count]) => `${character}: ${count}`)
+    .join(" / ");
+  characterSummary.textContent = characters ? `Characters: ${characters}` : "No character data yet.";
+
+  const recent = document.createElement("div");
+  recent.className = "leaderboard-empty";
+  const recentRuns = Array.isArray(profile.recentRuns) ? profile.recentRuns.slice(0, 5) : [];
+  recent.textContent = recentRuns.length
+    ? `Recent: ${recentRuns.map((run) => `${run.mode} ${formatNumber(run.score)} (${formatProfileTime(run.time)})`).join(" / ")}`
+    : "No recent runs yet.";
+
+  ui.profileModalBody.replaceChildren(statGrid, characterSummary, recent);
+}
+
+function formatNumber(value) {
+  return Math.floor(Math.max(0, Number(value) || 0)).toLocaleString();
+}
+
+function formatProfileTime(value) {
+  const totalSeconds = Math.max(0, Number(value) || 0);
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
 function getLeaderboardStatus(result) {
   if (result?.disabled) {
     return "Online leaderboard is not configured yet.";
@@ -350,6 +498,67 @@ function getLeaderboardStatus(result) {
     return "Online leaderboard is unavailable right now.";
   }
   return result?.error || "Leaderboard request failed.";
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function formatWakeSeconds(startedAt) {
+  return Math.max(0, Math.round((performance.now() - startedAt) / 1000));
+}
+
+async function waitForOnlineFeatures({ reason = "online features", refreshScores = false } = {}) {
+  if (!isOnlineLeaderboardEnabled()) {
+    onlineFeaturesReady = false;
+    onlineWebSocketReady = false;
+    return { ok: false, disabled: true, entries: [] };
+  }
+  if (SELF_TEST_MODE) {
+    return { ok: true, payload: { websocket: true }, entries: [] };
+  }
+  if (onlineFeaturesReady) {
+    return { ok: true, payload: { websocket: onlineWebSocketReady }, entries: [] };
+  }
+  if (onlineWakePromise) {
+    return onlineWakePromise;
+  }
+
+  onlineWakePromise = (async () => {
+    const startedAt = performance.now();
+    let attempt = 1;
+    while (performance.now() - startedAt <= ONLINE_WAKE_MAX_MS) {
+      const seconds = formatWakeSeconds(startedAt);
+      const message = `Waking ${reason}... ${seconds}s`;
+      setCoopControlsEnabled(false, message, "loading");
+      game.setLeaderboardStatus(`${message}. Render may need a moment after sleeping.`);
+      const health = await checkLeaderboardHealth();
+      if (health.ok) {
+        onlineFeaturesReady = true;
+        onlineWebSocketReady = Boolean(health.payload?.websocket);
+        setCoopControlsEnabled(
+          onlineWebSocketReady,
+          onlineWebSocketReady ? "Online co-op ready." : "Leaderboard online. Co-op backend needs WebSockets.",
+          onlineWebSocketReady ? "online" : "offline",
+        );
+        if (refreshScores) {
+          await refreshLeaderboard({ loadingStatus: "Loading global scores...", skipWakeCheck: true });
+        }
+        return health;
+      }
+      renderLocalLeaderboard(`${getLeaderboardStatus(health)} Retrying online wake-up (${attempt}). Showing local scores for now.`);
+      attempt += 1;
+      await wait(ONLINE_WAKE_RETRY_MS);
+    }
+    onlineFeaturesReady = false;
+    onlineWebSocketReady = false;
+    setCoopControlsEnabled(false, "Online features are still unavailable. Press Refresh to retry.", "offline");
+    return { ok: false, offline: true, entries: [] };
+  })().finally(() => {
+    onlineWakePromise = null;
+  });
+
+  return onlineWakePromise;
 }
 
 async function initializeOnlineLeaderboardUi() {
@@ -370,21 +579,20 @@ async function initializeOnlineLeaderboardUi() {
     game.setLeaderboardStatus("Online leaderboard check skipped for self-test.");
     return;
   }
-  game.setLeaderboardStatus("Checking online leaderboard...");
-  const health = await checkLeaderboardHealth();
-  if (health.ok) {
-    setCoopControlsEnabled(Boolean(health.payload?.websocket), health.payload?.websocket ? "Online co-op ready." : "Co-op backend needs the WebSocket update.");
-    await refreshLeaderboard({ loadingStatus: "Loading global scores..." });
-  } else {
-    setCoopControlsEnabled(false, "Online co-op is unavailable right now.");
-    renderLocalLeaderboard(`${getLeaderboardStatus(health)} Press Refresh to retry online scores. Showing local scores.`);
-  }
+  await waitForOnlineFeatures({ reason: "online features", refreshScores: true });
 }
 
-async function refreshLeaderboard({ loadingStatus = "Loading leaderboard..." } = {}) {
+async function refreshLeaderboard({ loadingStatus = "Loading leaderboard...", skipWakeCheck = false } = {}) {
   if (!isOnlineLeaderboardEnabled()) {
     renderLocalLeaderboard("Online leaderboard is not configured. Showing local scores.");
     return;
+  }
+  if (!skipWakeCheck && !onlineFeaturesReady) {
+    const health = await waitForOnlineFeatures({ reason: "leaderboard", refreshScores: false });
+    if (!health.ok) {
+      renderLocalLeaderboard(`${getLeaderboardStatus(health)} Showing local scores.`);
+      return;
+    }
   }
 
   if (ui.leaderboardRefreshButton) {
@@ -396,6 +604,8 @@ async function refreshLeaderboard({ loadingStatus = "Loading leaderboard..." } =
     game.renderLeaderboardEntries(result.entries);
     game.setLeaderboardStatus(result.entries.length ? `${leaderboardMode === "coop" ? "Co-op" : "Solo"} online scores loaded.` : "No online scores yet.");
   } else {
+    onlineFeaturesReady = false;
+    onlineWebSocketReady = false;
     renderLocalLeaderboard(`${getLeaderboardStatus(result)} Press Refresh to retry online scores. Showing local scores.`);
   }
   if (ui.leaderboardRefreshButton) {
@@ -403,29 +613,38 @@ async function refreshLeaderboard({ loadingStatus = "Loading leaderboard..." } =
   }
 }
 
-async function submitCurrentScore() {
+function getRunSubmitKey(runResult) {
+  if (!runResult) {
+    return "";
+  }
+  return [
+    runResult.mode ?? "solo",
+    Math.floor(Number(runResult.score) || 0),
+    Math.round((Number(runResult.time) || 0) * 1000),
+    Math.floor(Number(runResult.kills) || 0),
+    Math.floor(Number(runResult.bosses) || 0),
+    Math.floor(Number(runResult.level) || 1),
+    runResult.character ?? "gunner",
+  ].join("|");
+}
+
+async function submitCurrentScore({ automatic = false } = {}) {
   const runResult = game.getLastCompletedRunResult();
   if (!runResult) {
     game.setScoreSubmitStatus("No completed run is ready to submit.");
     return;
   }
 
-  const name = (ui.leaderboardNameInput?.value ?? "").trim();
-  if (!name) {
-    game.setScoreSubmitStatus("Enter a display name first.");
-    ui.leaderboardNameInput?.focus();
+  const name = normalizePlayerName(ui.leaderboardNameInput?.value || loadLeaderboardName());
+  if (!name || isDefaultPlayerName(name)) {
+    game.setScoreSubmitStatus("Set your player name to upload this run.");
+    showPlayerNamePrompt(true);
     return;
   }
 
-  if (name.length > 20) {
-    game.setScoreSubmitStatus("Display name must be 20 characters or less.");
-    ui.leaderboardNameInput?.focus();
-    return;
-  }
-
-  saveLeaderboardName(name);
+  setSavedPlayerName(name);
   game.setScoreSubmitLoading(true);
-  game.setScoreSubmitStatus("Submitting score...");
+  game.setScoreSubmitStatus(automatic ? "Uploading run automatically..." : "Uploading run...");
   const isCoopScore = runResult.mode === "coop";
   if (isCoopScore && leaderboardMode !== "coop") {
     leaderboardMode = "coop";
@@ -434,24 +653,50 @@ async function submitCurrentScore() {
     }
   }
   const submitName = isCoopScore ? runResult.name || name : name;
+  if (!onlineFeaturesReady) {
+    await waitForOnlineFeatures({ reason: "leaderboard upload", refreshScores: false });
+  }
   const result = await submitScore({ ...runResult, name: submitName });
   if (result.ok) {
     game.markScoreSubmitted();
-    game.setScoreSubmitStatus("Score submitted online.");
+    game.setScoreSubmitStatus("Run uploaded automatically.");
     game.renderLeaderboardEntries(result.entries);
     game.setLeaderboardStatus("Global leaderboard updated.");
+    lastAutoSubmitRunKey = getRunSubmitKey(runResult);
   } else {
+    onlineFeaturesReady = false;
+    onlineWebSocketReady = false;
     const localEntries = saveLocalLeaderboardEntry({
       name: submitName,
       ...runResult,
       createdAt: new Date().toISOString(),
     });
     game.markScoreSavedLocally();
-    game.setScoreSubmitStatus(`${getLeaderboardStatus(result)} Saved locally. Retry online when available.`);
+    game.setScoreSubmitStatus(`${getLeaderboardStatus(result)} Saved locally. Automatic retry will run.`);
     game.renderLeaderboardEntries(localEntries);
     game.setLeaderboardStatus("Showing local scores until online retry succeeds.");
   }
   game.setScoreSubmitLoading(false);
+}
+
+function maybeAutoSubmitCompletedRun() {
+  const runResult = game.getLastCompletedRunResult();
+  const runKey = getRunSubmitKey(runResult);
+  if (!runResult || game.mode !== "gameOver" || !runKey || game.onlineScoreSubmitted || lastAutoSubmitRunKey === runKey) {
+    return;
+  }
+  if (runResult.mode === "coop" && !game.isMultiplayerHost()) {
+    game.setScoreSubmitStatus("Host uploads the co-op team score automatically.");
+    return;
+  }
+  const now = performance.now();
+  if (now - lastAutoSubmitAttemptAt < AUTO_SUBMIT_RETRY_MS) {
+    return;
+  }
+  lastAutoSubmitAttemptAt = now;
+  submitCurrentScore({ automatic: true }).catch(() => {
+    game.setScoreSubmitStatus("Automatic upload failed. Retrying shortly.");
+  });
 }
 
 function selectMenuTab(tabId) {
@@ -470,6 +715,7 @@ function setLeaderboardMode(mode) {
 }
 
 initializeOnlineLeaderboardUi();
+showPlayerNamePrompt();
 
 document.querySelector("#start-button").addEventListener("click", () => {
   unlockAudio();
@@ -550,20 +796,74 @@ ui.adminMenuSpawnEnemyButton?.addEventListener("click", () => game.adminSpawnEne
 ui.wikiCloseButton?.addEventListener("click", () => game.closeWikiWindow());
 ui.leaderboardRefreshButton?.addEventListener("click", () => refreshLeaderboard());
 ui.submitScoreButton?.addEventListener("click", () => submitCurrentScore());
-ui.leaderboardNameInput?.addEventListener("change", () => saveLeaderboardName((ui.leaderboardNameInput.value ?? "").trim()));
+ui.leaderboardNameInput?.addEventListener("change", () => {
+  if (setSavedPlayerName(ui.leaderboardNameInput.value ?? "")) {
+    maybeAutoSubmitCompletedRun();
+  } else {
+    showPlayerNamePrompt(true);
+  }
+});
+ui.playerNameSaveButton?.addEventListener("click", () => {
+  if (saveNameFromPrompt()) {
+    maybeAutoSubmitCompletedRun();
+  }
+});
+ui.playerNameInput?.addEventListener("keydown", (event) => {
+  if (event.code === "Enter") {
+    event.preventDefault();
+    if (saveNameFromPrompt()) {
+      maybeAutoSubmitCompletedRun();
+    }
+  }
+});
+ui.profileModalCloseButton?.addEventListener("click", () => {
+  if (ui.profileModal) {
+    ui.profileModal.hidden = true;
+  }
+});
+ui.profileModal?.addEventListener("click", (event) => {
+  if (event.target === ui.profileModal) {
+    ui.profileModal.hidden = true;
+  }
+});
+ui.leaderboardList?.addEventListener("profile:open", (event) => {
+  openPlayerProfile(event.detail?.name).catch(() => {
+    if (ui.profileModalBody) {
+      ui.profileModalBody.replaceChildren(createProfileStat("Profile", "Could not load"));
+    }
+  });
+});
 ui.leaderboardModeButtons?.forEach((button) => {
   button.addEventListener("click", () => setLeaderboardMode(button.dataset.leaderboardMode));
 });
-ui.coopHostButton?.addEventListener("click", () => {
+ui.coopHostButton?.addEventListener("click", async () => {
   unlockAudio();
+  if (!setSavedPlayerName(getMultiplayerDisplayName())) {
+    showPlayerNamePrompt(true);
+    return;
+  }
+  const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
+  if (!health.ok || !health.payload?.websocket) {
+    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
+    return;
+  }
   multiplayer.createRoom(getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
 });
-ui.coopJoinButton?.addEventListener("click", () => {
+ui.coopJoinButton?.addEventListener("click", async () => {
   unlockAudio();
   const roomCode = (ui.coopRoomCodeInput?.value ?? "").trim().toUpperCase();
   if (roomCode.length !== 5) {
     setCoopStatus("Enter a 5-character room code.", false);
     ui.coopRoomCodeInput?.focus();
+    return;
+  }
+  if (!setSavedPlayerName(getMultiplayerDisplayName())) {
+    showPlayerNamePrompt(true);
+    return;
+  }
+  const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
+  if (!health.ok || !health.payload?.websocket) {
+    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
     return;
   }
   multiplayer.joinRoom(roomCode, getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
@@ -576,12 +876,17 @@ ui.coopStartButton?.addEventListener("click", () => {
   if (multiplayer.role !== "host" || !multiplayer.state) {
     return;
   }
+  const players = multiplayer.state.players ?? [];
+  if (players.length < MIN_COOP_PLAYERS || players.length > MAX_COOP_PLAYERS || !players.every((player) => player.ready)) {
+    setCoopStatus(`Need ${MIN_COOP_PLAYERS}-${MAX_COOP_PLAYERS} ready players.`, false);
+    return;
+  }
   game.startRun({
     multiplayer: {
       role: "host",
       roomCode: multiplayer.state.roomCode,
       localPlayerId: multiplayer.playerId,
-      players: multiplayer.state.players,
+      players,
     },
   });
   multiplayer.startRun();
@@ -633,9 +938,21 @@ ui.menuTabButtons.forEach((button, index) => {
   });
 });
 
-function sendGuestInput() {
+function sendGuestInput({ force = false } = {}) {
   if (multiplayer.role === "guest" && multiplayer.isConnected() && game.mode !== "title") {
-    multiplayer.sendInput(game.createInputSnapshot());
+    const input = game.createInputSnapshot();
+    const serialized = JSON.stringify(input);
+    const now = performance.now();
+    const changed = serialized !== lastGuestInputJson;
+    const heartbeatDue = now - lastGuestInputSentAt >= GUEST_INPUT_HEARTBEAT_MS;
+    if (!force && changed && now - lastGuestInputSentAt < GUEST_INPUT_MIN_MS) {
+      return;
+    }
+    if (force || changed || heartbeatDue) {
+      multiplayer.sendInput(input);
+      lastGuestInputJson = serialized;
+      lastGuestInputSentAt = now;
+    }
   }
 }
 
@@ -647,7 +964,7 @@ canvas.addEventListener("pointerdown", (event) => {
   unlockAudio();
   game.onPointerMove(event.clientX, event.clientY);
   game.handleCanvasClick();
-  sendGuestInput();
+  sendGuestInput({ force: true });
 });
 canvas.addEventListener(
   "wheel",
@@ -702,12 +1019,12 @@ window.addEventListener("keydown", (event) => {
   }
   unlockAudio();
   game.onKeyDown(event.code);
-  sendGuestInput();
+  sendGuestInput({ force: true });
 });
 
 window.addEventListener("keyup", (event) => {
   game.onKeyUp(event.code);
-  sendGuestInput();
+  sendGuestInput({ force: true });
 });
 window.addEventListener("blur", () => game.handleBlur());
 document.addEventListener("visibilitychange", () => {
@@ -718,10 +1035,11 @@ document.addEventListener("visibilitychange", () => {
 
 window.setInterval(() => {
   sendGuestInput();
+  maybeAutoSubmitCompletedRun();
   if (multiplayer.role === "host" && multiplayer.isConnected() && game.isMultiplayerHost() && game.mode !== "title") {
     multiplayer.sendSnapshot(game.createMultiplayerSnapshot());
   }
-}, 90);
+}, HOST_SNAPSHOT_MS);
 
 async function runSelfTest() {
   const results = {
@@ -773,6 +1091,8 @@ async function runSelfTest() {
     deathCauseCard: false,
     acidSpitterVisualTuning: false,
     leaderboardRetryState: false,
+    coopFourPlayerState: false,
+    multiplayerPickupIds: false,
   };
 
   game.selectCharacter("gunner");
@@ -1132,20 +1452,34 @@ async function runSelfTest() {
   game.run.level = 5;
   game.endRun();
   const scoreSubmitPanel = document.querySelector("#score-submit-panel");
-  const scoreSubmitButton = document.querySelector("#submit-score-button");
   results.gameOverSubmitPanel =
-    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden && scoreSubmitButton) &&
+    Boolean(scoreSubmitPanel && !scoreSubmitPanel.hidden) &&
     game.getLastCompletedRunResult()?.score === 9999;
   game.markScoreSavedLocally();
   results.leaderboardRetryState =
-    scoreSubmitButton?.textContent === "Retry Online" &&
-    scoreSubmitButton.disabled === false &&
-    document.querySelector("#score-submit-status")?.textContent.includes("Retry online");
+    document.querySelector("#score-submit-status")?.textContent.includes("Automatic online retry");
   game.scoreSubmitState = "idle";
   game.onlineScoreSubmitted = false;
   game.updateScoreSubmitPanel();
   results.highScorePersist = game.getDebugSnapshot().highScore >= 9999;
   results.katanaUnlock = Boolean(game.getDebugSnapshot().progress?.katanaUnlocked);
+  game.startRun({
+    multiplayer: {
+      role: "host",
+      roomCode: "TEST1",
+      localPlayerId: "p1",
+      players: [
+        { id: "p1", role: "host", name: "One", character: "gunner", accessoryIds: [] },
+        { id: "p2", role: "guest", name: "Two", character: "katana", accessoryIds: [] },
+        { id: "p3", role: "guest", name: "Three", character: "engineer", accessoryIds: [] },
+        { id: "p4", role: "guest", name: "Four", character: "gunner", accessoryIds: [] },
+      ],
+    },
+  });
+  game.spawnXp(game.player.x + 60, game.player.y, 24, 1);
+  const coopSnapshot = game.createMultiplayerSnapshot();
+  results.coopFourPlayerState = game.players.length === 4 && coopSnapshot.players.length === 4;
+  results.multiplayerPickupIds = coopSnapshot.pickups.length > 0 && coopSnapshot.pickups.every((pickup) => Number.isFinite(pickup.id));
   game.setMenuTab("leaderboard");
   const originalFetch = window.fetch;
   window.fetch = () => Promise.reject(new Error("Self-test leaderboard offline"));

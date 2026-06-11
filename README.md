@@ -26,7 +26,7 @@ Arena Survival is a static browser arcade game built around short survival runs.
 - Expanded enemy roster with sprinters, shooters, marksmen, acid spitters, tanks, chargers, boss sentinels, and projectile-heavy bosses.
 - Local browser saves for progress, records, gold, unlocks, stats, local leaderboard fallback, and audio preferences.
 - Optional online leaderboard API with JSON-file persistence, with the static frontend still playable when the backend is offline.
-- Optional 2-player online co-op rooms through the same backend WebSocket service.
+- Optional 2-4 player online co-op rooms through the same backend WebSocket service.
 - Static frontend setup: no build step and no required install.
 - Built-in browser self-test for core gameplay and save behavior.
 

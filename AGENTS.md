@@ -18,7 +18,7 @@ Project-specific instructions for Codex and other agents working in this repo.
 - `src/storage.js`: save migration and persistence.
 - `src/audio.js`: audio system.
 - `src/data/`: constants, enemies, upgrades, characters, difficulty.
-- `src/multiplayer.js`: browser WebSocket room client for 2-player co-op.
+- `src/multiplayer.js`: browser WebSocket room client for 2-4 player co-op.
 - `src/bundle.js`: generated browser bundle loaded by `index.html`.
 - `server/`: optional online leaderboard API, not part of itch.io HTML5 upload.
 
