@@ -36,7 +36,7 @@ export class MultiplayerClient {
     for (let attempt = 0; attempt < CONNECT_RETRY_DELAYS_MS.length; attempt += 1) {
       const waitMs = CONNECT_RETRY_DELAYS_MS[attempt];
       if (waitMs > 0) {
-        this.handlers.onStatus?.(`Waking online co-op... retry ${attempt + 1}/${CONNECT_RETRY_DELAYS_MS.length}`);
+        this.handlers.onStatus?.(`Loading online co-op... retry ${attempt + 1}/${CONNECT_RETRY_DELAYS_MS.length}`);
         await delay(waitMs);
       } else {
         this.handlers.onStatus?.("Connecting to online co-op...");
@@ -51,7 +51,7 @@ export class MultiplayerClient {
         }
       }
     }
-    this.handlers.onError?.("Online co-op is still waking up. Try again in a few seconds.");
+    this.handlers.onError?.("Online co-op is still loading. Try again in a few seconds.");
     throw lastError ?? new Error("Could not connect to multiplayer server.");
   }
 
@@ -68,7 +68,7 @@ export class MultiplayerClient {
         try {
           socket.close();
         } catch {
-          // Ignore a socket that failed while Render was waking.
+          // Ignore a socket that failed while Render was loading.
         }
         reject(new Error("Multiplayer connection timed out."));
       }, CONNECT_TIMEOUT_MS);

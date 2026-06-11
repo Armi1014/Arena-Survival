@@ -52,13 +52,14 @@ function normalizePlayers(players, fallbackName, fallbackCharacter) {
   if (!Array.isArray(players)) {
     return [{ name: fallbackName, character: fallbackCharacter }];
   }
-  return players
+  const normalizedPlayers = players
     .filter((player) => player && typeof player.name === "string")
     .map((player) => ({
       name: player.name.trim().slice(0, 20) || "Player",
       character: validCharacters.has(player.character) ? player.character : "gunner",
     }))
     .slice(0, maxCoopPlayers);
+  return normalizedPlayers.length ? normalizedPlayers : [{ name: fallbackName, character: fallbackCharacter }];
 }
 
 function normalizeProfileName(name) {

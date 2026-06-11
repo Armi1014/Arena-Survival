@@ -287,7 +287,7 @@ function setCoopStatus(message, online = multiplayer.isConnected()) {
     ui.coopStatusText.textContent = message;
   }
   if (ui.coopStatusPill) {
-    ui.coopStatusPill.textContent = state === "online" ? "Online" : state === "loading" ? "Waking" : "Offline";
+    ui.coopStatusPill.textContent = state === "online" ? "Online" : state === "loading" ? "Loading" : "Offline";
     ui.coopStatusPill.classList.toggle("online", state === "online");
     ui.coopStatusPill.classList.toggle("loading", state === "loading");
   }
@@ -529,7 +529,7 @@ async function waitForOnlineFeatures({ reason = "online features", refreshScores
     let attempt = 1;
     while (performance.now() - startedAt <= ONLINE_WAKE_MAX_MS) {
       const seconds = formatWakeSeconds(startedAt);
-      const message = `Waking ${reason}... ${seconds}s`;
+      const message = `Loading ${reason}... ${seconds}s`;
       setCoopControlsEnabled(false, message, "loading");
       game.setLeaderboardStatus(`${message}. Render may need a moment after sleeping.`);
       const health = await checkLeaderboardHealth();
@@ -844,7 +844,7 @@ ui.coopHostButton?.addEventListener("click", async () => {
   }
   const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
   if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
+    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
     return;
   }
   multiplayer.createRoom(getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
@@ -863,7 +863,7 @@ ui.coopJoinButton?.addEventListener("click", async () => {
   }
   const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
   if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
+    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
     return;
   }
   multiplayer.joinRoom(roomCode, getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
@@ -1056,6 +1056,7 @@ async function runSelfTest() {
     acidSpitterProjectile: false,
     tankEnemy: false,
     adminGamePanel: false,
+    adminPassword: false,
     adminManualBoss: false,
     adminUnlockAllCharacters: false,
     bossRandomAttackBag: false,
@@ -1093,6 +1094,8 @@ async function runSelfTest() {
     leaderboardRetryState: false,
     coopFourPlayerState: false,
     multiplayerPickupIds: false,
+    multiplayerPickupSnap: false,
+    leaderboardNamesVisible: false,
   };
 
   game.selectCharacter("gunner");
@@ -1190,7 +1193,8 @@ async function runSelfTest() {
   const adminPanel = document.querySelector("#admin-game-panel");
   const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
   const lockedAdminPanelHidden = Boolean(adminPanel && adminPanel.hidden && adminSpawnButton?.disabled);
-  game.adminUnlocked = true;
+  await game.unlockAdmin("DigiCsoport");
+  results.adminPassword = game.adminUnlocked === true;
   game.updateAdminModeUi();
   game.adminSpawnBoss();
   results.adminGamePanel = lockedAdminPanelHidden && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
@@ -1480,7 +1484,40 @@ async function runSelfTest() {
   const coopSnapshot = game.createMultiplayerSnapshot();
   results.coopFourPlayerState = game.players.length === 4 && coopSnapshot.players.length === 4;
   results.multiplayerPickupIds = coopSnapshot.pickups.length > 0 && coopSnapshot.pickups.every((pickup) => Number.isFinite(pickup.id));
+  game.remoteSnapshotPrevious = {
+    players: game.players.map((player) => game.serializePlayer(player)),
+    enemies: [],
+    projectiles: [],
+    enemyProjectiles: [],
+    grenades: [],
+    landmines: [],
+    turrets: [],
+    damageZones: [],
+    pickups: [{ id: 77, type: "xp", x: 0, y: 0, vx: 0, vy: 0, radius: 6, value: 1, life: 4 }],
+    effects: [],
+    floatingTexts: [],
+  };
+  game.applyRenderableSnapshot({
+    players: game.players.map((player) => game.serializePlayer(player)),
+    enemies: [],
+    projectiles: [],
+    enemyProjectiles: [],
+    grenades: [],
+    landmines: [],
+    turrets: [],
+    damageZones: [],
+    pickups: [{ id: 77, type: "xp", x: 640, y: 0, vx: 0, vy: 0, radius: 6, value: 1, life: 4 }],
+    effects: [],
+    floatingTexts: [],
+  }, 0.5);
+  results.multiplayerPickupSnap = game.pickups[0]?.x === 640;
   game.setMenuTab("leaderboard");
+  game.renderLeaderboardEntries([
+    { mode: "solo", name: "VisibleSolo", score: 100, time: 10, kills: 3, bosses: 0, character: "gunner" },
+    { mode: "coop", name: "VisibleTeam", players: [{ name: "VisibleOne", character: "katana" }, { name: "VisibleTwo", character: "engineer" }], score: 200, time: 20, kills: 6, bosses: 1, character: "gunner" },
+  ]);
+  const leaderboardNames = [...document.querySelectorAll(".leaderboard-name-button")].map((button) => button.textContent);
+  results.leaderboardNamesVisible = ["VisibleSolo", "VisibleOne", "VisibleTwo"].every((name) => leaderboardNames.includes(name));
   const originalFetch = window.fetch;
   window.fetch = () => Promise.reject(new Error("Self-test leaderboard offline"));
   await refreshLeaderboard();

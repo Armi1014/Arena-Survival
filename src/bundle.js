@@ -13,7 +13,8 @@ const SETTINGS_DEFAULTS = {
   muted: false,
   musicVolume: 0.45,
   adminModeEnabled: false,
-};const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";const DEFAULT_SONGS = [];
+};const ADMIN_PASSWORD_DIGEST = "74749692a52807f2d5a9df8b3b0cc6ef43c32b50fbf8431613870cc6a2257655";
+const DEFAULT_SONGS = [];
 const PLAYER_BASE = {
   radius: 18,
   maxHp: 5,
@@ -2028,7 +2029,7 @@ class MultiplayerClient {
     for (let attempt = 0; attempt < CONNECT_RETRY_DELAYS_MS.length; attempt += 1) {
       const waitMs = CONNECT_RETRY_DELAYS_MS[attempt];
       if (waitMs > 0) {
-        this.handlers.onStatus?.(`Waking online co-op... retry ${attempt + 1}/${CONNECT_RETRY_DELAYS_MS.length}`);
+        this.handlers.onStatus?.(`Loading online co-op... retry ${attempt + 1}/${CONNECT_RETRY_DELAYS_MS.length}`);
         await delay(waitMs);
       } else {
         this.handlers.onStatus?.("Connecting to online co-op...");
@@ -2043,7 +2044,7 @@ class MultiplayerClient {
         }
       }
     }
-    this.handlers.onError?.("Online co-op is still waking up. Try again in a few seconds.");
+    this.handlers.onError?.("Online co-op is still loading. Try again in a few seconds.");
     throw lastError ?? new Error("Could not connect to multiplayer server.");
   }
 
@@ -2060,7 +2061,7 @@ class MultiplayerClient {
         try {
           socket.close();
         } catch {
-          // Ignore a socket that failed while Render was waking.
+          // Ignore a socket that failed while Render was loading.
         }
         reject(new Error("Multiplayer connection timed out."));
       }, CONNECT_TIMEOUT_MS);
@@ -3223,7 +3224,7 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
     this.landmines = this.interpolateEntityList(previous.landmines, snapshot.landmines, ratio);
     this.turrets = this.interpolateEntityList(previous.turrets, snapshot.turrets, ratio);
     this.damageZones = this.interpolateEntityList(previous.damageZones, snapshot.damageZones, ratio);
-    this.pickups = this.interpolateEntityList(previous.pickups, snapshot.pickups, ratio);
+    this.pickups = (snapshot.pickups ?? []).map((pickup) => ({ ...pickup }));
     this.effects = this.interpolateEntityList(previous.effects, snapshot.effects, ratio);
     this.floatingTexts = this.interpolateEntityList(previous.floatingTexts, snapshot.floatingTexts, ratio);
     this.bossArena = snapshot.bossArena ? { ...snapshot.bossArena } : null;
@@ -6290,9 +6291,13 @@ function weightedEnemyPick(weights, candidates = getWeightedEnemyCandidates(weig
       rank.textContent = `#${index + 1}`;
       const name = document.createElement("span");
       name.className = "leaderboard-name-list";
-      const profileNames = Array.isArray(entry.players) && entry.players.length
-        ? entry.players.map((player) => String(player.name || "Player").slice(0, 20))
-        : [String(entry.name ?? "Player").slice(0, 40)];
+      const teamName = String(entry.name || "Player").trim().slice(0, 40) || "Player";
+      const playerNames = Array.isArray(entry.players)
+        ? entry.players
+            .map((player) => String(player?.name || "").trim().slice(0, 20))
+            .filter(Boolean)
+        : [];
+      const profileNames = playerNames.length ? playerNames : [teamName];
       for (const [nameIndex, profileName] of profileNames.entries()) {
         if (nameIndex > 0) {
           name.append(document.createTextNode(" + "));
@@ -9242,7 +9247,7 @@ function setCoopStatus(message, online = multiplayer.isConnected()) {
     ui.coopStatusText.textContent = message;
   }
   if (ui.coopStatusPill) {
-    ui.coopStatusPill.textContent = state === "online" ? "Online" : state === "loading" ? "Waking" : "Offline";
+    ui.coopStatusPill.textContent = state === "online" ? "Online" : state === "loading" ? "Loading" : "Offline";
     ui.coopStatusPill.classList.toggle("online", state === "online");
     ui.coopStatusPill.classList.toggle("loading", state === "loading");
   }
@@ -9484,7 +9489,7 @@ async function waitForOnlineFeatures({ reason = "online features", refreshScores
     let attempt = 1;
     while (performance.now() - startedAt <= ONLINE_WAKE_MAX_MS) {
       const seconds = formatWakeSeconds(startedAt);
-      const message = `Waking ${reason}... ${seconds}s`;
+      const message = `Loading ${reason}... ${seconds}s`;
       setCoopControlsEnabled(false, message, "loading");
       game.setLeaderboardStatus(`${message}. Render may need a moment after sleeping.`);
       const health = await checkLeaderboardHealth();
@@ -9799,7 +9804,7 @@ ui.coopHostButton?.addEventListener("click", async () => {
   }
   const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
   if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
+    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
     return;
   }
   multiplayer.createRoom(getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
@@ -9818,7 +9823,7 @@ ui.coopJoinButton?.addEventListener("click", async () => {
   }
   const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
   if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still waking. Try again shortly.", "loading");
+    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
     return;
   }
   multiplayer.joinRoom(roomCode, getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
@@ -10011,6 +10016,7 @@ async function runSelfTest() {
     acidSpitterProjectile: false,
     tankEnemy: false,
     adminGamePanel: false,
+    adminPassword: false,
     adminManualBoss: false,
     adminUnlockAllCharacters: false,
     bossRandomAttackBag: false,
@@ -10048,6 +10054,8 @@ async function runSelfTest() {
     leaderboardRetryState: false,
     coopFourPlayerState: false,
     multiplayerPickupIds: false,
+    multiplayerPickupSnap: false,
+    leaderboardNamesVisible: false,
   };
 
   game.selectCharacter("gunner");
@@ -10145,7 +10153,8 @@ async function runSelfTest() {
   const adminPanel = document.querySelector("#admin-game-panel");
   const adminSpawnButton = document.querySelector("#admin-spawn-boss-button");
   const lockedAdminPanelHidden = Boolean(adminPanel && adminPanel.hidden && adminSpawnButton?.disabled);
-  game.adminUnlocked = true;
+  await game.unlockAdmin("DigiCsoport");
+  results.adminPassword = game.adminUnlocked === true;
   game.updateAdminModeUi();
   game.adminSpawnBoss();
   results.adminGamePanel = lockedAdminPanelHidden && Boolean(adminPanel && !adminPanel.hidden && adminPanel.dataset.locked === "false");
@@ -10435,7 +10444,40 @@ async function runSelfTest() {
   const coopSnapshot = game.createMultiplayerSnapshot();
   results.coopFourPlayerState = game.players.length === 4 && coopSnapshot.players.length === 4;
   results.multiplayerPickupIds = coopSnapshot.pickups.length > 0 && coopSnapshot.pickups.every((pickup) => Number.isFinite(pickup.id));
+  game.remoteSnapshotPrevious = {
+    players: game.players.map((player) => game.serializePlayer(player)),
+    enemies: [],
+    projectiles: [],
+    enemyProjectiles: [],
+    grenades: [],
+    landmines: [],
+    turrets: [],
+    damageZones: [],
+    pickups: [{ id: 77, type: "xp", x: 0, y: 0, vx: 0, vy: 0, radius: 6, value: 1, life: 4 }],
+    effects: [],
+    floatingTexts: [],
+  };
+  game.applyRenderableSnapshot({
+    players: game.players.map((player) => game.serializePlayer(player)),
+    enemies: [],
+    projectiles: [],
+    enemyProjectiles: [],
+    grenades: [],
+    landmines: [],
+    turrets: [],
+    damageZones: [],
+    pickups: [{ id: 77, type: "xp", x: 640, y: 0, vx: 0, vy: 0, radius: 6, value: 1, life: 4 }],
+    effects: [],
+    floatingTexts: [],
+  }, 0.5);
+  results.multiplayerPickupSnap = game.pickups[0]?.x === 640;
   game.setMenuTab("leaderboard");
+  game.renderLeaderboardEntries([
+    { mode: "solo", name: "VisibleSolo", score: 100, time: 10, kills: 3, bosses: 0, character: "gunner" },
+    { mode: "coop", name: "VisibleTeam", players: [{ name: "VisibleOne", character: "katana" }, { name: "VisibleTwo", character: "engineer" }], score: 200, time: 20, kills: 6, bosses: 1, character: "gunner" },
+  ]);
+  const leaderboardNames = [...document.querySelectorAll(".leaderboard-name-button")].map((button) => button.textContent);
+  results.leaderboardNamesVisible = ["VisibleSolo", "VisibleOne", "VisibleTwo"].every((name) => leaderboardNames.includes(name));
   const originalFetch = window.fetch;
   window.fetch = () => Promise.reject(new Error("Self-test leaderboard offline"));
   await refreshLeaderboard();

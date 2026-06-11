@@ -992,7 +992,7 @@ export class Game {
     this.landmines = this.interpolateEntityList(previous.landmines, snapshot.landmines, ratio);
     this.turrets = this.interpolateEntityList(previous.turrets, snapshot.turrets, ratio);
     this.damageZones = this.interpolateEntityList(previous.damageZones, snapshot.damageZones, ratio);
-    this.pickups = this.interpolateEntityList(previous.pickups, snapshot.pickups, ratio);
+    this.pickups = (snapshot.pickups ?? []).map((pickup) => ({ ...pickup }));
     this.effects = this.interpolateEntityList(previous.effects, snapshot.effects, ratio);
     this.floatingTexts = this.interpolateEntityList(previous.floatingTexts, snapshot.floatingTexts, ratio);
     this.bossArena = snapshot.bossArena ? { ...snapshot.bossArena } : null;
@@ -4059,9 +4059,13 @@ export class Game {
       rank.textContent = `#${index + 1}`;
       const name = document.createElement("span");
       name.className = "leaderboard-name-list";
-      const profileNames = Array.isArray(entry.players) && entry.players.length
-        ? entry.players.map((player) => String(player.name || "Player").slice(0, 20))
-        : [String(entry.name ?? "Player").slice(0, 40)];
+      const teamName = String(entry.name || "Player").trim().slice(0, 40) || "Player";
+      const playerNames = Array.isArray(entry.players)
+        ? entry.players
+            .map((player) => String(player?.name || "").trim().slice(0, 20))
+            .filter(Boolean)
+        : [];
+      const profileNames = playerNames.length ? playerNames : [teamName];
       for (const [nameIndex, profileName] of profileNames.entries()) {
         if (nameIndex > 0) {
           name.append(document.createTextNode(" + "));

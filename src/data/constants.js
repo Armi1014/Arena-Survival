@@ -15,7 +15,7 @@ export const SETTINGS_DEFAULTS = {
   adminModeEnabled: false,
 };
 
-export const ADMIN_PASSWORD_DIGEST = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+export const ADMIN_PASSWORD_DIGEST = "74749692a52807f2d5a9df8b3b0cc6ef43c32b50fbf8431613870cc6a2257655";
 
 export const DEFAULT_SONGS = [];
 

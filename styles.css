@@ -1537,10 +1537,12 @@ body {
 }
 
 .leaderboard-name-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
   min-width: 0;
   color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 
 .leaderboard-name-button {
