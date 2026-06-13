@@ -48,7 +48,7 @@ function isPlaceholderUrl(url) {
 }
 
 function normalizeEntries(payload) {
-  return Array.isArray(payload?.entries) ? payload.entries : [];
+  return Array.isArray(payload?.entries) ? payload.entries.filter((entry) => entry?.name !== "CodexSmoke") : [];
 }
 
 async function requestJson(path, options = {}) {
