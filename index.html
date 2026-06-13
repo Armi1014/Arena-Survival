@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arena Survival</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23040a16'/%3E%3Cpath d='M32 8l18 10v20L32 56 14 38V18z' fill='%2322d3ee'/%3E%3Cpath d='M32 16l10 6v12L32 44 22 34V22z' fill='%23fb7185'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css?v=coop-multiplayer-v1" />
+    <link rel="stylesheet" href="./styles.css?v=gameover-actions-v1" />
   </head>
   <body>
     <div class="page-shell">
@@ -452,7 +452,7 @@
                         <li><strong>Escape</strong><span>Pause / Back</span></li>
                         <li><strong>M</strong><span>Mute</span></li>
                         <li><strong>Wheel / +/-</strong><span>Zoom camera</span></li>
-                        <li><strong>1-3</strong><span>Pick upgrade</span></li>
+                        <li><strong>1-3 / 4</strong><span>Pick upgrade / random</span></li>
                       </ul>
                     </section>
 
@@ -634,12 +634,13 @@
                   <div>
                     <p class="eyebrow">Level Up</p>
                     <h2>Pick your next upgrade</h2>
-                    <p class="screen-copy">The arena is paused. Choose one card or press its number key.</p>
+                    <p class="screen-copy">The arena is paused. Choose one card, press 1-3, or press 4 for random.</p>
                   </div>
                   <div class="upgrade-hotkeys" aria-label="Upgrade hotkeys">
                     <kbd>1</kbd>
                     <kbd>2</kbd>
                     <kbd>3</kbd>
+                    <kbd>4</kbd>
                   </div>
                 </div>
                 <div id="upgrade-cards" class="upgrade-grid"></div>
@@ -667,39 +668,41 @@
 
             <section id="gameover-screen" class="screen" hidden>
               <div class="screen-card">
-                <p class="eyebrow">Run Over</p>
-                <h2 id="gameover-title">The wave overran you.</h2>
-                <div class="results-grid">
-                  <div class="result-pill">
-                    <span>Score</span>
-                    <strong id="final-score">0</strong>
+                <div class="gameover-scroll-region">
+                  <p class="eyebrow">Run Over</p>
+                  <h2 id="gameover-title">The wave overran you.</h2>
+                  <div class="results-grid">
+                    <div class="result-pill">
+                      <span>Score</span>
+                      <strong id="final-score">0</strong>
+                    </div>
+                    <div class="result-pill">
+                      <span>Time</span>
+                      <strong id="final-time">00:00</strong>
+                    </div>
+                    <div class="result-pill">
+                      <span>Kills</span>
+                      <strong id="final-kills">0</strong>
+                    </div>
+                    <div class="result-pill">
+                      <span>Bosses</span>
+                      <strong id="final-bosses">0</strong>
+                    </div>
                   </div>
-                  <div class="result-pill">
-                    <span>Time</span>
-                    <strong id="final-time">00:00</strong>
+                  <div id="death-cause-card" class="death-cause-card" hidden>
+                    <span>Final Hit</span>
+                    <strong id="death-cause-text">Killed by Unknown Hazard</strong>
                   </div>
-                  <div class="result-pill">
-                    <span>Kills</span>
-                    <strong id="final-kills">0</strong>
-                  </div>
-                  <div class="result-pill">
-                    <span>Bosses</span>
-                    <strong id="final-bosses">0</strong>
-                  </div>
-                </div>
-                <div id="death-cause-card" class="death-cause-card" hidden>
-                  <span>Final Hit</span>
-                  <strong id="death-cause-text">Killed by Unknown Hazard</strong>
-                </div>
-                <div id="run-highlights" class="run-highlights" aria-label="Run highlights"></div>
-                <div id="score-submit-panel" class="score-submit-panel" hidden>
-                  <div>
-                    <span class="panel-label">Online Leaderboard</span>
-                    <strong>Automatic run upload</strong>
-                    <p id="score-submit-status" class="screen-copy" aria-live="polite">This run uploads automatically.</p>
-                  </div>
-                  <div class="score-submit-controls">
-                    <input id="leaderboard-name-input" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Display name" />
+                  <div id="run-highlights" class="run-highlights" aria-label="Run highlights"></div>
+                  <div id="score-submit-panel" class="score-submit-panel" hidden>
+                    <div>
+                      <span class="panel-label">Online Leaderboard</span>
+                      <strong>Automatic run upload</strong>
+                      <p id="score-submit-status" class="screen-copy" aria-live="polite">This run uploads automatically.</p>
+                    </div>
+                    <div class="score-submit-controls">
+                      <input id="leaderboard-name-input" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Display name" />
+                    </div>
                   </div>
                 </div>
                 <div class="button-column">
@@ -743,6 +746,6 @@
     <pre id="self-test-output" hidden></pre>
     <div id="aria-status" class="visually-hidden" aria-live="polite"></div>
 
-    <script defer src="./src/bundle.js?v=coop-direct-ws-v1"></script>
+    <script defer src="./src/bundle.js?v=upgrade-random-v1"></script>
   </body>
 </html>

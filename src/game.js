@@ -1339,6 +1339,16 @@ export class Game {
     if (code === "KeyF") {
       return false;
     }
+    if (code === "Digit4" || code === "Numpad4") {
+      if (this.mode === "upgrade") {
+        const choices = this.upgradeChoices.filter(Boolean);
+        const upgrade = choices[Math.floor(Math.random() * choices.length)];
+        if (upgrade) {
+          this.selectUpgrade(upgrade.id);
+        }
+        return false;
+      }
+    }
     if (["Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(code)) {
       if (this.mode === "upgrade") {
         const index = Number(code.at(-1)) - 1;

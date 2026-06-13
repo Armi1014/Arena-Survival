@@ -1050,16 +1050,18 @@ window.addEventListener("keydown", (event) => {
       "Digit1",
       "Digit2",
       "Digit3",
+      "Digit4",
       "Numpad1",
       "Numpad2",
       "Numpad3",
+      "Numpad4",
     ].includes(
       event.code,
     )
   ) {
     event.preventDefault();
   }
-  const isUpgradeShortcut = ["Digit1", "Digit2", "Digit3", "Numpad1", "Numpad2", "Numpad3"].includes(event.code);
+  const isUpgradeShortcut = ["Digit1", "Digit2", "Digit3", "Digit4", "Numpad1", "Numpad2", "Numpad3", "Numpad4"].includes(event.code);
   if (isInteractiveTarget && event.code !== "Escape" && event.code !== "KeyM" && !isUpgradeShortcut) {
     return;
   }
@@ -1115,6 +1117,7 @@ async function runSelfTest() {
     engineerAutoTurret: false,
     katanaLifesteal: false,
     upgradeCapRemoval: false,
+    upgradeRandomShortcut: false,
     katanaUnlock: false,
     katanaMeleeAttack: false,
     katanaUpgradePool: false,
@@ -1375,6 +1378,23 @@ async function runSelfTest() {
   game.forceUpgrade("bubble-guard");
   game.forceUpgrade("bubble-guard");
   results.upgradeCapRemoval = !game.getDebugSnapshot().availableUpgrades.includes("bubble-guard");
+
+  game.selectCharacter("gunner");
+  game.startRun();
+  game.pendingLevelUps = 1;
+  game.showUpgradeDraft();
+  const randomShortcutTarget = game.upgradeChoices.at(-1)?.id ?? "";
+  const originalRandom = Math.random;
+  try {
+    Math.random = () => 0.999999;
+    game.onKeyDown("Digit4");
+  } finally {
+    Math.random = originalRandom;
+  }
+  results.upgradeRandomShortcut =
+    Boolean(randomShortcutTarget) &&
+    game.mode === "playing" &&
+    (game.player?.upgradeCounts?.[randomShortcutTarget] ?? game.upgradeCounts?.[randomShortcutTarget] ?? 0) >= 1;
 
   const builtInSongIds = new Set(["arcade-pulse", "neon-run", "boss-voltage"]);
   results.musicDefaultsRemoved =
