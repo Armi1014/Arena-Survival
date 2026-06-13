@@ -22,6 +22,7 @@ let leaderboardMode = "solo";
 let onlineFeaturesReady = false;
 let onlineWebSocketReady = false;
 let onlineWakePromise = null;
+let coopConnecting = false;
 let lastGuestInputJson = "";
 let lastGuestInputSentAt = 0;
 let lastAutoSubmitRunKey = "";
@@ -171,14 +172,31 @@ const canvas = document.querySelector("#game-canvas");
 const game = new Game({ canvas, ui, save, audio });
 const multiplayer = new MultiplayerClient({
   onStatus: (message) => setCoopStatus(message, true),
-  onError: (message) => setCoopStatus(message, false),
+  onError: (message) => {
+    setCoopStatus(message, false);
+    if (!multiplayer.state?.roomCode) {
+      coopConnecting = false;
+      setCoopControlsEnabled(isOnlineLeaderboardEnabled());
+    }
+  },
   onCreated: (message) => {
+    coopConnecting = false;
+    onlineFeaturesReady = true;
+    onlineWebSocketReady = true;
     setCoopStatus(`Room ${message.roomCode} created.`, true);
+    setCoopControlsEnabled(isOnlineLeaderboardEnabled());
   },
   onJoined: (message) => {
+    coopConnecting = false;
+    onlineFeaturesReady = true;
+    onlineWebSocketReady = true;
     setCoopStatus(`Joined room ${message.roomCode}.`, true);
+    setCoopControlsEnabled(isOnlineLeaderboardEnabled());
   },
-  onState: (state) => renderCoopRoomState(state),
+  onState: (state) => {
+    renderCoopRoomState(state);
+    setCoopControlsEnabled(isOnlineLeaderboardEnabled());
+  },
   onPeerInput: (message) => game.applyRemoteInput(message.playerId, message.payload),
   onUpgradePick: (message) => game.selectCoopUpgradeForPlayer(message.playerId, message.payload?.upgradeId),
   onHostSnapshot: (message) => game.applyMultiplayerSnapshot(message.payload),
@@ -188,7 +206,11 @@ const multiplayer = new MultiplayerClient({
     setCoopStatus("Teammate disconnected.", false);
   },
   onClosedRoom: (reason) => setCoopStatus(reason, false),
-  onClosed: () => renderCoopRoomState(multiplayer.state),
+  onClosed: () => {
+    coopConnecting = false;
+    renderCoopRoomState(multiplayer.state);
+    setCoopControlsEnabled(isOnlineLeaderboardEnabled());
+  },
 });
 game.setMultiplayerHooks({
   sendUpgradePick: (upgradeId) => multiplayer.sendUpgradePick(upgradeId),
@@ -294,10 +316,18 @@ function setCoopStatus(message, online = multiplayer.isConnected()) {
 }
 
 function setCoopControlsEnabled(enabled, message = "", status = enabled && multiplayer.isConnected() ? "online" : "offline") {
-  for (const control of [ui.coopHostButton, ui.coopJoinButton, ui.coopRoomCodeInput, ui.coopReadyButton, ui.coopStartButton]) {
+  const hasRoom = Boolean(multiplayer.state?.roomCode);
+  const canConnect = Boolean(enabled) && !hasRoom && !coopConnecting;
+  for (const control of [ui.coopHostButton, ui.coopJoinButton, ui.coopRoomCodeInput]) {
     if (control) {
-      control.disabled = !enabled;
+      control.disabled = !canConnect;
     }
+  }
+  if (ui.coopReadyButton) {
+    ui.coopReadyButton.disabled = !enabled || !hasRoom || !multiplayer.isConnected();
+  }
+  if (ui.coopStartButton && (!enabled || !hasRoom || !multiplayer.isConnected())) {
+    ui.coopStartButton.disabled = true;
   }
   if (message) {
     setCoopStatus(message, status);
@@ -335,11 +365,12 @@ function renderCoopRoomState(state) {
   const localPlayer = state?.players?.find((player) => player.id === multiplayer.playerId);
   if (ui.coopReadyButton) {
     ui.coopReadyButton.textContent = localPlayer?.ready ? "Unready" : "Ready";
+    ui.coopReadyButton.disabled = !hasRoom || !multiplayer.isConnected();
   }
   if (ui.coopStartButton) {
     const players = state?.players ?? [];
     const canStart = multiplayer.role === "host" && players.length >= MIN_COOP_PLAYERS && players.length <= MAX_COOP_PLAYERS && players.every((player) => player.ready);
-    ui.coopStartButton.disabled = !canStart;
+    ui.coopStartButton.disabled = !canStart || !multiplayer.isConnected();
   }
 }
 
@@ -530,15 +561,17 @@ async function waitForOnlineFeatures({ reason = "online features", refreshScores
     while (performance.now() - startedAt <= ONLINE_WAKE_MAX_MS) {
       const seconds = formatWakeSeconds(startedAt);
       const message = `Loading ${reason}... ${seconds}s`;
-      setCoopControlsEnabled(false, message, "loading");
+      if (!multiplayer.state?.roomCode && !coopConnecting) {
+        setCoopControlsEnabled(true, "Online status check is loading. Host/Join will connect directly.", "loading");
+      }
       game.setLeaderboardStatus(`${message}. Render may need a moment after sleeping.`);
       const health = await checkLeaderboardHealth();
       if (health.ok) {
         onlineFeaturesReady = true;
         onlineWebSocketReady = Boolean(health.payload?.websocket);
         setCoopControlsEnabled(
-          onlineWebSocketReady,
-          onlineWebSocketReady ? "Online co-op ready." : "Leaderboard online. Co-op backend needs WebSockets.",
+          true,
+          onlineWebSocketReady ? "Online co-op ready." : "Leaderboard online. Host/Join will try WebSocket directly.",
           onlineWebSocketReady ? "online" : "offline",
         );
         if (refreshScores) {
@@ -552,7 +585,7 @@ async function waitForOnlineFeatures({ reason = "online features", refreshScores
     }
     onlineFeaturesReady = false;
     onlineWebSocketReady = false;
-    setCoopControlsEnabled(false, "Online features are still unavailable. Press Refresh to retry.", "offline");
+    setCoopControlsEnabled(true, "Online status check timed out. Host/Join will keep retrying directly.", "offline");
     return { ok: false, offline: true, entries: [] };
   })().finally(() => {
     onlineWakePromise = null;
@@ -575,6 +608,7 @@ async function initializeOnlineLeaderboardUi() {
     setCoopControlsEnabled(false, "Online co-op is not configured.");
     return;
   }
+  setCoopControlsEnabled(true, "Host a room or join with a code.");
   if (SELF_TEST_MODE) {
     game.setLeaderboardStatus("Online leaderboard check skipped for self-test.");
     return;
@@ -842,12 +876,18 @@ ui.coopHostButton?.addEventListener("click", async () => {
     showPlayerNamePrompt(true);
     return;
   }
-  const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
-  if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
+  if (!isOnlineLeaderboardEnabled()) {
+    setCoopControlsEnabled(false, "Online co-op is not configured.");
     return;
   }
-  multiplayer.createRoom(getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
+  coopConnecting = true;
+  setCoopControlsEnabled(true, "Connecting to online co-op...", "loading");
+  try {
+    await multiplayer.createRoom(getMultiplayerProfile());
+  } catch (error) {
+    coopConnecting = false;
+    setCoopControlsEnabled(true, error.message || "Could not connect to multiplayer server.", "offline");
+  }
 });
 ui.coopJoinButton?.addEventListener("click", async () => {
   unlockAudio();
@@ -861,12 +901,18 @@ ui.coopJoinButton?.addEventListener("click", async () => {
     showPlayerNamePrompt(true);
     return;
   }
-  const health = await waitForOnlineFeatures({ reason: "online co-op", refreshScores: false });
-  if (!health.ok || !health.payload?.websocket) {
-    setCoopStatus("Online co-op is still loading. Try again shortly.", "loading");
+  if (!isOnlineLeaderboardEnabled()) {
+    setCoopControlsEnabled(false, "Online co-op is not configured.");
     return;
   }
-  multiplayer.joinRoom(roomCode, getMultiplayerProfile()).catch((error) => setCoopStatus(error.message, false));
+  coopConnecting = true;
+  setCoopControlsEnabled(true, `Joining room ${roomCode}...`, "loading");
+  try {
+    await multiplayer.joinRoom(roomCode, getMultiplayerProfile());
+  } catch (error) {
+    coopConnecting = false;
+    setCoopControlsEnabled(true, error.message || "Could not connect to multiplayer server.", "offline");
+  }
 });
 ui.coopReadyButton?.addEventListener("click", () => {
   const localPlayer = multiplayer.state?.players?.find((player) => player.id === multiplayer.playerId);

@@ -2,6 +2,7 @@ import { getMultiplayerWebSocketUrl } from "./online.js";
 
 const RECONNECTABLE_CLOSE_CODES = new Set([1006, 1011, 1012, 1013]);
 const CONNECT_TIMEOUT_MS = 9000;
+const ROOM_RESPONSE_TIMEOUT_MS = 12000;
 const CONNECT_RETRY_DELAYS_MS = [0, 1500, 3000, 5000, 8000];
 
 function delay(ms) {
@@ -18,6 +19,7 @@ export class MultiplayerClient {
     this.sequence = 0;
     this.state = null;
     this.manualClose = false;
+    this.pendingRoomRequest = null;
   }
 
   isConnected() {
@@ -98,6 +100,7 @@ export class MultiplayerClient {
         }
         const wasManual = this.manualClose;
         this.socket = null;
+        this.settleRoomRequest(new Error("Multiplayer connection closed."));
         if (!wasManual && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
           this.handlers.onError?.("Multiplayer connection was interrupted.");
         }
@@ -116,17 +119,54 @@ export class MultiplayerClient {
     this.playerId = "";
     this.role = "";
     this.state = null;
+    this.settleRoomRequest(new Error("Multiplayer connection closed."));
   }
 
   async createRoom(profile) {
     await this.connect();
-    this.send("room:create", profile);
+    return this.requestRoom("room:create", profile);
   }
 
   async joinRoom(roomCode, profile) {
     await this.connect();
     this.roomCode = roomCode.trim().toUpperCase();
-    this.send("room:join", { ...profile, roomCode: this.roomCode }, this.roomCode);
+    return this.requestRoom("room:join", { ...profile, roomCode: this.roomCode }, this.roomCode);
+  }
+
+  requestRoom(type, payload = {}, roomCode = this.roomCode) {
+    if (this.pendingRoomRequest) {
+      this.settleRoomRequest(new Error("Another multiplayer room request started."));
+    }
+    return new Promise((resolve, reject) => {
+      const request = {
+        resolve,
+        reject,
+        timeoutId: window.setTimeout(() => {
+          if (this.pendingRoomRequest === request) {
+            this.pendingRoomRequest = null;
+            reject(new Error("Room request timed out. Try again."));
+          }
+        }, ROOM_RESPONSE_TIMEOUT_MS),
+      };
+      this.pendingRoomRequest = request;
+      if (!this.send(type, payload, roomCode)) {
+        this.settleRoomRequest(new Error("Multiplayer connection is not open."));
+      }
+    });
+  }
+
+  settleRoomRequest(error = null, message = null) {
+    const request = this.pendingRoomRequest;
+    if (!request) {
+      return;
+    }
+    window.clearTimeout(request.timeoutId);
+    this.pendingRoomRequest = null;
+    if (error) {
+      request.reject(error);
+      return;
+    }
+    request.resolve(message);
   }
 
   setReady(ready, profile) {
@@ -199,6 +239,7 @@ export class MultiplayerClient {
       this.state = message.payload ?? null;
       this.handlers.onCreated?.(message);
       this.handlers.onState?.(this.state);
+      this.settleRoomRequest(null, message);
       return;
     }
     if (message.type === "room:joined") {
@@ -206,6 +247,7 @@ export class MultiplayerClient {
       this.state = message.payload ?? null;
       this.handlers.onJoined?.(message);
       this.handlers.onState?.(this.state);
+      this.settleRoomRequest(null, message);
       return;
     }
     if (message.type === "room:state") {
@@ -214,7 +256,9 @@ export class MultiplayerClient {
       return;
     }
     if (message.type === "room:error") {
-      this.handlers.onError?.(message.payload?.error || "Multiplayer error.");
+      const error = new Error(message.payload?.error || "Multiplayer error.");
+      this.handlers.onError?.(error.message);
+      this.settleRoomRequest(error);
       return;
     }
     if (message.type === "peer:joined") {
