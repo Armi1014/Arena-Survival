@@ -613,20 +613,13 @@ async function initializeOnlineLeaderboardUi() {
     game.setLeaderboardStatus("Online leaderboard check skipped for self-test.");
     return;
   }
-  await waitForOnlineFeatures({ reason: "online features", refreshScores: true });
+  await refreshLeaderboard({ loadingStatus: "Loading global scores...", skipWakeCheck: true });
 }
 
 async function refreshLeaderboard({ loadingStatus = "Loading leaderboard...", skipWakeCheck = false } = {}) {
   if (!isOnlineLeaderboardEnabled()) {
     renderLocalLeaderboard("Online leaderboard is not configured. Showing local scores.");
     return;
-  }
-  if (!skipWakeCheck && !onlineFeaturesReady) {
-    const health = await waitForOnlineFeatures({ reason: "leaderboard", refreshScores: false });
-    if (!health.ok) {
-      renderLocalLeaderboard(`${getLeaderboardStatus(health)} Showing local scores.`);
-      return;
-    }
   }
 
   if (ui.leaderboardRefreshButton) {
@@ -635,6 +628,7 @@ async function refreshLeaderboard({ loadingStatus = "Loading leaderboard...", sk
   game.setLeaderboardStatus(loadingStatus);
   const result = await fetchLeaderboard(leaderboardMode);
   if (result.ok) {
+    onlineFeaturesReady = true;
     game.renderLeaderboardEntries(result.entries);
     game.setLeaderboardStatus(result.entries.length ? `${leaderboardMode === "coop" ? "Co-op" : "Solo"} online scores loaded.` : "No online scores yet.");
   } else {
@@ -687,9 +681,6 @@ async function submitCurrentScore({ automatic = false } = {}) {
     }
   }
   const submitName = isCoopScore ? runResult.name || name : name;
-  if (!onlineFeaturesReady) {
-    await waitForOnlineFeatures({ reason: "leaderboard upload", refreshScores: false });
-  }
   const result = await submitScore({ ...runResult, name: submitName });
   if (result.ok) {
     game.markScoreSubmitted();
